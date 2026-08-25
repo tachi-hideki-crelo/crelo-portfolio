@@ -12,7 +12,9 @@ export type HeroCosmosTier = 'pc' | 'tablet' | 'mobile' | 'static';
 type TierConfig = {
   detail: number;
   points: number;
+  coreStars: number;
   satellites: number;
+  orbits: number;
   dpr: number;
   xFactor: number;
   sphereScale: number;
@@ -20,11 +22,21 @@ type TierConfig = {
 };
 
 const TIER_CONFIG: Record<HeroCosmosTier, TierConfig> = {
-  pc: { detail: 5, points: 3000, satellites: 12, dpr: 1.6, xFactor: 2.45, sphereScale: 1.2, yOffset: 0 },
-  tablet: { detail: 4, points: 1700, satellites: 8, dpr: 1.3, xFactor: 0.95, sphereScale: 0.78, yOffset: -0.04 },
-  mobile: { detail: 3, points: 900, satellites: 6, dpr: 1, xFactor: 0.4, sphereScale: 0.55, yOffset: -0.22 },
-  static: { detail: 0, points: 180, satellites: 0, dpr: 1, xFactor: 0.4, sphereScale: 0.55, yOffset: -0.1 },
+  pc: { detail: 5, points: 3000, coreStars: 260, satellites: 28, orbits: 7, dpr: 1.6, xFactor: 2.45, sphereScale: 1.2, yOffset: 0 },
+  tablet: { detail: 4, points: 1700, coreStars: 160, satellites: 18, orbits: 6, dpr: 1.3, xFactor: 0.95, sphereScale: 0.78, yOffset: -0.04 },
+  mobile: { detail: 3, points: 900, coreStars: 90, satellites: 11, orbits: 5, dpr: 1, xFactor: 0.4, sphereScale: 0.55, yOffset: -0.22 },
+  static: { detail: 0, points: 180, coreStars: 0, satellites: 0, orbits: 0, dpr: 1, xFactor: 0.4, sphereScale: 0.55, yOffset: -0.1 },
 };
+
+const SATELLITE_PALETTE = [
+  0xffd84a,
+  0xffaa24,
+  0xfff2a8,
+  0xe8ff78,
+  0xff7a1a,
+  0xffc4df,
+  0xfff7db,
+] as const;
 
 type HeroCosmosCanvasProps = {
   progress: MotionValue<number>;
@@ -74,6 +86,34 @@ function seededPoints(count: number): Float32Array {
   return positions;
 }
 
+function seededCoreStars(count: number): Float32Array {
+  let seed = 947;
+  const random = () => {
+    seed = (seed * 1664525 + 1013904223) % 4294967296;
+    return seed / 4294967296;
+  };
+  const positions = new Float32Array(count * 3);
+  for (let index = 0; index < count; index += 1) {
+    const radius = Math.cbrt(random()) * 0.92;
+    const theta = random() * Math.PI * 2;
+    const phi = Math.acos(2 * random() - 1);
+    positions[index * 3] = Math.sin(phi) * Math.cos(theta) * radius;
+    positions[index * 3 + 1] = Math.cos(phi) * radius;
+    positions[index * 3 + 2] = Math.sin(phi) * Math.sin(theta) * radius;
+  }
+  return positions;
+}
+
+function seededUnit(index: number): number {
+  const value = Math.sin((index + 1) * 12.9898) * 43758.5453;
+  return value - Math.floor(value);
+}
+
+function satelliteScale(index: number): number {
+  const base = 0.46 + seededUnit(index) * 1.08;
+  return index % 11 === 0 ? base + 0.66 : base;
+}
+
 function drawStaticCosmos(context: CanvasRenderingContext2D, width: number, height: number, progress: number, points: Float32Array, dpr: number) {
   const state = getHeroTimeline(progress);
   const centerX = width * (0.5 + state.sphereX * 0.18);
@@ -82,9 +122,10 @@ function drawStaticCosmos(context: CanvasRenderingContext2D, width: number, heig
 
   context.setTransform(dpr, 0, 0, dpr, 0, 0);
   context.clearRect(0, 0, width, height);
-  const glow = context.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius * 2.8);
-  glow.addColorStop(0, 'rgba(132, 255, 207, 0.23)');
-  glow.addColorStop(0.38, 'rgba(65, 197, 183, 0.1)');
+  const glow = context.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius * 3.2);
+  glow.addColorStop(0, 'rgba(255, 214, 80, 0.2)');
+  glow.addColorStop(0.18, 'rgba(126, 78, 255, 0.22)');
+  glow.addColorStop(0.48, 'rgba(54, 225, 255, 0.12)');
   glow.addColorStop(1, 'rgba(5, 15, 18, 0)');
   context.fillStyle = glow;
   context.fillRect(0, 0, width, height);
@@ -92,15 +133,31 @@ function drawStaticCosmos(context: CanvasRenderingContext2D, width: number, heig
   context.save();
   context.translate(centerX, centerY);
   context.rotate(state.sphereRotationZ);
+  context.globalCompositeOperation = 'lighter';
+  const core = context.createRadialGradient(-radius * 0.28, -radius * 0.32, radius * 0.04, 0, 0, radius * 1.08);
+  core.addColorStop(0, 'rgba(255, 246, 192, 0.88)');
+  core.addColorStop(0.18, 'rgba(255, 184, 47, 0.46)');
+  core.addColorStop(0.44, 'rgba(119, 62, 255, 0.46)');
+  core.addColorStop(0.72, 'rgba(31, 223, 255, 0.32)');
+  core.addColorStop(1, 'rgba(3, 8, 24, 0.08)');
+  context.fillStyle = core;
+  context.beginPath();
+  context.arc(0, 0, radius, 0, Math.PI * 2);
+  context.fill();
+
   context.strokeStyle = 'rgba(166, 255, 219, 0.48)';
   context.lineWidth = 1;
   context.beginPath();
   context.arc(0, 0, radius, 0, Math.PI * 2);
   context.stroke();
-  context.strokeStyle = 'rgba(110, 226, 255, 0.38)';
-  context.beginPath();
-  context.ellipse(0, 0, radius * 1.12, radius * 0.38, 0.54 + state.cameraYaw, 0, Math.PI * 2);
-  context.stroke();
+  const shellColors = ['rgba(110, 226, 255, 0.42)', 'rgba(155, 102, 255, 0.34)', 'rgba(255, 205, 73, 0.42)'];
+  shellColors.forEach((color, index) => {
+    context.strokeStyle = color;
+    context.lineWidth = index === 2 ? 1.25 : 0.8;
+    context.beginPath();
+    context.ellipse(0, 0, radius * (1.1 + index * 0.16), radius * (0.28 + index * 0.13), 0.42 + state.cameraYaw + index * 0.72, 0, Math.PI * 2);
+    context.stroke();
+  });
   context.restore();
 
   context.fillStyle = 'rgba(166, 255, 219, 0.5)';
@@ -112,6 +169,25 @@ function drawStaticCosmos(context: CanvasRenderingContext2D, width: number, heig
     context.fillRect(x, y, 1, 1);
   }
   context.globalAlpha = 1;
+
+  context.save();
+  context.globalCompositeOperation = 'lighter';
+  for (let index = 0; index < 16; index += 1) {
+    const angle = state.sphereRotationY + index * 2.39996;
+    const orbitRadius = radius * (1.42 + (index % 4) * 0.28);
+    const x = centerX + Math.cos(angle) * orbitRadius;
+    const y = centerY + Math.sin(angle * 1.17) * orbitRadius * 0.48;
+    const satelliteRadius = Math.max(1.5, radius * (0.018 + (index % 5) * 0.008));
+    const satelliteGlow = context.createRadialGradient(x, y, 0, x, y, satelliteRadius * 3.4);
+    satelliteGlow.addColorStop(0, index % 4 === 0 ? 'rgba(255, 248, 220, 0.98)' : 'rgba(255, 214, 74, 0.94)');
+    satelliteGlow.addColorStop(0.3, index % 3 === 0 ? 'rgba(255, 126, 27, 0.62)' : 'rgba(255, 188, 45, 0.52)');
+    satelliteGlow.addColorStop(1, 'rgba(255, 190, 45, 0)');
+    context.fillStyle = satelliteGlow;
+    context.beginPath();
+    context.arc(x, y, satelliteRadius * 3.4, 0, Math.PI * 2);
+    context.fill();
+  }
+  context.restore();
 }
 
 function StaticCosmos({ progress, config }: { progress: MotionValue<number>; config: TierConfig }) {
@@ -152,25 +228,33 @@ function StaticCosmos({ progress, config }: { progress: MotionValue<number>; con
   return <canvas ref={canvasRef} className="hero-cosmos__static" aria-hidden="true" />;
 }
 
-function createOrbitGroup(): THREE.Group {
+function createOrbitGroup(orbitCount: number): THREE.Group {
   const group = new THREE.Group();
-  const material = new THREE.LineBasicMaterial({ color: 0x76eec4, transparent: true, opacity: 0.44, blending: THREE.AdditiveBlending });
-  const cyanMaterial = new THREE.LineBasicMaterial({ color: 0x6ee2ff, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending });
   const curves = [
-    { radius: 1.46, scaleY: 0.34, rotation: 0.28, lineMaterial: material },
-    { radius: 1.86, scaleY: 0.18, rotation: -0.5, lineMaterial: cyanMaterial },
-    { radius: 2.15, scaleY: 0.52, rotation: 1.08, lineMaterial: material },
-  ];
-  curves.forEach(({ radius, scaleY, rotation, lineMaterial }) => {
+    { radius: 1.42, scaleY: 0.34, rotation: 0.28, color: 0x6ee2ff, opacity: 0.46, dashed: false },
+    { radius: 1.68, scaleY: 0.18, rotation: -0.5, color: 0xffd24a, opacity: 0.42, dashed: true },
+    { radius: 1.9, scaleY: 0.52, rotation: 1.08, color: 0x9e72ff, opacity: 0.34, dashed: false },
+    { radius: 2.14, scaleY: 0.26, rotation: 1.74, color: 0xffa82c, opacity: 0.32, dashed: true },
+    { radius: 2.34, scaleY: 0.58, rotation: -1.1, color: 0x75ffd5, opacity: 0.28, dashed: false },
+    { radius: 2.52, scaleY: 0.4, rotation: 0.72, color: 0xffeea8, opacity: 0.24, dashed: true },
+    { radius: 2.7, scaleY: 0.2, rotation: 2.28, color: 0x51bfff, opacity: 0.2, dashed: false },
+  ].slice(0, orbitCount);
+  curves.forEach(({ radius, scaleY, rotation, color, opacity, dashed }) => {
     const points: THREE.Vector3[] = [];
-    for (let index = 0; index <= 96; index += 1) {
-      const angle = (index / 96) * Math.PI * 2;
+    for (let index = 0; index <= 128; index += 1) {
+      const angle = (index / 128) * Math.PI * 2;
       const x = Math.cos(angle) * radius;
       const y = Math.sin(angle) * radius * scaleY;
-      points.push(new THREE.Vector3(x * Math.cos(rotation) - y * Math.sin(rotation), x * Math.sin(rotation) + y * Math.cos(rotation), Math.sin(angle * 2) * 0.08));
+      points.push(new THREE.Vector3(x * Math.cos(rotation) - y * Math.sin(rotation), x * Math.sin(rotation) + y * Math.cos(rotation), Math.sin(angle * 2.5 + rotation) * 0.12));
     }
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    group.add(new THREE.Line(geometry, lineMaterial));
+    const material = dashed
+      ? new THREE.LineDashedMaterial({ color, transparent: true, opacity, dashSize: 0.09, gapSize: 0.065, blending: THREE.AdditiveBlending, depthWrite: false })
+      : new THREE.LineBasicMaterial({ color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false });
+    material.userData.baseOpacity = opacity;
+    const line = new THREE.Line(geometry, material);
+    if (dashed) line.computeLineDistances();
+    group.add(line);
   });
   return group;
 }
@@ -178,9 +262,13 @@ function createOrbitGroup(): THREE.Group {
 function CosmosScene({ config, progress }: { config: TierConfig; progress: MotionValue<number> }) {
   const rootRef = useRef<THREE.Group>(null);
   const satellitesRef = useRef<THREE.InstancedMesh>(null);
+  const satelliteGlowsRef = useRef<THREE.InstancedMesh>(null);
+  const goldWireRef = useRef<THREE.Mesh>(null);
+  const coreStarsRef = useRef<THREE.Points>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const cameraLookAt = useMemo(() => new THREE.Vector3(0, 0, 0), []);
-  const orbitGroup = useMemo(() => createOrbitGroup(), []);
+  const orbitGroup = useMemo(() => createOrbitGroup(config.orbits), [config.orbits]);
+  const orbitGroupRef = useRef(orbitGroup);
   // `detail` is an explicit product budget: do not silently lower the
   // requested PC/tablet/mobile geometry tier.
   const geometry = useMemo(() => new THREE.IcosahedronGeometry(1, config.detail), [config.detail]);
@@ -193,7 +281,8 @@ function CosmosScene({ config, progress }: { config: TierConfig; progress: Motio
       uniform float uTime;
       uniform float uDissolve;
       varying vec3 vNormal;
-      varying vec3 vPosition;
+      varying vec3 vViewPosition;
+      varying vec3 vObjectPosition;
       float fieldNoise(vec3 p) {
         return sin(p.x * 4.2 + uTime * 0.32) * sin(p.y * 3.7 - uTime * 0.21) * sin(p.z * 5.1 + uTime * 0.16);
       }
@@ -201,35 +290,131 @@ function CosmosScene({ config, progress }: { config: TierConfig; progress: Motio
         vec3 displaced = position + normal * fieldNoise(position * 1.7) * 0.055;
         displaced += normal * uDissolve * fieldNoise(position * 7.0 + 2.0) * 0.22;
         vNormal = normalize(normalMatrix * normal);
-        vPosition = displaced;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(displaced, 1.0);
+        vObjectPosition = displaced;
+        vec4 viewPosition = modelViewMatrix * vec4(displaced, 1.0);
+        vViewPosition = viewPosition.xyz;
+        gl_Position = projectionMatrix * viewPosition;
       }
     `,
     fragmentShader: `
       uniform float uTime;
       uniform float uDissolve;
       varying vec3 vNormal;
-      varying vec3 vPosition;
+      varying vec3 vViewPosition;
+      varying vec3 vObjectPosition;
       void main() {
-        vec3 viewDirection = normalize(-vPosition);
+        vec3 p = vObjectPosition;
+        vec3 viewDirection = normalize(-vViewPosition);
         float fresnel = pow(1.0 - max(dot(normalize(vNormal), viewDirection), 0.0), 2.35);
-        float cloud = sin(vPosition.x * 7.0 + uTime * 0.2) * sin(vPosition.y * 5.0 - uTime * 0.13) * sin(vPosition.z * 8.0 + uTime * 0.17);
-        cloud = smoothstep(-0.62, 0.9, cloud);
-        float starNoise = smoothstep(0.82, 0.99, sin(vPosition.x * 31.0 + vPosition.y * 17.0 + uTime * 0.04) * 0.5 + 0.5);
-        vec3 core = vec3(0.008, 0.018, 0.032);
+        float cloudA = sin(p.x * 7.0 + uTime * 0.2) * sin(p.y * 5.0 - uTime * 0.13) * sin(p.z * 8.0 + uTime * 0.17);
+        float cloudB = sin((p.x + p.z) * 11.0 - uTime * 0.11) * cos((p.y - p.x) * 8.0 + uTime * 0.08);
+        float cloud = smoothstep(-0.52, 0.88, cloudA * 0.72 + cloudB * 0.28);
+        float polarAngle = atan(p.z, p.x);
+        float spiralRaw = sin(polarAngle * 5.0 + length(p.xz) * 14.0 - uTime * 0.34 + p.y * 3.0);
+        float spiral = smoothstep(0.34, 0.94, spiralRaw * 0.5 + 0.5);
+        float scanline = pow(0.5 + 0.5 * sin(p.y * 42.0 - uTime * 1.45 + sin(p.x * 4.0)), 18.0);
+        float meridian = pow(0.5 + 0.5 * cos(polarAngle * 18.0 + uTime * 0.09), 24.0);
+        float cyberGrid = max(scanline, meridian) * (0.34 + fresnel * 0.66);
+        float starHash = fract(sin(dot(floor(p * 34.0), vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+        float starNoise = smoothstep(0.965, 0.998, starHash);
+        vec3 deepSpace = vec3(0.002, 0.006, 0.022);
         vec3 cyan = vec3(0.08, 0.74, 1.0);
-        vec3 violet = vec3(0.46, 0.18, 1.0);
-        vec3 mint = vec3(0.22, 1.0, 0.72);
-        vec3 nebula = mix(cyan, violet, smoothstep(-0.5, 0.65, sin(vPosition.y * 3.2 + vPosition.x * 2.1)));
-        nebula = mix(nebula, mint, cloud * 0.35);
-        vec3 color = mix(core, nebula, min(1.0, fresnel * 0.9 + cloud * 0.28));
-        color += vec3(0.35, 0.8, 1.0) * starNoise * 0.28;
-        float alpha = (0.12 + fresnel * 0.56 + cloud * 0.2 + starNoise * 0.24) * (1.0 - uDissolve * 0.94);
+        vec3 violet = vec3(0.54, 0.14, 1.0);
+        vec3 magenta = vec3(0.95, 0.18, 0.72);
+        vec3 gold = vec3(1.0, 0.58, 0.08);
+        vec3 hotWhite = vec3(1.0, 0.94, 0.72);
+        vec3 nebula = mix(cyan, violet, smoothstep(-0.55, 0.68, sin(p.y * 3.2 + p.x * 2.1)));
+        nebula = mix(nebula, magenta, cloud * 0.28);
+        nebula = mix(nebula, gold, spiral * (0.18 + cloud * 0.2));
+        vec3 color = mix(deepSpace, nebula, min(1.0, fresnel * 0.88 + cloud * 0.34 + spiral * 0.16));
+        color += mix(cyan, gold, spiral) * cyberGrid * 0.22;
+        color += hotWhite * starNoise * 0.72;
+        float alpha = (0.1 + fresnel * 0.58 + cloud * 0.22 + spiral * 0.1 + cyberGrid * 0.16 + starNoise * 0.3) * (1.0 - uDissolve * 0.94);
         gl_FragColor = vec4(color, alpha);
       }
     `,
   }), []);
-  const wireMaterial = useMemo(() => new THREE.MeshBasicMaterial({ color: 0x78dfff, transparent: true, opacity: 0.14, wireframe: true, blending: THREE.AdditiveBlending }), []);
+  const coreMaterial = useMemo(() => new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    uniforms: { uTime: { value: 0 }, uDissolve: { value: 0 } },
+    vertexShader: `
+      varying vec3 vNormal;
+      varying vec3 vViewPosition;
+      varying vec3 vObjectPosition;
+      void main() {
+        vNormal = normalize(normalMatrix * normal);
+        vObjectPosition = position;
+        vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
+        vViewPosition = viewPosition.xyz;
+        gl_Position = projectionMatrix * viewPosition;
+      }
+    `,
+    fragmentShader: `
+      uniform float uTime;
+      uniform float uDissolve;
+      varying vec3 vNormal;
+      varying vec3 vViewPosition;
+      varying vec3 vObjectPosition;
+      void main() {
+        vec3 p = vObjectPosition;
+        vec3 viewDirection = normalize(-vViewPosition);
+        float center = pow(max(dot(normalize(vNormal), viewDirection), 0.0), 0.55);
+        float cloud = sin(p.x * 8.0 + uTime * 0.16) * sin(p.y * 6.0 - uTime * 0.12) * cos(p.z * 9.0 + uTime * 0.1);
+        cloud = smoothstep(-0.58, 0.82, cloud);
+        float pulse = 0.5 + 0.5 * sin(uTime * 0.72 + length(p.xy) * 12.0);
+        vec3 violet = vec3(0.38, 0.06, 0.88);
+        vec3 cyan = vec3(0.02, 0.58, 0.92);
+        vec3 gold = vec3(1.0, 0.46, 0.04);
+        vec3 color = mix(violet, cyan, cloud);
+        color = mix(color, gold, pulse * cloud * 0.28);
+        color += vec3(1.0, 0.88, 0.58) * pow(pulse, 7.0) * 0.18;
+        float alpha = (0.1 + center * 0.22 + cloud * 0.18) * (1.0 - uDissolve * 0.96);
+        gl_FragColor = vec4(color, alpha);
+      }
+    `,
+  }), []);
+  const auraMaterial = useMemo(() => new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    side: THREE.BackSide,
+    blending: THREE.AdditiveBlending,
+    uniforms: { uTime: { value: 0 }, uDissolve: { value: 0 } },
+    vertexShader: `
+      varying vec3 vNormal;
+      varying vec3 vViewPosition;
+      varying vec3 vObjectPosition;
+      void main() {
+        vNormal = normalize(normalMatrix * normal);
+        vObjectPosition = position;
+        vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
+        vViewPosition = viewPosition.xyz;
+        gl_Position = projectionMatrix * viewPosition;
+      }
+    `,
+    fragmentShader: `
+      uniform float uTime;
+      uniform float uDissolve;
+      varying vec3 vNormal;
+      varying vec3 vViewPosition;
+      varying vec3 vObjectPosition;
+      void main() {
+        vec3 viewDirection = normalize(-vViewPosition);
+        float fresnel = pow(1.0 - abs(dot(normalize(vNormal), viewDirection)), 2.1);
+        float wave = 0.5 + 0.5 * sin(vObjectPosition.y * 9.0 + uTime * 0.42 + vObjectPosition.x * 3.0);
+        vec3 cyan = vec3(0.02, 0.72, 1.0);
+        vec3 violet = vec3(0.5, 0.1, 1.0);
+        vec3 gold = vec3(1.0, 0.56, 0.08);
+        vec3 color = mix(cyan, violet, wave);
+        color = mix(color, gold, smoothstep(0.84, 1.0, wave) * 0.34);
+        float alpha = fresnel * (0.1 + wave * 0.12) * (1.0 - uDissolve * 0.96);
+        gl_FragColor = vec4(color, alpha);
+      }
+    `,
+  }), []);
+  const wireMaterial = useMemo(() => new THREE.MeshBasicMaterial({ color: 0x70e7ff, transparent: true, opacity: 0.15, wireframe: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }), []);
+  const goldWireMaterial = useMemo(() => new THREE.MeshBasicMaterial({ color: 0xffc84a, transparent: true, opacity: 0.075, wireframe: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }), []);
   const pointData = useMemo(() => {
     const positions = seededPoints(config.points);
     const geometryPoints = new THREE.BufferGeometry();
@@ -261,8 +446,10 @@ function CosmosScene({ config, progress }: { config: TierConfig; progress: Motio
           moved *= 1.0 + uDissolve * 0.9;
           vAlpha = aAlpha;
           float hue = sin(position.x * 2.4 + position.z * 4.1) * 0.5 + 0.5;
-          vColor = mix(vec3(0.16, 0.82, 1.0), vec3(0.54, 0.24, 1.0), hue);
-          vColor = mix(vColor, vec3(0.28, 1.0, 0.72), smoothstep(0.7, 1.0, hue) * 0.42);
+          float warm = smoothstep(0.56, 0.96, hue);
+          vColor = mix(vec3(0.12, 0.74, 1.0), vec3(0.5, 0.18, 1.0), hue);
+          vColor = mix(vColor, vec3(1.0, 0.56, 0.06), warm * 0.58);
+          vColor = mix(vColor, vec3(1.0, 0.94, 0.72), smoothstep(0.92, 1.0, hue) * 0.52);
           vec4 viewPosition = modelViewMatrix * vec4(moved, 1.0);
           gl_Position = projectionMatrix * viewPosition;
           gl_PointSize = aSize * (36.0 / max(1.0, -viewPosition.z));
@@ -280,31 +467,101 @@ function CosmosScene({ config, progress }: { config: TierConfig; progress: Motio
     });
     return { geometry: geometryPoints, material };
   }, [config.points]);
+  const coreStarData = useMemo(() => {
+    const positions = seededCoreStars(config.coreStars);
+    const geometryPoints = new THREE.BufferGeometry();
+    geometryPoints.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const pulses = new Float32Array(config.coreStars);
+    for (let index = 0; index < config.coreStars; index += 1) pulses[index] = 0.35 + seededUnit(index + 311) * 0.65;
+    geometryPoints.setAttribute('aPulse', new THREE.BufferAttribute(pulses, 1));
+    const material = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      uniforms: { uTime: { value: 0 }, uDissolve: { value: 0 } },
+      vertexShader: `
+        attribute float aPulse;
+        varying float vAlpha;
+        varying vec3 vColor;
+        uniform float uTime;
+        uniform float uDissolve;
+        void main() {
+          float flicker = 0.72 + 0.28 * sin(uTime * (0.8 + aPulse) + position.x * 19.0);
+          vec3 moved = position * (1.0 + uDissolve * 0.34);
+          vec4 viewPosition = modelViewMatrix * vec4(moved, 1.0);
+          gl_Position = projectionMatrix * viewPosition;
+          gl_PointSize = (1.1 + aPulse * 2.15) * flicker * (34.0 / max(1.0, -viewPosition.z));
+          vAlpha = flicker * (0.38 + aPulse * 0.46) * (1.0 - uDissolve * 0.96);
+          vColor = mix(vec3(0.24, 0.82, 1.0), vec3(1.0, 0.78, 0.24), aPulse);
+        }
+      `,
+      fragmentShader: `
+        varying float vAlpha;
+        varying vec3 vColor;
+        void main() {
+          float radius = length(gl_PointCoord - vec2(0.5));
+          float glow = smoothstep(0.5, 0.0, radius);
+          gl_FragColor = vec4(vColor, glow * vAlpha);
+        }
+      `,
+    });
+    return { geometry: geometryPoints, material };
+  }, [config.coreStars]);
   const orbMaterialRef = useRef(orbMaterial);
+  const coreMaterialRef = useRef(coreMaterial);
+  const auraMaterialRef = useRef(auraMaterial);
   const pointMaterialRef = useRef(pointData.material);
   const wireMaterialRef = useRef(wireMaterial);
-  const satelliteGeometry = useMemo(() => new THREE.SphereGeometry(0.06, 8, 6), []);
-  const satelliteMaterial = useMemo(() => new THREE.MeshBasicMaterial({ color: 0x6ee2ff, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending }), []);
+  const goldWireMaterialRef = useRef(goldWireMaterial);
+  const coreStarMaterialRef = useRef(coreStarData.material);
+  const satelliteGeometry = useMemo(() => new THREE.SphereGeometry(0.045, 12, 10), []);
+  const satelliteMaterial = useMemo(() => new THREE.MeshPhongMaterial({ color: 0xffffff, emissive: 0x3a2105, emissiveIntensity: 1.35, specular: 0xfff4ce, shininess: 92, transparent: true, opacity: 0.92, blending: THREE.NormalBlending, depthWrite: false, toneMapped: false }), []);
+  const satelliteGlowMaterial = useMemo(() => new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.055, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }), []);
+  const satelliteMaterialRef = useRef(satelliteMaterial);
+  const satelliteGlowMaterialRef = useRef(satelliteGlowMaterial);
+  const satelliteColors = useMemo(() => Array.from({ length: config.satellites }, (_, index) => new THREE.Color(SATELLITE_PALETTE[index % SATELLITE_PALETTE.length])), [config.satellites]);
+
+  useEffect(() => {
+    const satellites = satellitesRef.current;
+    const glows = satelliteGlowsRef.current;
+    if (!satellites || !glows) return;
+    satelliteColors.forEach((color, index) => {
+      satellites.setColorAt(index, color);
+      glows.setColorAt(index, color);
+    });
+    if (satellites.instanceColor) satellites.instanceColor.needsUpdate = true;
+    if (glows.instanceColor) glows.instanceColor.needsUpdate = true;
+    satelliteMaterialRef.current.needsUpdate = true;
+    satelliteGlowMaterialRef.current.needsUpdate = true;
+  }, [satelliteColors]);
 
   useEffect(() => () => {
     geometry.dispose();
     orbMaterial.dispose();
+    coreMaterial.dispose();
+    auraMaterial.dispose();
     wireMaterial.dispose();
+    goldWireMaterial.dispose();
     pointData.geometry.dispose();
     pointData.material.dispose();
+    coreStarData.geometry.dispose();
+    coreStarData.material.dispose();
     satelliteGeometry.dispose();
     satelliteMaterial.dispose();
+    satelliteGlowMaterial.dispose();
     orbitGroup.traverse((object) => {
-      if (object instanceof THREE.Line) object.geometry.dispose();
+      if (object instanceof THREE.Line) {
+        object.geometry.dispose();
+        const materials = Array.isArray(object.material) ? object.material : [object.material];
+        materials.forEach((material) => material.dispose());
+      }
     });
-    orbitGroup.children.forEach((object) => {
-      if (object instanceof THREE.Line && object.material instanceof THREE.Material) object.material.dispose();
-    });
-  }, [geometry, orbMaterial, orbitGroup, pointData, satelliteGeometry, satelliteMaterial, wireMaterial]);
+  }, [auraMaterial, coreMaterial, coreStarData, geometry, goldWireMaterial, orbMaterial, orbitGroup, pointData, satelliteGeometry, satelliteGlowMaterial, satelliteMaterial, wireMaterial]);
 
   useFrame(({ clock, camera }, delta) => {
     const root = rootRef.current;
     const satellites = satellitesRef.current;
+    const satelliteGlows = satelliteGlowsRef.current;
     const state = getHeroTimeline(progress.get());
     if (!root) return;
     const time = clock.elapsedTime;
@@ -321,19 +578,60 @@ function CosmosScene({ config, progress }: { config: TierConfig; progress: Motio
     root.scale.setScalar(nextScale);
     orbMaterialRef.current.uniforms.uTime.value = time;
     orbMaterialRef.current.uniforms.uDissolve.value = state.dissolve;
+    coreMaterialRef.current.uniforms.uTime.value = time;
+    coreMaterialRef.current.uniforms.uDissolve.value = state.dissolve;
+    auraMaterialRef.current.uniforms.uTime.value = time;
+    auraMaterialRef.current.uniforms.uDissolve.value = state.dissolve;
     pointMaterialRef.current.uniforms.uTime.value = time;
     pointMaterialRef.current.uniforms.uDissolve.value = state.dissolve;
-    wireMaterialRef.current.opacity = 0.14 * (1 - state.dissolve * 0.92);
-    if (satellites) {
+    coreStarMaterialRef.current.uniforms.uTime.value = time;
+    coreStarMaterialRef.current.uniforms.uDissolve.value = state.dissolve;
+    wireMaterialRef.current.opacity = 0.15 * (1 - state.dissolve * 0.94);
+    goldWireMaterialRef.current.opacity = 0.075 * (1 - state.dissolve * 0.94);
+    satelliteMaterialRef.current.opacity = 0.92 * (1 - state.dissolve * 0.94);
+    satelliteGlowMaterialRef.current.opacity = 0.055 * (1 - state.dissolve * 0.96);
+    orbitGroupRef.current.rotation.x = time * 0.035;
+    orbitGroupRef.current.rotation.y = -time * 0.028;
+    orbitGroupRef.current.rotation.z = time * 0.045;
+    orbitGroupRef.current.traverse((object) => {
+      if (object instanceof THREE.Line) {
+        const materials = Array.isArray(object.material) ? object.material : [object.material];
+        materials.forEach((material) => {
+          material.opacity = Number(material.userData.baseOpacity ?? 0.25) * (1 - state.dissolve * 0.96);
+        });
+      }
+    });
+    if (goldWireRef.current) {
+      goldWireRef.current.rotation.x = time * 0.065;
+      goldWireRef.current.rotation.y = -time * 0.085;
+      goldWireRef.current.rotation.z = time * 0.042;
+    }
+    if (coreStarsRef.current) {
+      coreStarsRef.current.rotation.y = time * 0.052;
+      coreStarsRef.current.rotation.z = -time * 0.028;
+    }
+    if (satellites && satelliteGlows) {
       for (let index = 0; index < config.satellites; index += 1) {
-        const angle = time * (0.18 + index * 0.007) + (index / Math.max(1, config.satellites)) * Math.PI * 2;
-        const radius = 1.14 + (index % 3) * 0.24;
-        dummy.position.set(Math.cos(angle) * radius, Math.sin(angle * 1.23) * radius * 0.52, Math.sin(angle) * radius * 0.46);
-        dummy.scale.setScalar(1 - state.dissolve * 0.2);
+        const phase = seededUnit(index + 71) * Math.PI * 2;
+        const angle = time * (0.13 + (index % 6) * 0.017) + (index / Math.max(1, config.satellites)) * Math.PI * 2 + phase;
+        const radius = 1.16 + (index % 6) * 0.27 + (index % 13 === 0 ? 0.22 : 0);
+        const inclination = 0.3 + (index % 5) * 0.1;
+        dummy.position.set(
+          Math.cos(angle) * radius,
+          Math.sin(angle * (1.07 + (index % 4) * 0.08) + phase) * radius * inclination,
+          Math.sin(angle + phase * 0.32) * radius * (0.3 + (index % 3) * 0.09),
+        );
+        dummy.rotation.set(angle * 0.18, -angle * 0.24, angle * 0.12);
+        const size = satelliteScale(index) * (1 - state.dissolve * 0.38);
+        dummy.scale.setScalar(size);
         dummy.updateMatrix();
         satellites.setMatrixAt(index, dummy.matrix);
+        dummy.scale.setScalar(size * (1.38 + (index % 4) * 0.08));
+        dummy.updateMatrix();
+        satelliteGlows.setMatrixAt(index, dummy.matrix);
       }
       satellites.instanceMatrix.needsUpdate = true;
+      satelliteGlows.instanceMatrix.needsUpdate = true;
     }
     const perspectiveCamera = camera as THREE.PerspectiveCamera;
     if (perspectiveCamera) {
@@ -352,13 +650,23 @@ function CosmosScene({ config, progress }: { config: TierConfig; progress: Motio
   });
 
   return (
-    <group ref={rootRef}>
-      <mesh geometry={geometry} material={orbMaterial} />
-      <mesh geometry={geometry} material={wireMaterial} scale={1.018} />
-      <primitive object={orbitGroup} />
-      <points geometry={pointData.geometry} material={pointData.material} />
-      {config.satellites > 0 ? <instancedMesh ref={satellitesRef} args={[satelliteGeometry, satelliteMaterial, config.satellites]} /> : null}
-    </group>
+    <>
+      <ambientLight color={0x8d95b8} intensity={1.5} />
+      <pointLight color={0xffdda0} intensity={36} distance={12} decay={2} position={[4, 3, 5]} />
+      <pointLight color={0x56dfff} intensity={18} distance={11} decay={2} position={[-4, -2, 4]} />
+      <group ref={rootRef}>
+        <mesh geometry={geometry} material={coreMaterial} scale={0.9} />
+        <points ref={coreStarsRef} geometry={coreStarData.geometry} material={coreStarData.material} scale={0.96} />
+        <mesh geometry={geometry} material={orbMaterial} />
+        <mesh geometry={geometry} material={auraMaterial} scale={1.105} />
+        <mesh geometry={geometry} material={wireMaterial} scale={1.018} />
+        <mesh ref={goldWireRef} geometry={geometry} material={goldWireMaterial} scale={1.044} />
+        <primitive object={orbitGroup} />
+        <points geometry={pointData.geometry} material={pointData.material} />
+        {config.satellites > 0 ? <instancedMesh ref={satellitesRef} args={[satelliteGeometry, satelliteMaterial, config.satellites]} /> : null}
+        {config.satellites > 0 ? <instancedMesh ref={satelliteGlowsRef} args={[satelliteGeometry, satelliteGlowMaterial, config.satellites]} /> : null}
+      </group>
+    </>
   );
 }
 
@@ -459,7 +767,9 @@ export default function HeroCosmosCanvas({ progress, forceStatic, onStaticChange
       data-config-tier={tier}
       data-detail={isStatic ? 0 : config.detail}
       data-points={isStatic ? TIER_CONFIG.static.points : config.points}
+      data-core-stars={isStatic ? 0 : config.coreStars}
       data-satellites={isStatic ? 0 : config.satellites}
+      data-orbits={isStatic ? 0 : config.orbits}
       data-fallback={isStatic ? 'canvas2d' : 'webgl2'}
       data-paused={paused ? 'true' : 'false'}
       aria-hidden="true"

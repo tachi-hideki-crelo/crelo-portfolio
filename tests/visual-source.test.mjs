@@ -39,11 +39,30 @@ test('StaticCosmos uses one capped DPR for backing size and transform', () => {
 });
 
 test('HeroCosmosCanvas uses the required responsive detail budget', () => {
-  assert.match(cosmos, /pc: \{ detail: 5, points: 3000, satellites: 12, dpr: 1\.6/);
-  assert.match(cosmos, /tablet: \{ detail: 4, points: 1700, satellites: 8, dpr: 1\.3/);
-  assert.match(cosmos, /mobile: \{ detail: 3, points: 900, satellites: 6, dpr: 1/);
+  assert.match(cosmos, /pc: \{ detail: 5, points: 3000, coreStars: 260, satellites: 28, orbits: 7, dpr: 1\.6/);
+  assert.match(cosmos, /tablet: \{ detail: 4, points: 1700, coreStars: 160, satellites: 18, orbits: 6, dpr: 1\.3/);
+  assert.match(cosmos, /mobile: \{ detail: 3, points: 900, coreStars: 90, satellites: 11, orbits: 5, dpr: 1/);
   assert.match(cosmos, /new THREE\.IcosahedronGeometry\(1, config\.detail\)/);
   assert.match(cosmos, /frameloop=\{paused \? 'never' : 'always'\}/);
+});
+
+test('HeroCosmosCanvas renders a layered galactic core and varied warm satellites', () => {
+  assert.match(cosmos, /const SATELLITE_PALETTE = \[/);
+  assert.match(cosmos, /0xffd84a/);
+  assert.match(cosmos, /0xffaa24/);
+  assert.match(cosmos, /function satelliteScale\(index: number\)/);
+  assert.match(cosmos, /satellites\.setColorAt\(index, color\)/);
+  assert.match(cosmos, /glows\.setColorAt\(index, color\)/);
+  assert.match(cosmos, /new THREE\.Color\(SATELLITE_PALETTE/);
+  assert.match(cosmos, /const coreMaterial = useMemo/);
+  assert.match(cosmos, /const auraMaterial = useMemo/);
+  assert.match(cosmos, /float spiralRaw/);
+  assert.match(cosmos, /float cyberGrid/);
+  assert.match(cosmos, /vec3 gold = vec3\(1\.0, 0\.58, 0\.08\)/);
+  assert.match(cosmos, /new THREE\.LineDashedMaterial/);
+  assert.match(cosmos, /data-core-stars=/);
+  assert.match(cosmos, /data-orbits=/);
+  assert.match(cosmos, /for \(let index = 0; index < 16; index \+= 1\)/);
 });
 
 test('HeroCosmosCanvas shares MotionValue progress without scroll React state', () => {
