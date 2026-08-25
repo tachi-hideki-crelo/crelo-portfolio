@@ -3,16 +3,73 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const backdrop = readFileSync(new URL('../app/components/visual/NeuralBackdrop.tsx', import.meta.url), 'utf8');
-const canvas = readFileSync(new URL('../app/components/visual/NeuralFieldCanvas.tsx', import.meta.url), 'utf8');
+const cosmos = readFileSync(new URL('../app/components/visual/HeroCosmosCanvas.tsx', import.meta.url), 'utf8');
+const hero = readFileSync(new URL('../app/components/site/HeroExperience.tsx', import.meta.url), 'utf8');
+const styles = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8');
 
-test('NeuralBackdrop passes a stable context-loss handler to the R3F canvas', () => {
-  assert.match(backdrop, /const handleContextLost = useCallback\(\(\) =>/);
-  assert.match(backdrop, /\}, \[\]\);/);
-  assert.match(backdrop, /onContextLost=\{handleContextLost\}/);
-  assert.doesNotMatch(backdrop, /onContextLost=\{\(\) => setWebglAvailable\(false\)\}/);
+test('NeuralBackdrop remains a global Canvas2D-only ambient layer', () => {
+  assert.match(backdrop, /data-render-surface="canvas2d"/);
+  assert.match(backdrop, /className="neural-backdrop__canvas neural-backdrop__canvas--fallback"/);
+  assert.doesNotMatch(backdrop, /@react-three\/fiber/);
+  assert.doesNotMatch(backdrop, /NeuralFieldCanvas/);
 });
 
-test('NeuralFieldCanvas pairs context-loss listener setup and cleanup', () => {
-  assert.match(canvas, /addEventListener\('webglcontextlost', handleContextLost/);
-  assert.match(canvas, /removeEventListener\('webglcontextlost', handleContextLost\)/);
+test('HeroCosmosCanvas pairs context-loss listener setup and cleanup', () => {
+  assert.match(cosmos, /addEventListener\('webglcontextlost', handleContextLost/);
+  assert.match(cosmos, /removeEventListener\('webglcontextlost', handleContextLost\)/);
+  assert.match(cosmos, /setTier\('static'\)/);
+});
+
+test('HeroCosmosCanvas pauses while either offscreen or hidden', () => {
+  assert.match(cosmos, /const \[offscreen, setOffscreen\] = useState\(false\)/);
+  assert.match(cosmos, /const \[documentHidden, setDocumentHidden\] = useState\(false\)/);
+  assert.match(cosmos, /const paused = offscreen \|\| documentHidden/);
+  assert.match(cosmos, /setOffscreen\(!\(entry\?\.isIntersecting \?\? true\)\)/);
+  assert.match(cosmos, /setDocumentHidden\(document\.visibilityState !== 'visible'\)/);
+  assert.match(cosmos, /data-paused=\{paused \? 'true' : 'false'\}/);
+  assert.doesNotMatch(cosmos, /IntersectionObserver\(\[entry\] => setPaused/);
+  assert.doesNotMatch(cosmos, /onVisibility = \(\) => setPaused/);
+});
+
+test('StaticCosmos uses one capped DPR for backing size and transform', () => {
+  assert.match(cosmos, /function drawStaticCosmos\([\s\S]*points: Float32Array, dpr: number\)/);
+  assert.match(cosmos, /drawStaticCosmos\(context, width, height, value, points, dpr\)/);
+  const drawStaticSource = cosmos.slice(cosmos.indexOf('function drawStaticCosmos'), cosmos.indexOf('\nfunction StaticCosmos'));
+  assert.doesNotMatch(drawStaticSource, /window\.devicePixelRatio/);
+});
+
+test('HeroCosmosCanvas uses the required responsive detail budget', () => {
+  assert.match(cosmos, /pc: \{ detail: 5, points: 3000, satellites: 12, dpr: 1\.6/);
+  assert.match(cosmos, /tablet: \{ detail: 4, points: 1700, satellites: 8, dpr: 1\.3/);
+  assert.match(cosmos, /mobile: \{ detail: 3, points: 900, satellites: 6, dpr: 1/);
+  assert.match(cosmos, /new THREE\.IcosahedronGeometry\(1, config\.detail\)/);
+  assert.match(cosmos, /frameloop=\{paused \? 'never' : 'always'\}/);
+});
+
+test('HeroCosmosCanvas shares MotionValue progress without scroll React state', () => {
+  assert.match(cosmos, /progress: MotionValue<number>/);
+  assert.match(cosmos, /progress\.get\(\)/);
+  assert.doesNotMatch(cosmos, /addEventListener\('scroll'/);
+  assert.match(hero, /useScroll\(\{ target: heroRef/);
+  assert.match(hero, /useSpring\(scrollYProgress/);
+  assert.match(hero, /getHeroTimeline\(value\)/);
+  assert.doesNotMatch(hero, /setProgress/);
+  assert.match(hero, /data-static=\{staticMode \? 'true' : 'false'\}/);
+  assert.match(hero, /useMotionValueEvent\(progress, 'change'/);
+  assert.match(hero, /ctaInteractiveRef\.current/);
+  assert.match(hero, /tabIndex=\{ctaIsInteractive \? 0 : -1\}/);
+  assert.match(hero, /aria-hidden=\{!ctaIsInteractive\}/);
+  assert.match(hero, /coordinateOpacity/);
+  assert.match(hero, /blur\(14px\)/);
+  assert.match(hero, /clipPath/);
+  assert.match(cosmos, /capabilityReady/);
+  assert.match(cosmos, /if \(capabilityReady\) onStaticChange\(isStatic\)/);
+  assert.match(styles, /\.hero-story \{ min-height: 420vh/);
+  assert.doesNotMatch(hero, /LIVE FIELD MAP/);
+  assert.match(hero, /Forward Deployed<\/span><span>Engineer/);
+  assert.match(hero, /Business × AI × Software/);
+  assert.match(hero, /課題整理から設計・開発・導入まで。/);
+  assert.match(hero, /事業の課題を、技術で解決します。/);
+  assert.match(styles, /hero-story\[data-static='true'\] \.hero-story__fde-copy[\s\S]*top: 29%/);
+  assert.match(styles, /hero-story\[data-static='true'\] \.hero-story__statement[\s\S]*top: 66%/);
 });

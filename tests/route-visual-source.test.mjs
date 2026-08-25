@@ -4,7 +4,7 @@ import test from 'node:test';
 
 const layout = readFileSync(new URL('../app/layout.tsx', import.meta.url), 'utf8');
 const notFound = readFileSync(new URL('../app/not-found.tsx', import.meta.url), 'utf8');
-const backdrop = readFileSync(new URL('../app/components/visual/NeuralBackdrop.tsx', import.meta.url), 'utf8');
+const cosmos = readFileSync(new URL('../app/components/visual/HeroCosmosCanvas.tsx', import.meta.url), 'utf8');
 const styles = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8');
 
 test('preview metadata omits OG URLs until the strict production origin is available', () => {
@@ -21,8 +21,9 @@ test('404 route exposes a meaningful h1 without changing the visual 404 treatmen
 });
 
 test('WebGL1-only browsers take the static fallback path', () => {
-  assert.match(backdrop, /R3F_RENDER_CONTEXT = 'webgl2'/);
-  assert.match(backdrop, /WebGL1-only browser stays on the deterministic 2D static fallback/);
-  assert.match(backdrop, /const canUseWebgl = Boolean\(probeContext\)/);
-  assert.match(backdrop, /tier === 'static' \|\| !webglAvailable/);
+  assert.match(cosmos, /getContext\('webgl2'/);
+  assert.match(cosmos, /WebGL1-only devices use/);
+  assert.match(cosmos, /const supported = Boolean\(context\)/);
+  assert.match(cosmos, /forceStatic \|\| tier === 'static' \|\| !webglAvailable/);
+  assert.match(cosmos, /data-fallback=\{isStatic \? 'canvas2d' : 'webgl2'\}/);
 });

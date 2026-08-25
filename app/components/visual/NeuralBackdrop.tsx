@@ -1,14 +1,10 @@
 'use client';
 
-import dynamic from 'next/dynamic';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 type RenderTier = 'high' | 'balanced' | 'mobile' | 'static';
-const R3F_RENDER_CONTEXT = 'webgl2' as const;
 
 type Point = { x: number; y: number; size: number; alpha: number; hue: 'mint' | 'cyan' | 'amber' };
-
-const NeuralFieldCanvas = dynamic(() => import('./NeuralFieldCanvas').then((module) => module.NeuralFieldCanvas), { ssr: false });
 
 function chooseTier(width: number, reducedMotion: boolean, saveData: boolean): RenderTier {
   if (reducedMotion || saveData) return 'static';
@@ -64,11 +60,7 @@ export default function NeuralBackdrop() {
   const [tier, setTier] = useState<RenderTier>('static');
   const tierRef = useRef<RenderTier>('static');
   const [paused, setPaused] = useState(false);
-  const [webglAvailable, setWebglAvailable] = useState(false);
   const pointsRef = useRef<Point[]>([]);
-  const handleContextLost = useCallback(() => {
-    setWebglAvailable(false);
-  }, []);
 
   useEffect(() => {
     const field = fieldRef.current;
@@ -91,21 +83,6 @@ export default function NeuralBackdrop() {
       if (context) drawStaticField(context, window.innerWidth, window.innerHeight, pointsRef.current);
     };
     resizeFallback(initialTier);
-    const probeWebgl = (nextTier: RenderTier) => {
-      if (nextTier === 'static') {
-        setWebglAvailable(false);
-        return;
-      }
-      const probe = document.createElement('canvas');
-      // Three/R3F is intentionally mounted only on a WebGL2 context. A
-      // WebGL1-only browser stays on the deterministic 2D static fallback;
-      // it must never be promoted to an animated tier it cannot render safely.
-      const probeContext = probe.getContext(R3F_RENDER_CONTEXT, { alpha: true, antialias: false, powerPreference: 'low-power' });
-      const canUseWebgl = Boolean(probeContext);
-      probeContext?.getExtension('WEBGL_lose_context')?.loseContext();
-      setWebglAvailable(canUseWebgl);
-    };
-    probeWebgl(initialTier);
     const mountTimer = window.setTimeout(() => setTier(initialTier), 0);
     const resize = () => {
       const nextTier = readTier();
@@ -113,7 +90,6 @@ export default function NeuralBackdrop() {
         tierRef.current = nextTier;
         pointsRef.current = makePoints(pointCountForTier(nextTier));
         setTier(nextTier);
-        probeWebgl(nextTier);
       }
       resizeFallback(nextTier);
     };
@@ -134,13 +110,8 @@ export default function NeuralBackdrop() {
     };
   }, []);
 
-  const dpr = dprForTier(tier);
-  const count = pointCountForTier(tier);
-  const useStatic = tier === 'static' || !webglAvailable;
-
   return (
-    <div ref={fieldRef} className="neural-backdrop" data-render-tier={tier} aria-hidden="true">
-      {!useStatic ? <NeuralFieldCanvas dpr={dpr} count={count} paused={paused} onContextLost={handleContextLost} /> : null}
+    <div ref={fieldRef} className="neural-backdrop" data-render-tier={tier} data-render-surface="canvas2d" data-paused={paused ? 'true' : 'false'} aria-hidden="true">
       <canvas ref={fallbackRef} className="neural-backdrop__canvas neural-backdrop__canvas--fallback" />
       <div className="neural-backdrop__scan" />
       <div className="neural-backdrop__vignette" />
