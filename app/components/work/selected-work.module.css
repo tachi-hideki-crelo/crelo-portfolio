@@ -3,6 +3,9 @@
   --theme-accent-rgb: 166, 255, 219;
   --work-progress: 0;
   --work-rotation: 0deg;
+  --work-entry-opacity: 0;
+  --work-entry-scale: 0.64;
+  --work-entry-blur: 22px;
   background:
     radial-gradient(circle at 50% 42%, rgb(var(--theme-accent-rgb) / 7%), transparent 34rem),
     linear-gradient(180deg, #090e10 0%, #050809 68%, #090d0e 100%);
@@ -94,6 +97,14 @@
   margin-top: 3rem;
 }
 
+.desktopInstruction {
+  display: inline;
+}
+
+.mobileInstruction {
+  display: none;
+}
+
 .desktopStage {
   height: 100vh;
   margin: 0 auto;
@@ -106,6 +117,7 @@
 .stageShell {
   height: 100%;
   min-height: 43rem;
+  overflow: visible;
   perspective: 1100px;
   perspective-origin: 50% 48%;
   position: relative;
@@ -144,11 +156,20 @@
 }
 
 .tabList {
+  filter: blur(var(--work-entry-blur));
   height: 100%;
   inset: 0;
+  opacity: var(--work-entry-opacity);
   position: absolute;
+  transform: scale(var(--work-entry-scale));
+  transform-origin: center;
   transform-style: preserve-3d;
+  will-change: filter, opacity, transform;
   z-index: 4;
+}
+
+.selectedWork[data-burst-ready='false'] .tabList {
+  pointer-events: none;
 }
 
 .card {
@@ -162,19 +183,23 @@
   --card-x-px: var(--card-x);
   --card-y-px: var(--card-y);
   --card-z-px: var(--card-z);
-  --card-parallax-offset: 0px;
-  --card-depth-offset: 0px;
+  --card-pointer-x: 0px;
+  --card-pointer-y: 0px;
+  --card-pointer-rotate-x: 0deg;
+  --card-pointer-rotate-y: 0deg;
   --card-rotate: 0deg;
+  --card-rotate-current: var(--card-rotate);
   height: clamp(12rem, 24vw, 19rem);
   left: 50%;
   max-width: 27rem;
   pointer-events: auto;
   position: absolute;
   top: 50%;
-  transform: translate(-50%, -50%) translate3d(var(--card-x-px), var(--card-y-px), var(--card-z-px)) rotate(var(--card-rotate));
+  transform: translate(-50%, -50%) translate3d(calc(var(--card-x-px) + var(--card-pointer-x)), calc(var(--card-y-px) + var(--card-pointer-y)), var(--card-z-px)) rotateX(var(--card-pointer-rotate-x)) rotateY(var(--card-pointer-rotate-y)) rotateZ(var(--card-rotate-current));
   transform-style: preserve-3d;
-  transition: opacity 420ms ease, filter 420ms ease, transform 620ms cubic-bezier(0.2, 0.75, 0.22, 1), z-index 0ms linear 0ms;
+  transition: opacity 420ms ease, filter 420ms ease, transform 300ms cubic-bezier(0.16, 1, 0.3, 1), z-index 0ms linear 0ms;
   width: min(31vw, 27rem);
+  will-change: filter, opacity, transform;
   /* Cards retain their own depth within the tab-list stacking context, while
      the summary panel remains the readable top layer when areas overlap. */
   z-index: calc(3 - var(--card-order));
@@ -569,6 +594,14 @@
     margin-top: 2rem;
   }
 
+  .desktopInstruction {
+    display: none;
+  }
+
+  .mobileInstruction {
+    display: inline;
+  }
+
   .desktopStage {
     display: none;
   }
@@ -704,12 +737,19 @@
 
 @media (prefers-reduced-motion: reduce) {
   .selectedWork,
+  .tabList,
   .card,
   .cardButton,
   .summaryLink,
   .detailLink,
   .mobileItem {
     transition: none;
+  }
+
+  .tabList {
+    filter: none;
+    opacity: 1;
+    transform: none;
   }
 
   .mobilePanel {

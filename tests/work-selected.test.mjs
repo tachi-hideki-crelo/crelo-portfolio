@@ -6,9 +6,9 @@ import { caseStudies } from '../app/lib/content.ts';
 import { parsePublicOrigin } from '../app/seo-config.ts';
 import {
   CARD_LAYOUT,
-  getActiveCaseIndex,
-  getCardMotionOffsets,
-  shouldHoldKeyboardSelection,
+  STATIC_CARD_LAYOUT,
+  getBurstProgress,
+  getPointerCardMotion,
 } from '../app/components/work/work-motion.ts';
 import { getApprovedMedia, getApprovedOgMedia, isPublicCaseStudy } from '../app/components/work/work-metadata.ts';
 import { projectPublicCaseStudies } from '../app/components/work/work-public.ts';
@@ -45,8 +45,10 @@ test('selected work keyboard contract and detail CTAs are source-visible', () =>
   assert.match(selectedWorkSource, /data-index=\{index\}/);
   assert.match(selectedWorkSource, /querySelector<HTMLButtonElement>\(`button\[data-tab-group=/);
   assert.match(selectedWorkSource, /focus\(\{ preventScroll: true \}\)/);
-  assert.match(selectedWorkSource, /keyboardScrollLockRef/);
-  assert.match(selectedWorkSource, /shouldHoldKeyboardSelection/);
+  assert.doesNotMatch(selectedWorkSource, /keyboardScrollLockRef/);
+  assert.doesNotMatch(selectedWorkSource, /shouldHoldKeyboardSelection/);
+  assert.match(selectedWorkSource, /HOVER TO SELECT/);
+  assert.match(selectedWorkSource, /TAP TO SELECT/);
 });
 
 test('client SelectedWork receives only a server-redacted projection', () => {
@@ -115,15 +117,27 @@ test('selected work keeps motion browser-safe and has a static reduced-motion pa
   assert.match(selectedWorkSource, /useReducedMotion/);
   assert.match(selectedWorkSource, /initial=\{reduceMotion \? false/);
   assert.match(selectedWorkSource, /--card-x-px/);
+  assert.match(selectedWorkSource, /--card-pointer-x/);
   assert.match(selectedWorkSource, /--work-rotation/);
-  assert.match(selectedWorkSource, /updateActiveFromScroll\(section, setActiveIndex, reduceMotion(?:, caseCount)?\)/);
+  assert.match(selectedWorkSource, /updateScatterFromScroll\(section, reduceMotion\)/);
+  assert.doesNotMatch(selectedWorkSource, /getActiveCaseIndex/);
+  const scatterSource = selectedWorkSource.slice(
+    selectedWorkSource.indexOf('function updateScatterFromScroll'),
+    selectedWorkSource.indexOf('function CaseCard'),
+  );
+  assert.doesNotMatch(scatterSource, /setActive|handleSelect/);
   assert.match(selectedWorkSource, /className=\{styles\.stageVisual\}/);
   assert.match(selectedWorkSource, /className=\{styles\.mobilePanelVisual\}/);
   assert.match(selectedWorkSource, /onPointerLeave=\{handleStagePointerLeave\}/);
+  assert.match(selectedWorkSource, /getPointerCardMotion/);
+  assert.match(selectedWorkSource, /requestAnimationFrame/);
+  assert.match(selectedWorkSource, /data-work-stage/);
   assert.match(selectedWorkSource, /dataset\.cursorInside/);
   assert.doesNotMatch(selectedWorkSource, /cursor\.style\.opacity/);
   assert.doesNotMatch(selectedWorkSource, /window\.addEventListener\('pointermove'/);
   assert.match(selectedWorkStyles, /perspective: 1100px/);
+  assert.match(selectedWorkStyles, /--work-entry-scale/);
+  assert.match(selectedWorkStyles, /translate3d\(calc\(var\(--card-x-px\) \+ var\(--card-pointer-x\)\)/);
   assert.match(selectedWorkStyles, /rotate\(var\(--work-rotation\)\)/);
   assert.match(selectedWorkStyles, /z-index: calc\(3 - var\(--card-order\)\)/);
   assert.match(selectedWorkStyles, /\.card\[data-active='true'\][\s\S]*z-index: 8/);
@@ -213,19 +227,49 @@ test('detail metadata indexes only approved production cases with a valid HTTPS 
   assert.equal(getApprovedOgMedia(draftWithPrivateFacts), undefined);
 });
 
-test('scroll progress maps to stable case boundaries and pixel offsets', () => {
-  assert.equal(getActiveCaseIndex(-1, 5), 0);
-  assert.equal(getActiveCaseIndex(0, 5), 0);
-  assert.equal(getActiveCaseIndex(0.199, 5), 0);
-  assert.equal(getActiveCaseIndex(0.2, 5), 1);
-  assert.equal(getActiveCaseIndex(0.999, 5), 4);
-  assert.equal(getActiveCaseIndex(1, 5), 4);
-  assert.deepEqual(getCardMotionOffsets(CARD_LAYOUT[1], 0), { parallaxOffset: 0, depthOffset: 0 });
-  assert.deepEqual(getCardMotionOffsets(CARD_LAYOUT[1], 0.5), { parallaxOffset: 11, depthOffset: 54 });
-  assert.deepEqual(getCardMotionOffsets(CARD_LAYOUT[1], 1), { parallaxOffset: 22, depthOffset: 108 });
-  assert.deepEqual(getCardMotionOffsets(CARD_LAYOUT[1], 1, true), { parallaxOffset: 0, depthOffset: 0 });
-  assert.equal(shouldHoldKeyboardSelection(40, 8), true);
-  assert.equal(shouldHoldKeyboardSelection(1000, 8), true);
-  assert.equal(shouldHoldKeyboardSelection(1201, 8), false);
-  assert.equal(shouldHoldKeyboardSelection(40, 17), false);
+test('scroll burst expands all cards while pointer motion pulls outside cards inward', () => {
+  assert.equal(CARD_LAYOUT[0].x, '0vw');
+  assert.ok(Math.abs(Number.parseFloat(CARD_LAYOUT[1].x)) >= 55);
+  assert.ok(Math.abs(Number.parseFloat(CARD_LAYOUT[4].x)) >= 55);
+  assert.ok(Math.abs(Number.parseFloat(STATIC_CARD_LAYOUT[1].x)) < 30);
+  assert.equal(getBurstProgress(0, 0), 0);
+  assert.ok(getBurstProgress(0.2, 0) > 1);
+  assert.equal(getBurstProgress(1, 4), 1);
+  assert.equal(getBurstProgress(0, 4, true), 1);
+
+  const offscreenMotion = getPointerCardMotion({
+    baseX: 1000,
+    baseY: 0,
+    pointerX: 0,
+    pointerY: 0,
+    viewportWidth: 1440,
+    viewportHeight: 900,
+    depth: 100,
+  });
+  assert.ok(offscreenMotion.x < 0);
+  assert.ok(Math.abs(1000 + offscreenMotion.x) < 1000);
+
+  const centerMotion = getPointerCardMotion({
+    baseX: 0,
+    baseY: 0,
+    pointerX: 400,
+    pointerY: -180,
+    viewportWidth: 1440,
+    viewportHeight: 900,
+    depth: 120,
+  });
+  assert.ok(centerMotion.x > 0);
+  assert.ok(centerMotion.y < 0);
+  assert.ok(centerMotion.rotateX > 0);
+  assert.ok(centerMotion.rotateY > 0);
+  assert.deepEqual(getPointerCardMotion({
+    baseX: 1000,
+    baseY: 500,
+    pointerX: 0,
+    pointerY: 0,
+    viewportWidth: 1440,
+    viewportHeight: 900,
+    depth: 100,
+    reduceMotion: true,
+  }), { x: 0, y: 0, rotateX: 0, rotateY: 0 });
 });

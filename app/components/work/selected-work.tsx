@@ -7,9 +7,9 @@ import { motion, useReducedMotion } from 'motion/react';
 import { WorkVisual } from './work-visual';
 import {
   CARD_LAYOUT,
-  getActiveCaseIndex,
-  getCardMotionOffsets,
-  shouldHoldKeyboardSelection,
+  STATIC_CARD_LAYOUT,
+  getBurstProgress,
+  getPointerCardMotion,
 } from './work-motion';
 import type { PublicCaseStudy } from './work-public';
 import styles from './selected-work.module.css';
@@ -77,30 +77,43 @@ function resolveViewportOffset(value: string): number {
   return numeric;
 }
 
-function updateActiveFromScroll(
+function updateScatterFromScroll(
   section: HTMLElement,
-  setActive: (index: number) => void,
   reduceMotion: boolean,
-  caseCount: number,
 ) {
+  const stage = section.querySelector<HTMLElement>('[data-work-stage]');
+  if (!stage) return;
+
   const rect = section.getBoundingClientRect();
   const travel = Math.max(section.offsetHeight - window.innerHeight, 1);
-  const progress = Math.min(Math.max(-rect.top / travel, 0), 1);
-  const visualProgress = reduceMotion ? 0 : progress;
-  setActive(getActiveCaseIndex(progress, caseCount));
+  const visualProgress = reduceMotion ? 0 : Math.min(Math.max(-rect.top / travel, 0), 1);
+  const stageRect = stage.getBoundingClientRect();
+  const entryProgress = reduceMotion
+    ? 1
+    : Math.min(Math.max((window.innerHeight - stageRect.top) / Math.max(window.innerHeight * 0.72, 1), 0), 1);
+  const entryOpacity = reduceMotion ? 1 : Math.min(entryProgress * 2.6, 1);
+  const entryScale = reduceMotion ? 1 : 0.64 + Math.min(entryProgress * 1.7, 1) * 0.36;
+  const useContainedLayout = reduceMotion || !isFinePointer();
+
   section.style.setProperty('--work-progress', visualProgress.toFixed(4));
-  section.style.setProperty('--work-rotation', `${(visualProgress * 22).toFixed(3)}deg`);
+  section.style.setProperty('--work-rotation', `${(visualProgress * 34).toFixed(3)}deg`);
+  section.style.setProperty('--work-entry-opacity', entryOpacity.toFixed(4));
+  section.style.setProperty('--work-entry-scale', entryScale.toFixed(4));
+  section.style.setProperty('--work-entry-blur', `${((1 - entryOpacity) * 22).toFixed(3)}px`);
+  section.dataset.burstReady = entryProgress > 0.2 || reduceMotion ? 'true' : 'false';
 
   section.querySelectorAll<HTMLElement>('[data-case-index]').forEach((card) => {
     const index = Number(card.dataset.caseIndex);
-    const layout = CARD_LAYOUT[index];
+    const layout = (useContainedLayout ? STATIC_CARD_LAYOUT : CARD_LAYOUT)[index];
     if (!layout) return;
-    const offsets = getCardMotionOffsets(layout, progress, reduceMotion);
-    card.style.setProperty('--card-x-px', `${resolveViewportOffset(layout.x).toFixed(3)}px`);
-    card.style.setProperty('--card-y-px', `${(resolveViewportOffset(layout.y) + offsets.parallaxOffset).toFixed(3)}px`);
-    card.style.setProperty('--card-z-px', `${(layout.z + offsets.depthOffset).toFixed(3)}px`);
-    card.style.setProperty('--card-parallax-offset', `${offsets.parallaxOffset.toFixed(3)}px`);
-    card.style.setProperty('--card-depth-offset', `${offsets.depthOffset.toFixed(3)}px`);
+    const burst = getBurstProgress(entryProgress, index, reduceMotion);
+    const settledBurst = Math.min(Math.max(burst, 0), 1.16);
+    const depthDrift = reduceMotion ? 0 : layout.depth * visualProgress * 0.18;
+    card.style.setProperty('--card-x-px', `${(resolveViewportOffset(layout.x) * settledBurst).toFixed(3)}px`);
+    card.style.setProperty('--card-y-px', `${(resolveViewportOffset(layout.y) * settledBurst).toFixed(3)}px`);
+    card.style.setProperty('--card-z-px', `${(layout.z * Math.min(settledBurst, 1) + depthDrift).toFixed(3)}px`);
+    card.style.setProperty('--card-rotate-current', `${(Number.parseFloat(layout.rotate) * settledBurst).toFixed(3)}deg`);
+    card.style.setProperty('--card-burst-progress', settledBurst.toFixed(4));
   });
 }
 
@@ -127,8 +140,15 @@ function CaseCard({
     '--card-z': `${layout.z}px`,
     '--card-depth': `${layout.depth}px`,
     '--card-parallax': `${layout.parallax}px`,
-    '--card-parallax-offset': '0px',
-    '--card-depth-offset': '0px',
+    '--card-x-px': '0px',
+    '--card-y-px': '0px',
+    '--card-z-px': '0px',
+    '--card-pointer-x': '0px',
+    '--card-pointer-y': '0px',
+    '--card-pointer-rotate-x': '0deg',
+    '--card-pointer-rotate-y': '0deg',
+    '--card-rotate-current': '0deg',
+    '--card-burst-progress': 0,
     '--case-accent': theme.accent,
     '--case-accent-rgb': theme.accentSoft,
     '--card-order': index,
@@ -261,16 +281,11 @@ type SelectedWorkProps = {
   cases: readonly PublicCaseStudy[];
 };
 
-type KeyboardScrollLock = {
-  index: number;
-  baselineY: number;
-  startedAt: number;
-};
-
 export function SelectedWork({ cases }: SelectedWorkProps) {
   const sectionRef = useRef<HTMLElement | null>(null);
   const frameRef = useRef<number | null>(null);
-  const keyboardScrollLockRef = useRef<KeyboardScrollLock | null>(null);
+  const pointerFrameRef = useRef<number | null>(null);
+  const pointerSampleRef = useRef<{ stage: HTMLDivElement; clientX: number; clientY: number } | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const reduceMotion = useReducedMotion() ?? false;
   const caseStudies = cases;
@@ -307,11 +322,6 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
 
       event.preventDefault();
       const selectedIndex = clampIndex(next, caseCount);
-      keyboardScrollLockRef.current = {
-        index: selectedIndex,
-        baselineY: window.scrollY,
-        startedAt: performance.now(),
-      };
       handleSelect(selectedIndex);
       const tabGroup = target.getAttribute('data-tab-group') ?? 'desktop';
       const tab = document.querySelector<HTMLButtonElement>(`button[data-tab-group="${tabGroup}"][data-tab-index="${selectedIndex}"]`);
@@ -329,16 +339,7 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
       if (frameRef.current !== null) return;
       frameRef.current = window.requestAnimationFrame(() => {
         frameRef.current = null;
-        const keyboardLock = keyboardScrollLockRef.current;
-        if (keyboardLock && shouldHoldKeyboardSelection(
-          performance.now() - keyboardLock.startedAt,
-          window.scrollY - keyboardLock.baselineY,
-        )) {
-          setActiveIndex(keyboardLock.index);
-          return;
-        }
-        keyboardScrollLockRef.current = null;
-        updateActiveFromScroll(section, setActiveIndex, reduceMotion, caseCount);
+        updateScatterFromScroll(section, reduceMotion);
       });
     };
 
@@ -350,7 +351,11 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
       window.removeEventListener('resize', onScroll);
       if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
     };
-  }, [caseCount, reduceMotion]);
+  }, [reduceMotion]);
+
+  useEffect(() => () => {
+    if (pointerFrameRef.current !== null) window.cancelAnimationFrame(pointerFrameRef.current);
+  }, []);
 
   const handleStagePointerMove = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -366,11 +371,54 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
       stage.style.setProperty('--cursor-y', `${event.clientY}px`);
       stage.dataset.cursorInside = 'true';
       stage.dataset.cursorHover = target.closest('[data-case-index]') ? 'true' : 'false';
+
+      pointerSampleRef.current = { stage, clientX: event.clientX, clientY: event.clientY };
+      if (pointerFrameRef.current !== null) return;
+      pointerFrameRef.current = window.requestAnimationFrame(() => {
+        pointerFrameRef.current = null;
+        const sample = pointerSampleRef.current;
+        if (!sample) return;
+        const stageRect = sample.stage.getBoundingClientRect();
+        const pointerX = sample.clientX - stageRect.left - stageRect.width / 2;
+        const pointerY = sample.clientY - stageRect.top - stageRect.height / 2;
+
+        sample.stage.querySelectorAll<HTMLElement>('[data-case-index]').forEach((card) => {
+          const index = Number(card.dataset.caseIndex);
+          const layout = CARD_LAYOUT[index];
+          if (!layout) return;
+          const baseX = Number.parseFloat(card.style.getPropertyValue('--card-x-px')) || 0;
+          const baseY = Number.parseFloat(card.style.getPropertyValue('--card-y-px')) || 0;
+          const pointerMotion = getPointerCardMotion({
+            baseX,
+            baseY,
+            pointerX,
+            pointerY,
+            viewportWidth: stageRect.width,
+            viewportHeight: stageRect.height,
+            depth: layout.depth,
+          });
+          card.style.setProperty('--card-pointer-x', `${pointerMotion.x.toFixed(3)}px`);
+          card.style.setProperty('--card-pointer-y', `${pointerMotion.y.toFixed(3)}px`);
+          card.style.setProperty('--card-pointer-rotate-x', `${pointerMotion.rotateX.toFixed(3)}deg`);
+          card.style.setProperty('--card-pointer-rotate-y', `${pointerMotion.rotateY.toFixed(3)}deg`);
+        });
+      });
     },
     [reduceMotion],
   );
 
   const handleStagePointerLeave = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    pointerSampleRef.current = null;
+    if (pointerFrameRef.current !== null) {
+      window.cancelAnimationFrame(pointerFrameRef.current);
+      pointerFrameRef.current = null;
+    }
+    event.currentTarget.querySelectorAll<HTMLElement>('[data-case-index]').forEach((card) => {
+      card.style.setProperty('--card-pointer-x', '0px');
+      card.style.setProperty('--card-pointer-y', '0px');
+      card.style.setProperty('--card-pointer-rotate-x', '0deg');
+      card.style.setProperty('--card-pointer-rotate-y', '0deg');
+    });
     delete event.currentTarget.dataset.cursorInside;
     delete event.currentTarget.dataset.cursorHover;
     delete event.currentTarget.dataset.cursorFocus;
@@ -378,7 +426,15 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
 
   const handleStageFocusCapture = useCallback((event: FocusEvent<HTMLDivElement>) => {
     const target = event.target as Element;
-    if (target.closest('[data-case-index]')) event.currentTarget.dataset.cursorFocus = 'true';
+    const card = target.closest<HTMLElement>('[data-case-index]');
+    if (!card) return;
+    event.currentTarget.dataset.cursorFocus = 'true';
+    const baseX = Number.parseFloat(card.style.getPropertyValue('--card-x-px')) || 0;
+    const baseY = Number.parseFloat(card.style.getPropertyValue('--card-y-px')) || 0;
+    card.style.setProperty('--card-pointer-x', `${(-baseX * 0.58).toFixed(3)}px`);
+    card.style.setProperty('--card-pointer-y', `${(-baseY * 0.58).toFixed(3)}px`);
+    card.style.setProperty('--card-pointer-rotate-x', '0deg');
+    card.style.setProperty('--card-pointer-rotate-y', '0deg');
   }, []);
 
   const handleStageBlurCapture = useCallback((event: FocusEvent<HTMLDivElement>) => {
@@ -417,13 +473,18 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
         <p className={styles.introCopy}>
           5つの匿名ケースを選択できます。公開承認された情報だけを、ここへ実装します。
         </p>
-        <span className={styles.scrollLabel}>SCROLL TO SELECT / {String(activeIndex + 1).padStart(2, '0')}</span>
+        <span className={styles.scrollLabel}>
+          <span className={styles.desktopInstruction}>HOVER TO SELECT</span>
+          <span className={styles.mobileInstruction}>TAP TO SELECT</span>
+          {' / '}{String(activeIndex + 1).padStart(2, '0')}
+        </span>
       </div>
 
       <div className={styles.desktopStage}>
         <div className={styles.stageAtmosphere} aria-hidden="true" />
         <div
           className={styles.stageShell}
+          data-work-stage
           onPointerMove={handleStagePointerMove}
           onPointerLeave={handleStagePointerLeave}
           onFocusCapture={handleStageFocusCapture}
