@@ -85,10 +85,17 @@ test('HeroCosmosCanvas shares MotionValue progress without scroll React state', 
   assert.match(cosmos, /if \(capabilityReady\) onStaticChange\(isStatic\)/);
   assert.match(styles, /\.hero-story \{ min-height: 420vh/);
   assert.doesNotMatch(hero, /LIVE FIELD MAP/);
-  assert.match(hero, /Forward Deployed<\/span><span>Engineer/);
+  assert.match(hero, /aria-label="Forward Deployed Engineer — Business × AI × Software"/);
   assert.match(hero, /Business × AI × Software/);
   assert.match(hero, /課題整理から設計・開発・導入まで。/);
   assert.match(hero, /事業の課題を、技術で解決します。/);
   assert.match(styles, /hero-story\[data-static='true'\] \.hero-story__fde-copy[\s\S]*top: 29%/);
+  assert.match(styles, /\.hero-story__fde-copy \{[^}]*max-width: none;[^}]*width: min\(76rem,/);
+  assert.match(styles, /\.hero-story__initial--forward \{ color: #70e9ff; \}/);
+  assert.match(styles, /\.hero-story__initial--deployed \{ color: #d29aff; \}/);
+  assert.match(styles, /\.hero-story__initial--engineer \{ color: #ffd460; \}/);
+  assert.match(hero, /hero-story__initial--forward[^>]*>F<\/span>orward/);
+  assert.match(hero, /hero-story__initial--deployed[^>]*>D<\/span>eployed/);
+  assert.match(hero, /hero-story__initial--engineer[^>]*>E<\/span>ngineer/);
   assert.match(styles, /hero-story\[data-static='true'\] \.hero-story__statement[\s\S]*top: 66%/);
 });

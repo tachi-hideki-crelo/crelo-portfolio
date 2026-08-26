@@ -61,7 +61,10 @@ export default function HeroExperience() {
           <motion.div className="hero-story__fde-copy" data-echo="Forward Deployed Engineer" style={{ opacity: staticMode ? 1 : fdeOpacity, y: staticMode ? 0 : fdeShift, filter: staticMode ? 'none' : fdeBlur, letterSpacing: staticMode ? '-.04em' : fdeTracking, clipPath: staticMode ? 'inset(0 0% 0 0)' : fdeMask }}>
             <p className="eyebrow eyebrow--mint">Forward deployed practice / 001</p>
             <h1 id="hero-title" aria-label="Forward Deployed Engineer — Business × AI × Software" className="hero-story__title">
-              <span className="hero-story__line hero-story__line--primary"><span>Forward Deployed</span><span>Engineer</span></span>
+              <span className="hero-story__line hero-story__line--primary" aria-hidden="true">
+                <span><span className="hero-story__initial hero-story__initial--forward">F</span>orward <span className="hero-story__initial hero-story__initial--deployed">D</span>eployed</span>
+                <span><span className="hero-story__initial hero-story__initial--engineer">E</span>ngineer</span>
+              </span>
               <span className="hero-story__line hero-story__line--accent">Business × AI × Software</span>
             </h1>
           </motion.div>
