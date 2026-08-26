@@ -75,7 +75,7 @@ export default function SiteChrome({ publicBuild }: { publicBuild: boolean }) {
       <header className="site-header">
         <a className="brand-mark" href="#top" aria-label="Crelo home">
           <Image src="/assets/crelo-logo.png" alt="Crelo" width={42} height={42} priority />
-          <span>CRELO</span>
+          <span>Crelo</span>
         </a>
         <nav ref={navRef} id="primary-navigation" className={`site-nav${open ? ' site-nav--open' : ''}`} aria-label="Primary navigation">
           {navItems.map((item, index) => <a key={item.href} href={item.href} onClick={() => setOpen(false)}><span>0{index + 1}</span>{item.label}</a>)}

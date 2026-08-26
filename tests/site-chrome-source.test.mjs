@@ -11,3 +11,8 @@ test('menu replay delegates focus to Intro while ordinary close returns to the t
   assert.match(source, /replayPendingRef\.current = false/);
   assert.match(source, /if \(!replayingIntro\) menuButtonRef\.current\?\.focus\(\)/);
 });
+
+test('header wordmark keeps the requested Crelo casing', () => {
+  assert.match(source, /<span>Crelo<\/span>/);
+  assert.doesNotMatch(source, /<span>CRELO<\/span>/);
+});
