@@ -285,7 +285,12 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
   const sectionRef = useRef<HTMLElement | null>(null);
   const frameRef = useRef<number | null>(null);
   const pointerFrameRef = useRef<number | null>(null);
-  const pointerSampleRef = useRef<{ stage: HTMLDivElement; clientX: number; clientY: number } | null>(null);
+  const pointerSampleRef = useRef<{
+    stage: HTMLDivElement;
+    clientX: number;
+    clientY: number;
+    hoveredIndex: number | null;
+  } | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const reduceMotion = useReducedMotion() ?? false;
   const caseStudies = cases;
@@ -367,12 +372,14 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
       }
 
       const target = event.target as Element;
+      const hoveredCard = target.closest<HTMLElement>('[data-case-index]');
+      const hoveredIndex = hoveredCard ? Number(hoveredCard.dataset.caseIndex) : null;
       stage.style.setProperty('--cursor-x', `${event.clientX}px`);
       stage.style.setProperty('--cursor-y', `${event.clientY}px`);
       stage.dataset.cursorInside = 'true';
-      stage.dataset.cursorHover = target.closest('[data-case-index]') ? 'true' : 'false';
+      stage.dataset.cursorHover = hoveredIndex === null ? 'false' : 'true';
 
-      pointerSampleRef.current = { stage, clientX: event.clientX, clientY: event.clientY };
+      pointerSampleRef.current = { stage, clientX: event.clientX, clientY: event.clientY, hoveredIndex };
       if (pointerFrameRef.current !== null) return;
       pointerFrameRef.current = window.requestAnimationFrame(() => {
         pointerFrameRef.current = null;
@@ -384,6 +391,7 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
 
         sample.stage.querySelectorAll<HTMLElement>('[data-case-index]').forEach((card) => {
           const index = Number(card.dataset.caseIndex);
+          if (index === sample.hoveredIndex) return;
           const layout = CARD_LAYOUT[index];
           if (!layout) return;
           const baseX = Number.parseFloat(card.style.getPropertyValue('--card-x-px')) || 0;

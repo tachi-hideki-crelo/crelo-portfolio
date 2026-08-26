@@ -9,10 +9,10 @@ export type CardMotionLayout = {
 
 export const CARD_LAYOUT: readonly CardMotionLayout[] = [
   { x: '0vw', y: '-2vh', rotate: '-2deg', z: 92, depth: 132, parallax: 14 },
-  { x: '-58vw', y: '-32vh', rotate: '-14deg', z: 48, depth: 96, parallax: -26 },
-  { x: '60vw', y: '-27vh', rotate: '13deg', z: 34, depth: 116, parallax: 30 },
-  { x: '-56vw', y: '38vh', rotate: '11deg', z: 24, depth: 88, parallax: -22 },
-  { x: '61vw', y: '40vh', rotate: '-12deg', z: 40, depth: 108, parallax: 27 },
+  { x: '-30vw', y: '-22vh', rotate: '-11deg', z: 48, depth: 96, parallax: -20 },
+  { x: '30vw', y: '-21vh', rotate: '11deg', z: 34, depth: 116, parallax: 22 },
+  { x: '-30vw', y: '23vh', rotate: '9deg', z: 24, depth: 88, parallax: -18 },
+  { x: '31vw', y: '24vh', rotate: '-10deg', z: 40, depth: 108, parallax: 20 },
 ] as const;
 
 export const STATIC_CARD_LAYOUT: readonly CardMotionLayout[] = [
@@ -62,18 +62,27 @@ export function getPointerCardMotion({
 
   const safeWidth = Math.max(viewportWidth, 1);
   const safeHeight = Math.max(viewportHeight, 1);
-  const normalizedX = Math.min(Math.max(pointerX / (safeWidth / 2), -1), 1);
-  const normalizedY = Math.min(Math.max(pointerY / (safeHeight / 2), -1), 1);
-  const outsideX = Math.max(Math.abs(baseX) - safeWidth * 0.3, 0) / (safeWidth * 0.7);
-  const outsideY = Math.max(Math.abs(baseY) - safeHeight * 0.3, 0) / (safeHeight * 0.7);
-  const outsidePull = Math.min(Math.max(outsideX, outsideY), 1) * 0.2;
-  const depthPull = Math.min(Math.max(depth, 0) / 150, 1) * 0.07;
-  const pull = 0.08 + outsidePull + depthPull;
+  const deltaX = pointerX - baseX;
+  const deltaY = pointerY - baseY;
+  const distance = Math.hypot(deltaX, deltaY);
+  const radius = Math.max(Math.min(safeWidth * 0.38, safeHeight * 0.5), 240);
+  const proximity = distance >= radius ? 0 : 1 - distance / radius;
+  const falloff = proximity * proximity;
+  if (falloff === 0) return { x: 0, y: 0, rotateX: 0, rotateY: 0 };
+  if (distance === 0) return { x: 0, y: 0, rotateX: 0, rotateY: 0 };
+
+  const depthFactor = Math.min(Math.max(depth, 0) / 180, 1);
+  const magneticMagnitude = Math.min(36 + depthFactor * 18, distance * 0.42) * falloff;
+  const directionX = deltaX / distance;
+  const directionY = deltaY / distance;
+  const normalizedX = Math.min(Math.max(deltaX / (safeWidth / 2), -1), 1);
+  const normalizedY = Math.min(Math.max(deltaY / (safeHeight / 2), -1), 1);
+  const tilt = 3.5 + depthFactor * 12;
 
   return {
-    x: (pointerX - baseX) * pull,
-    y: (pointerY - baseY) * pull,
-    rotateX: -normalizedY * (3.5 + depthPull * 18),
-    rotateY: normalizedX * (4.5 + depthPull * 20),
+    x: directionX * magneticMagnitude,
+    y: directionY * magneticMagnitude,
+    rotateX: -normalizedY * tilt * falloff,
+    rotateY: normalizedX * tilt * falloff,
   };
 }

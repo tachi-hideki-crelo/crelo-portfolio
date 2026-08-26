@@ -133,6 +133,8 @@ test('selected work keeps motion browser-safe and has a static reduced-motion pa
   assert.match(selectedWorkSource, /requestAnimationFrame/);
   assert.match(selectedWorkSource, /data-work-stage/);
   assert.match(selectedWorkSource, /dataset\.cursorInside/);
+  assert.match(selectedWorkSource, /hoveredIndex/);
+  assert.match(selectedWorkSource, /if \(index === sample\.hoveredIndex\) return;/);
   assert.doesNotMatch(selectedWorkSource, /cursor\.style\.opacity/);
   assert.doesNotMatch(selectedWorkSource, /window\.addEventListener\('pointermove'/);
   assert.match(selectedWorkStyles, /perspective: 1100px/);
@@ -227,18 +229,22 @@ test('detail metadata indexes only approved production cases with a valid HTTPS 
   assert.equal(getApprovedOgMedia(draftWithPrivateFacts), undefined);
 });
 
-test('scroll burst expands all cards while pointer motion pulls outside cards inward', () => {
+test('scroll burst keeps cards near the viewport and pointer motion uses a proximity magnet', () => {
   assert.equal(CARD_LAYOUT[0].x, '0vw');
-  assert.ok(Math.abs(Number.parseFloat(CARD_LAYOUT[1].x)) >= 55);
-  assert.ok(Math.abs(Number.parseFloat(CARD_LAYOUT[4].x)) >= 55);
+  for (const layout of CARD_LAYOUT.slice(1)) {
+    assert.ok(Math.abs(Number.parseFloat(layout.x)) >= 30);
+    assert.ok(Math.abs(Number.parseFloat(layout.x)) <= 32);
+    assert.ok(Math.abs(Number.parseFloat(layout.y)) >= 21);
+    assert.ok(Math.abs(Number.parseFloat(layout.y)) <= 25);
+  }
   assert.ok(Math.abs(Number.parseFloat(STATIC_CARD_LAYOUT[1].x)) < 30);
   assert.equal(getBurstProgress(0, 0), 0);
   assert.ok(getBurstProgress(0.2, 0) > 1);
   assert.equal(getBurstProgress(1, 4), 1);
   assert.equal(getBurstProgress(0, 4, true), 1);
 
-  const offscreenMotion = getPointerCardMotion({
-    baseX: 1000,
+  const farMotion = getPointerCardMotion({
+    baseX: 520,
     baseY: 0,
     pointerX: 0,
     pointerY: 0,
@@ -246,22 +252,38 @@ test('scroll burst expands all cards while pointer motion pulls outside cards in
     viewportHeight: 900,
     depth: 100,
   });
-  assert.ok(offscreenMotion.x < 0);
-  assert.ok(Math.abs(1000 + offscreenMotion.x) < 1000);
+  assert.ok(Math.abs(farMotion.x) < 0.001);
+  assert.ok(Math.abs(farMotion.y) < 0.001);
+  assert.ok(Math.abs(farMotion.rotateX) < 0.001);
+  assert.ok(Math.abs(farMotion.rotateY) < 0.001);
 
-  const centerMotion = getPointerCardMotion({
-    baseX: 0,
+  const nearMotion = getPointerCardMotion({
+    baseX: 320,
     baseY: 0,
-    pointerX: 400,
-    pointerY: -180,
+    pointerX: 420,
+    pointerY: 0,
+    viewportWidth: 1440,
+    viewportHeight: 900,
+    depth: 100,
+  });
+  assert.ok(Math.abs(nearMotion.x) > Math.abs(farMotion.x));
+  assert.ok(nearMotion.x > 0);
+  assert.ok(Math.abs(nearMotion.x) > 20);
+  assert.ok(Math.abs(nearMotion.x) < 100);
+
+  const directionalMotion = getPointerCardMotion({
+    baseX: 160,
+    baseY: 100,
+    pointerX: 280,
+    pointerY: 0,
     viewportWidth: 1440,
     viewportHeight: 900,
     depth: 120,
   });
-  assert.ok(centerMotion.x > 0);
-  assert.ok(centerMotion.y < 0);
-  assert.ok(centerMotion.rotateX > 0);
-  assert.ok(centerMotion.rotateY > 0);
+  assert.ok(directionalMotion.x > 0);
+  assert.ok(directionalMotion.y < 0);
+  assert.ok(directionalMotion.rotateX > 0);
+  assert.ok(directionalMotion.rotateY > 0);
   assert.deepEqual(getPointerCardMotion({
     baseX: 1000,
     baseY: 500,
