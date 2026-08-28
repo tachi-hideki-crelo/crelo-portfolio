@@ -166,10 +166,14 @@ test('selected work keeps motion browser-safe and has a static reduced-motion pa
   assert.match(selectedWorkStyles, /\.cardArrow[\s\S]*height: 2\.8rem[\s\S]*width: 2\.8rem/);
   assert.match(selectedWorkStyles, /\.cardArrow::before[\s\S]*transform: scale\(0\.55\)/);
   assert.match(selectedWorkStyles, /\.cardArrow > span[\s\S]*transform: scale\(0\.55\)/);
-  assert.match(selectedWorkStyles, /\.workIntro h2 em[\s\S]*white-space: nowrap/);
-  assert.match(selectedWorkStyles, /\.introPhrase[\s\S]*display: block[\s\S]*white-space: nowrap/);
-  assert.match(selectedWorkSource, /className=\{styles\.introPhrase\}>現場に入り、</);
-  assert.match(selectedWorkSource, /className=\{styles\.introPhrase\}><em>解像度<\/em>を上げる/);
+  assert.match(selectedWorkSource, /<h2 id="selected-work-title">実績例<\/h2>/);
+  assert.match(selectedWorkSource, /実際の例をご紹介します。<br \/>/);
+  assert.match(selectedWorkSource, />WEBサイト、<\/span><span[^>]*>チラシ制作、<\/span><span[^>]*>SNSデータ運用化、<\/span><span[^>]*>アプリ開発など<\/span><br \/>/);
+  assert.match(selectedWorkSource, />様々な企業の悩みに合った<\/span><span[^>]*>技術を用いて<\/span><span[^>]*>解決を目指します。<\/span>/);
+  assert.equal((selectedWorkSource.match(/<br \/>/g) ?? []).length, 2);
+  assert.doesNotMatch(selectedWorkSource, /現場に入り、|解像度|5つの匿名ケースを選択できます。/);
+  assert.match(selectedWorkStyles, /\.introCopy[\s\S]*max-width: 42rem/);
+  assert.match(selectedWorkStyles, /\.introCopyChunk[\s\S]*display: inline-block[\s\S]*white-space: nowrap/);
   assert.match(selectedWorkStyles, /\.stageVisual > div[\s\S]*min-height: 0/);
   assert.doesNotMatch(selectedWorkStyles, /stageShell > \.visual/);
   assert.doesNotMatch(selectedWorkStyles, /\.cursor\s*\{/);

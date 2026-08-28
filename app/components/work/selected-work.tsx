@@ -526,12 +526,11 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
     >
       <div className={styles.workIntro}>
         <p className={styles.eyebrow}>02 / SELECTED WORK</p>
-        <h2 id="selected-work-title">
-          <span className={styles.introPhrase}>現場に入り、</span>
-          <span className={styles.introPhrase}><em>解像度</em>を上げる。</span>
-        </h2>
+        <h2 id="selected-work-title">実績例</h2>
         <p className={styles.introCopy}>
-          5つの匿名ケースを選択できます。公開承認された情報だけを、ここへ実装します。
+          実際の例をご紹介します。<br />
+          <span className={styles.introCopyChunk}>WEBサイト、</span><span className={styles.introCopyChunk}>チラシ制作、</span><span className={styles.introCopyChunk}>SNSデータ運用化、</span><span className={styles.introCopyChunk}>アプリ開発など</span><br />
+          <span className={styles.introCopyChunk}>様々な企業の悩みに合った</span><span className={styles.introCopyChunk}>技術を用いて</span><span className={styles.introCopyChunk}>解決を目指します。</span>
         </p>
         <span className={styles.scrollLabel}>
           <span className={styles.desktopInstruction}>HOVER TO SELECT</span>

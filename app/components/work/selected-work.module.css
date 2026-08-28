@@ -124,23 +124,17 @@
   text-wrap: balance;
 }
 
-.workIntro h2 em {
-  color: var(--theme-accent);
-  font-style: normal;
-  white-space: nowrap;
-}
-
-.introPhrase {
-  display: block;
-  white-space: nowrap;
-}
-
 .introCopy {
   color: #8c9a99;
   font-size: clamp(0.91rem, 1.4vw, 1.05rem);
   line-height: 1.8;
   margin: 2rem 0 0;
-  max-width: 30rem;
+  max-width: 42rem;
+}
+
+.introCopyChunk {
+  display: inline-block;
+  white-space: nowrap;
 }
 
 .scrollLabel {
