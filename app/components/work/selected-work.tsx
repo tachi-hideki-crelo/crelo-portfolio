@@ -8,7 +8,8 @@ import { WorkVisual } from './work-visual';
 import {
   CARD_LAYOUT,
   STATIC_CARD_LAYOUT,
-  getBurstProgress,
+  getOrbitStageVisuals,
+  getOrbitalCardMotion,
   getPointerCardMotion,
   getScatterEntryProgress,
 } from './work-motion';
@@ -78,6 +79,25 @@ function resolveViewportOffset(value: string): number {
   return numeric;
 }
 
+function setDesktopTabListReady(tabList: HTMLElement, ready: boolean) {
+  tabList.toggleAttribute('inert', !ready);
+  if (ready) tabList.removeAttribute('aria-hidden');
+  else tabList.setAttribute('aria-hidden', 'true');
+
+  tabList.querySelectorAll<HTMLElement>('button, a[href]').forEach((control) => {
+    if (!ready) {
+      control.tabIndex = -1;
+      return;
+    }
+
+    if (control.getAttribute('role') === 'tab') {
+      control.tabIndex = control.getAttribute('aria-selected') === 'true' ? 0 : -1;
+    } else {
+      control.removeAttribute('tabindex');
+    }
+  });
+}
+
 function updateScatterFromScroll(
   section: HTMLElement,
   reduceMotion: boolean,
@@ -90,29 +110,40 @@ function updateScatterFromScroll(
   const visualProgress = reduceMotion ? 0 : Math.min(Math.max(-rect.top / travel, 0), 1);
   const stageRect = stage.getBoundingClientRect();
   const entryProgress = getScatterEntryProgress(stageRect.top, window.innerHeight, reduceMotion);
-  const entryOpacity = reduceMotion ? 1 : Math.min(entryProgress * 2.6, 1);
-  const entryScale = reduceMotion ? 1 : 0.64 + Math.min(entryProgress * 1.7, 1) * 0.36;
+  const entryVisuals = getOrbitStageVisuals(entryProgress, reduceMotion);
   const useContainedLayout = reduceMotion || !isFinePointer();
 
   section.style.setProperty('--work-progress', visualProgress.toFixed(4));
   section.style.setProperty('--work-rotation', `${(visualProgress * 34).toFixed(3)}deg`);
-  section.style.setProperty('--work-entry-opacity', entryOpacity.toFixed(4));
-  section.style.setProperty('--work-entry-scale', entryScale.toFixed(4));
-  section.style.setProperty('--work-entry-blur', `${((1 - entryOpacity) * 22).toFixed(3)}px`);
-  section.dataset.burstReady = entryProgress > 0.2 || reduceMotion ? 'true' : 'false';
+  section.style.setProperty('--work-entry-opacity', entryVisuals.opacity.toFixed(4));
+  section.style.setProperty('--work-entry-scale', entryVisuals.scale.toFixed(4));
+  section.style.setProperty('--work-entry-blur', `${entryVisuals.blur.toFixed(3)}px`);
+  const orbitReady = entryProgress > 0.3 || reduceMotion;
+  const desktopTabList = stage.querySelector<HTMLElement>('[role="tablist"]');
+  section.dataset.orbitReady = orbitReady ? 'true' : 'false';
+  if (desktopTabList) setDesktopTabListReady(desktopTabList, orbitReady);
 
   section.querySelectorAll<HTMLElement>('[data-case-index]').forEach((card) => {
     const index = Number(card.dataset.caseIndex);
     const layout = (useContainedLayout ? STATIC_CARD_LAYOUT : CARD_LAYOUT)[index];
     if (!layout) return;
-    const burst = getBurstProgress(entryProgress, index, reduceMotion);
-    const settledBurst = Math.min(Math.max(burst, 0), 1.16);
-    const depthDrift = reduceMotion ? 0 : layout.depth * visualProgress * 0.18;
-    card.style.setProperty('--card-x-px', `${(resolveViewportOffset(layout.x) * settledBurst).toFixed(3)}px`);
-    card.style.setProperty('--card-y-px', `${(resolveViewportOffset(layout.y) * settledBurst).toFixed(3)}px`);
-    card.style.setProperty('--card-z-px', `${(layout.z * Math.min(settledBurst, 1) + depthDrift).toFixed(3)}px`);
-    card.style.setProperty('--card-rotate-current', `${(Number.parseFloat(layout.rotate) * settledBurst).toFixed(3)}deg`);
-    card.style.setProperty('--card-burst-progress', settledBurst.toFixed(4));
+    const orbit = getOrbitalCardMotion({
+      progress: entryProgress,
+      index,
+      targetX: resolveViewportOffset(layout.x),
+      targetY: resolveViewportOffset(layout.y),
+      targetZ: layout.z,
+      targetRotate: Number.parseFloat(layout.rotate),
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+      reduceMotion,
+    });
+    const depthDrift = reduceMotion ? 0 : layout.depth * visualProgress * orbit.progress * 0.18;
+    card.style.setProperty('--card-x-px', `${orbit.x.toFixed(3)}px`);
+    card.style.setProperty('--card-y-px', `${orbit.y.toFixed(3)}px`);
+    card.style.setProperty('--card-z-px', `${(orbit.z + depthDrift).toFixed(3)}px`);
+    card.style.setProperty('--card-rotate-current', `${orbit.rotate.toFixed(3)}deg`);
+    card.style.setProperty('--card-orbit-progress', orbit.progress.toFixed(4));
   });
 }
 
@@ -147,7 +178,7 @@ function CaseCard({
     '--card-pointer-rotate-x': '0deg',
     '--card-pointer-rotate-y': '0deg',
     '--card-rotate-current': '0deg',
-    '--card-burst-progress': 0,
+    '--card-orbit-progress': 0,
     '--case-accent': theme.accent,
     '--case-accent-rgb': theme.accentSoft,
     '--card-order': index,

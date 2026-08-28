@@ -7,7 +7,9 @@ import { parsePublicOrigin } from '../app/seo-config.ts';
 import {
   CARD_LAYOUT,
   STATIC_CARD_LAYOUT,
-  getBurstProgress,
+  getOrbitProgress,
+  getOrbitStageVisuals,
+  getOrbitalCardMotion,
   getPointerCardMotion,
   getScatterEntryProgress,
 } from '../app/components/work/work-motion.ts';
@@ -122,6 +124,14 @@ test('selected work keeps motion browser-safe and has a static reduced-motion pa
   assert.match(selectedWorkSource, /--work-rotation/);
   assert.match(selectedWorkSource, /updateScatterFromScroll\(section, reduceMotion\)/);
   assert.match(selectedWorkSource, /getScatterEntryProgress\(stageRect\.top, window\.innerHeight, reduceMotion\)/);
+  assert.match(selectedWorkSource, /getOrbitStageVisuals\(entryProgress, reduceMotion\)/);
+  assert.match(selectedWorkSource, /getOrbitalCardMotion/);
+  assert.match(selectedWorkSource, /dataset\.orbitReady/);
+  assert.match(selectedWorkSource, /toggleAttribute\('inert', !ready\)/);
+  assert.match(selectedWorkSource, /setAttribute\('aria-hidden', 'true'\)/);
+  assert.match(selectedWorkSource, /querySelectorAll<HTMLElement>\('button, a\[href\]'\)/);
+  assert.match(selectedWorkSource, /setDesktopTabListReady\(desktopTabList, orbitReady\)/);
+  assert.doesNotMatch(selectedWorkSource, /getBurstProgress|card-burst-progress|dataset\.burstReady/);
   assert.doesNotMatch(selectedWorkSource, /getActiveCaseIndex/);
   const scatterSource = selectedWorkSource.slice(
     selectedWorkSource.indexOf('function updateScatterFromScroll'),
@@ -143,6 +153,7 @@ test('selected work keeps motion browser-safe and has a static reduced-motion pa
   assert.doesNotMatch(selectedWorkSource, /window\.addEventListener\('pointermove'/);
   assert.match(selectedWorkStyles, /perspective: 1100px/);
   assert.match(selectedWorkStyles, /--work-entry-scale/);
+  assert.match(selectedWorkStyles, /data-orbit-ready='false'/);
   assert.match(selectedWorkStyles, /translate3d\(calc\(var\(--card-x-px\) \+ var\(--card-pointer-x\)\)/);
   assert.match(selectedWorkStyles, /rotate\(var\(--work-rotation\)\)/);
   assert.match(selectedWorkStyles, /z-index: calc\(3 - var\(--card-order\)\)/);
@@ -259,7 +270,7 @@ test('detail metadata indexes only approved production cases with a valid HTTPS 
   assert.equal(getApprovedOgMedia(draftWithPrivateFacts), undefined);
 });
 
-test('scroll burst keeps cards near the viewport and pointer motion uses a proximity magnet', () => {
+test('scroll orbit starts later, follows circular paths, and preserves pointer magnetism', () => {
   assert.equal(CARD_LAYOUT[0].x, '0vw');
   for (const layout of CARD_LAYOUT.slice(1)) {
     assert.ok(Math.abs(Number.parseFloat(layout.x)) >= 30);
@@ -268,19 +279,85 @@ test('scroll burst keeps cards near the viewport and pointer motion uses a proxi
     assert.ok(Math.abs(Number.parseFloat(layout.y)) <= 25);
   }
   assert.ok(Math.abs(Number.parseFloat(STATIC_CARD_LAYOUT[1].x)) < 30);
-  assert.equal(getBurstProgress(0, 0), 0);
-  assert.ok(getBurstProgress(0.2, 0) > 1);
-  assert.equal(getBurstProgress(1, 4), 1);
-  assert.equal(getBurstProgress(0, 4, true), 1);
+  assert.equal(getOrbitProgress(0, 0), 0);
+  assert.ok(getOrbitProgress(0.2, 0) > 0);
+  assert.ok(getOrbitProgress(0.2, 0) < 0.2);
+  assert.ok(getOrbitProgress(0.2, 4) < getOrbitProgress(0.2, 0));
+  assert.equal(getOrbitProgress(1, 4), 1);
+  assert.equal(getOrbitProgress(0, 4, true), 1);
 
   assert.equal(getScatterEntryProgress(900, 900), 0);
-  assert.equal(getScatterEntryProgress(522, 900), 0);
-  assert.equal(getScatterEntryProgress(495, 900), 0);
-  assert.ok(getScatterEntryProgress(450, 900) >= 0.2);
-  assert.ok(getBurstProgress(getScatterEntryProgress(450, 900), 0) > 1);
-  assert.ok(getScatterEntryProgress(441, 900) >= 0.25);
-  assert.equal(getScatterEntryProgress(198, 900), 1);
+  assert.equal(getScatterEntryProgress(450, 900), 0);
+  assert.equal(getScatterEntryProgress(378, 900), 0);
+  assert.equal(getScatterEntryProgress(360, 900), 0);
+  assert.ok(getScatterEntryProgress(342, 900) > 0);
+  assert.ok(getScatterEntryProgress(342, 900) < 0.1);
+  assert.equal(getScatterEntryProgress(198, 900), 0.5);
+  assert.equal(getScatterEntryProgress(36, 900), 1);
   assert.equal(getScatterEntryProgress(900, 900, true), 1);
+
+  assert.deepEqual(getOrbitStageVisuals(0), { opacity: 0, scale: 0.72, blur: 20 });
+  const middleVisuals = getOrbitStageVisuals(0.5);
+  assert.ok(middleVisuals.opacity > 0.7 && middleVisuals.opacity < 0.9);
+  assert.ok(middleVisuals.scale > 0.85 && middleVisuals.scale < 0.95);
+  assert.ok(middleVisuals.blur > 0 && middleVisuals.blur < 6);
+  assert.deepEqual(getOrbitStageVisuals(1), { opacity: 1, scale: 1, blur: 0 });
+  assert.deepEqual(getOrbitStageVisuals(0, true), { opacity: 1, scale: 1, blur: 0 });
+
+  const orbitInput = {
+    index: 2,
+    targetX: 400,
+    targetY: -200,
+    targetZ: 40,
+    targetRotate: 11,
+    viewportWidth: 1440,
+    viewportHeight: 900,
+  };
+  const orbitStart = getOrbitalCardMotion({ ...orbitInput, progress: 0 });
+  assert.equal(orbitStart.progress, 0);
+  assert.ok(Math.abs(orbitStart.x) < 0.0001);
+  assert.ok(Math.abs(orbitStart.y) < 0.0001);
+  assert.ok(Math.abs(orbitStart.z) < 0.0001);
+
+  const orbitMiddle = getOrbitalCardMotion({ ...orbitInput, progress: 0.5 });
+  assert.ok(orbitMiddle.progress > 0.45 && orbitMiddle.progress < 0.65);
+  assert.ok(orbitMiddle.x < 0);
+  assert.ok(orbitMiddle.y < 0);
+  assert.ok(orbitMiddle.z > orbitInput.targetZ);
+  assert.notEqual(orbitMiddle.rotate, orbitInput.targetRotate * orbitMiddle.progress);
+
+  const orbitEnd = getOrbitalCardMotion({ ...orbitInput, progress: 1 });
+  assert.ok(Math.abs(orbitEnd.x - orbitInput.targetX) < 0.0001);
+  assert.ok(Math.abs(orbitEnd.y - orbitInput.targetY) < 0.0001);
+  assert.ok(Math.abs(orbitEnd.z - orbitInput.targetZ) < 0.0001);
+  assert.ok(Math.abs(orbitEnd.rotate - orbitInput.targetRotate) < 0.0001);
+  assert.equal(orbitEnd.progress, 1);
+
+  assert.deepEqual(
+    getOrbitalCardMotion({ ...orbitInput, progress: 0, reduceMotion: true }),
+    { x: 400, y: -200, z: 40, rotate: 11, progress: 1 },
+  );
+
+  CARD_LAYOUT.forEach((layout, index) => {
+    const targetX = Number.parseFloat(layout.x) * 14.4;
+    const targetY = Number.parseFloat(layout.y) * 9;
+    const middle = getOrbitalCardMotion({
+      progress: 0.5,
+      index,
+      targetX,
+      targetY,
+      targetZ: layout.z,
+      targetRotate: Number.parseFloat(layout.rotate),
+      viewportWidth: 1440,
+      viewportHeight: 900,
+    });
+    const crossProduct = middle.x * targetY - middle.y * targetX;
+
+    assert.ok(Number.isFinite(middle.x));
+    assert.ok(Number.isFinite(middle.y));
+    assert.ok(Number.isFinite(middle.z));
+    assert.ok(Math.abs(crossProduct) > 1, `card ${index} must travel on a curved path`);
+  });
 
   const farMotion = getPointerCardMotion({
     baseX: 520,

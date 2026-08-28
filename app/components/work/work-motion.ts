@@ -7,6 +7,20 @@ export type CardMotionLayout = {
   parallax: number;
 };
 
+export type OrbitalCardMotion = {
+  x: number;
+  y: number;
+  z: number;
+  rotate: number;
+  progress: number;
+};
+
+export type OrbitStageVisuals = {
+  opacity: number;
+  scale: number;
+  blur: number;
+};
+
 export const CARD_LAYOUT: readonly CardMotionLayout[] = [
   { x: '0vw', y: '-2vh', rotate: '-2deg', z: 92, depth: 132, parallax: 14 },
   { x: '-30vw', y: '-22vh', rotate: '-11deg', z: 48, depth: 96, parallax: -20 },
@@ -28,6 +42,11 @@ export function clampProgress(progress: number): number {
   return Math.min(Math.max(progress, 0), 1);
 }
 
+function smoothstep(progress: number): number {
+  const clamped = clampProgress(progress);
+  return clamped * clamped * (3 - 2 * clamped);
+}
+
 export function getScatterEntryProgress(
   stageTop: number,
   viewportHeight: number,
@@ -37,21 +56,86 @@ export function getScatterEntryProgress(
 
   const safeHeight = Number.isFinite(viewportHeight) ? Math.max(viewportHeight, 1) : 1;
   const safeStageTop = Number.isFinite(stageTop) ? stageTop : safeHeight;
-  const entryStart = (safeHeight * 55) / 100;
-  const entryTravel = (safeHeight * 24) / 100;
+  const entryStart = (safeHeight * 40) / 100;
+  const entryTravel = (safeHeight * 36) / 100;
 
   return clampProgress((entryStart - safeStageTop) / entryTravel);
 }
 
-export function getBurstProgress(progress: number, index: number, reduceMotion = false): number {
+export function getOrbitProgress(progress: number, index: number, reduceMotion = false): number {
   if (reduceMotion) return 1;
-  const delay = Math.max(index, 0) * 0.012;
-  const normalized = clampProgress((progress - delay) / 0.24);
-  if (normalized === 0 || normalized === 1) return normalized;
+  const safeIndex = Math.min(Math.max(Number.isFinite(index) ? index : 0, 0), 4);
+  const delay = safeIndex * 0.032;
+  const normalized = clampProgress((progress - delay) / 0.82);
+  return smoothstep(normalized);
+}
 
-  const overshoot = 1.32;
-  const shifted = normalized - 1;
-  return 1 + (overshoot + 1) * shifted ** 3 + overshoot * shifted ** 2;
+export function getOrbitStageVisuals(progress: number, reduceMotion = false): OrbitStageVisuals {
+  if (reduceMotion) return { opacity: 1, scale: 1, blur: 0 };
+
+  const safeProgress = clampProgress(progress);
+  const opacity = smoothstep(safeProgress / 0.72);
+  const scaleProgress = smoothstep(safeProgress / 0.9);
+
+  return {
+    opacity,
+    scale: 0.72 + scaleProgress * 0.28,
+    blur: (1 - opacity) * 20,
+  };
+}
+
+export function getOrbitalCardMotion({
+  progress,
+  index,
+  targetX,
+  targetY,
+  targetZ,
+  targetRotate,
+  viewportWidth,
+  viewportHeight,
+  reduceMotion = false,
+}: {
+  progress: number;
+  index: number;
+  targetX: number;
+  targetY: number;
+  targetZ: number;
+  targetRotate: number;
+  viewportWidth: number;
+  viewportHeight: number;
+  reduceMotion?: boolean;
+}): OrbitalCardMotion {
+  if (reduceMotion) {
+    return { x: targetX, y: targetY, z: targetZ, rotate: targetRotate, progress: 1 };
+  }
+
+  const safeIndex = Math.min(Math.max(Number.isFinite(index) ? index : 0, 0), 4);
+  const orbitProgress = getOrbitProgress(progress, safeIndex);
+  const direction = safeIndex % 2 === 0 ? 1 : -1;
+  const targetRadius = Math.hypot(targetX, targetY);
+  const targetAngle = targetRadius > 0.001
+    ? Math.atan2(targetY, targetX)
+    : -Math.PI / 2;
+  const sweep = Math.PI * (0.86 + safeIndex * 0.09 + (safeIndex === 0 ? 0.3 : 0));
+  const currentAngle = targetAngle - direction * (1 - orbitProgress) * sweep;
+  const safeViewportWidth = Number.isFinite(viewportWidth) ? Math.max(viewportWidth, 1) : 1;
+  const safeViewportHeight = Number.isFinite(viewportHeight) ? Math.max(viewportHeight, 1) : 1;
+  const minimumOrbitRadius = Math.min(
+    Math.max(Math.min(safeViewportWidth, safeViewportHeight) * 0.095, 64),
+    110,
+  );
+  const centerOrbit = Math.max(minimumOrbitRadius - targetRadius, 0) * Math.sin(Math.PI * orbitProgress);
+  const currentRadius = targetRadius * orbitProgress + centerOrbit;
+  const depthArc = Math.sin(Math.PI * orbitProgress) * (54 + safeIndex * 9);
+  const spin = direction * (1 - orbitProgress) * (34 + safeIndex * 5);
+
+  return {
+    x: Math.cos(currentAngle) * currentRadius,
+    y: Math.sin(currentAngle) * currentRadius,
+    z: targetZ * orbitProgress + depthArc,
+    rotate: targetRotate * orbitProgress + spin,
+    progress: orbitProgress,
+  };
 }
 
 export function getPointerCardMotion({
