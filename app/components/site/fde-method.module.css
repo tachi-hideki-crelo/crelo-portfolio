@@ -1,0 +1,652 @@
+.methodSection {
+  --method-atmosphere: 0;
+  --method-settle: 0;
+  --method-spread: 0;
+  border-top: 1px solid rgb(166 255 219 / 10%);
+  min-height: 300vh;
+  position: relative;
+}
+
+.stickyStage {
+  background:
+    radial-gradient(circle at 50% 64%, rgb(54 128 109 / 10%), transparent 31rem),
+    linear-gradient(180deg, rgb(4 8 11 / 97%), rgb(5 10 13 / 94%));
+  height: 100vh;
+  isolation: isolate;
+  overflow: clip;
+  position: sticky;
+  top: 0;
+}
+
+.marker {
+  left: clamp(1.25rem, 4.7vw, 4.75rem);
+  position: absolute;
+  right: clamp(1.25rem, 4.7vw, 4.75rem);
+  top: clamp(5.3rem, 7.2vh, 6.2rem);
+  z-index: 8;
+}
+
+.intro {
+  left: 50%;
+  position: absolute;
+  text-align: center;
+  top: clamp(7.7rem, 12.3vh, 9.4rem);
+  transform: translateX(-50%);
+  width: min(94vw, 88rem);
+  z-index: 6;
+}
+
+.intro > p:first-child {
+  margin-bottom: clamp(.55rem, 1.1vh, .85rem);
+}
+
+.intro > p:last-child {
+  color: var(--muted);
+  font-size: clamp(.72rem, 1vw, .92rem);
+  line-height: 1.8;
+  margin: .8rem auto 0;
+  max-width: 45rem;
+}
+
+.title {
+  align-items: center;
+  display: flex;
+  font-size: clamp(3.3rem, 7vw, 7rem);
+  font-weight: 560;
+  gap: .11em;
+  justify-content: center;
+  letter-spacing: -.078em;
+  line-height: .88;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.title span { display: inline-block; }
+
+.title i {
+  color: rgb(166 255 219 / 38%);
+  font-family: var(--font-mono);
+  font-size: .31em;
+  font-style: normal;
+  letter-spacing: 0;
+  transform: translateY(.18em);
+}
+
+.atmosphere {
+  inset: 0;
+  opacity: calc(.2 + var(--method-atmosphere) * .8);
+  pointer-events: none;
+  position: absolute;
+  z-index: -1;
+}
+
+.atmosphereGrid {
+  background-image:
+    linear-gradient(rgb(166 255 219 / 6%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(166 255 219 / 6%) 1px, transparent 1px);
+  background-size: 64px 64px;
+  inset: 30% -12% -35%;
+  mask-image: radial-gradient(ellipse at center, #000 12%, transparent 71%);
+  opacity: calc(.2 + var(--method-spread) * .36);
+  position: absolute;
+  transform: perspective(700px) rotateX(63deg) translateY(calc(var(--method-settle) * -18px));
+  transform-origin: center top;
+}
+
+.atmosphereBeam {
+  background: linear-gradient(90deg, transparent, rgb(166 255 219 / 24%), rgb(121 220 255 / 18%), transparent);
+  height: 1px;
+  left: 50%;
+  position: absolute;
+  top: 61%;
+  transform: translateX(-50%) scaleX(calc(.08 + var(--method-spread) * .92));
+  width: min(90vw, 82rem);
+}
+
+.atmosphereBeam::after {
+  background: radial-gradient(ellipse, rgb(129 242 201 / 15%), transparent 66%);
+  content: '';
+  height: 18rem;
+  left: 50%;
+  position: absolute;
+  top: 0;
+  transform: translate(-50%, -50%);
+  width: 64rem;
+}
+
+.atmosphereCore {
+  border: 1px solid rgb(166 255 219 / 11%);
+  border-radius: 50%;
+  height: 28rem;
+  left: 50%;
+  opacity: calc(1 - var(--method-spread) * .62);
+  position: absolute;
+  top: 64%;
+  transform: translate(-50%, -50%) scale(calc(.64 + var(--method-spread) * .56));
+  width: 28rem;
+}
+
+.atmosphereCore::before,
+.atmosphereCore::after {
+  border: 1px dashed rgb(121 220 255 / 10%);
+  border-radius: 50%;
+  content: '';
+  inset: 9%;
+  position: absolute;
+  transform: rotate(calc(var(--method-spread) * 52deg));
+}
+
+.atmosphereCore::after {
+  border-color: rgb(255 199 121 / 8%);
+  inset: 23%;
+  transform: rotate(calc(var(--method-spread) * -76deg));
+}
+
+.deckStage {
+  inset: 0;
+  perspective: 1050px;
+  perspective-origin: 50% 63%;
+  position: absolute;
+  z-index: 4;
+}
+
+.deckAxis {
+  background: linear-gradient(180deg, transparent, rgb(166 255 219 / 35%) 42%, rgb(166 255 219 / 6%) 76%, transparent);
+  height: 58vh;
+  left: 50%;
+  opacity: calc(.52 - var(--method-spread) * .44);
+  position: absolute;
+  top: 35%;
+  transform: translateX(-50%);
+  width: 1px;
+}
+
+.deck {
+  height: 0;
+  left: 50%;
+  position: absolute;
+  top: clamp(19rem, 35.5vh, 22.5rem);
+  transform-style: preserve-3d;
+  width: 0;
+}
+
+.methodCard {
+  --method-card-opacity: .82;
+  --method-counter-yaw: 0deg;
+  --method-glint-x: 50%;
+  --method-glint-y: 45%;
+  --method-hover-opacity: 1;
+  --method-hover-scale: 1;
+  --method-hover-x: 0px;
+  --method-hover-y: 0px;
+  --method-hover-z: 0px;
+  --method-pointer-tilt-x: 0deg;
+  --method-pointer-tilt-y: 0deg;
+  --method-pointer-x: 0px;
+  --method-pointer-y: 0px;
+  --method-rotate: 0deg;
+  --method-x: 0px;
+  --method-y: 100px;
+  --method-yaw: 0deg;
+  --method-z: 0px;
+  height: clamp(28rem, 57vh, 36rem);
+  left: 0;
+  opacity: var(--method-card-opacity);
+  outline: none;
+  position: absolute;
+  top: 0;
+  transform:
+    translate3d(calc(-50% + var(--method-x)), var(--method-y), var(--method-z))
+    rotateY(var(--method-yaw))
+    rotateZ(var(--method-rotate));
+  transform-style: preserve-3d;
+  width: clamp(14.5rem, 21vw, 19rem);
+  z-index: calc(10 + var(--method-index));
+}
+
+.methodCard[data-method-active='true'] { z-index: 80; }
+
+.cardSurface {
+  background:
+    radial-gradient(circle at var(--method-glint-x) var(--method-glint-y), rgb(var(--method-accent-rgb) / 13%), transparent 21rem),
+    linear-gradient(152deg, rgb(17 25 28 / 96%), rgb(5 9 12 / 98%) 61%, rgb(var(--method-accent-rgb) / 6%));
+  border: 1px solid rgb(218 236 230 / 42%);
+  border-radius: .8rem;
+  box-shadow:
+    0 1.7rem 4.5rem rgb(0 0 0 / 48%),
+    inset 0 0 0 1px rgb(255 255 255 / 2.5%);
+  clip-path: polygon(0 0, calc(100% - 1.5rem) 0, 100% 1.5rem, 100% 100%, 1.5rem 100%, 0 calc(100% - 1.5rem));
+  height: 100%;
+  opacity: var(--method-hover-opacity);
+  overflow: hidden;
+  padding: clamp(1.15rem, 1.6vw, 1.55rem);
+  position: relative;
+  transform:
+    translate3d(
+      calc(var(--method-hover-x) + var(--method-pointer-x)),
+      calc(var(--method-hover-y) + var(--method-pointer-y)),
+      var(--method-hover-z)
+    )
+    rotateX(var(--method-pointer-tilt-x))
+    rotateY(calc(var(--method-counter-yaw) + var(--method-pointer-tilt-y)))
+    scale(var(--method-hover-scale));
+  transform-origin: center center;
+  transform-style: preserve-3d;
+  transition:
+    border-color 260ms ease,
+    box-shadow 360ms cubic-bezier(.16, 1, .3, 1),
+    filter 260ms ease,
+    opacity 260ms ease,
+    transform 360ms cubic-bezier(.16, 1, .3, 1);
+}
+
+.cardSurface::before {
+  background-image:
+    linear-gradient(rgb(var(--method-accent-rgb) / 5%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--method-accent-rgb) / 5%) 1px, transparent 1px);
+  background-size: 22px 22px;
+  content: '';
+  inset: 0;
+  mask-image: linear-gradient(180deg, transparent, #000 35%, transparent 82%);
+  opacity: .55;
+  pointer-events: none;
+  position: absolute;
+}
+
+.cardSurface::after {
+  border-bottom: 1px solid var(--method-accent);
+  border-left: 1px solid var(--method-accent);
+  bottom: 0;
+  content: '';
+  height: 3.2rem;
+  left: 0;
+  opacity: .62;
+  position: absolute;
+  width: 3.2rem;
+}
+
+.methodCard[data-method-active='true'] .cardSurface,
+.methodCard:focus-visible .cardSurface {
+  border-color: var(--method-accent);
+  box-shadow:
+    0 2.8rem 7rem rgb(0 0 0 / 65%),
+    0 0 0 1px rgb(var(--method-accent-rgb) / 24%),
+    0 0 3.4rem rgb(var(--method-accent-rgb) / 20%),
+    inset 0 0 2.2rem rgb(var(--method-accent-rgb) / 6%);
+}
+
+.methodCard:focus-visible .cardSurface { outline: 2px solid var(--method-accent); outline-offset: 5px; }
+
+.cardGlint {
+  background: radial-gradient(circle, rgb(255 255 255 / 20%), transparent 48%);
+  height: 16rem;
+  left: var(--method-glint-x);
+  mix-blend-mode: screen;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  top: var(--method-glint-y);
+  transform: translate(-50%, -50%);
+  transition: opacity 240ms ease;
+  width: 16rem;
+}
+
+.methodCard[data-method-active='true'] .cardGlint { opacity: .52; }
+
+.cardScan {
+  background: linear-gradient(90deg, transparent, rgb(var(--method-accent-rgb) / 66%), transparent);
+  height: 1px;
+  left: -30%;
+  opacity: 0;
+  position: absolute;
+  top: 0;
+  width: 160%;
+}
+
+.methodCard[data-method-active='true'] .cardScan { animation: method-card-scan 1.7s ease-in-out infinite; }
+
+.cardTopline {
+  align-items: center;
+  color: var(--method-accent);
+  display: flex;
+  font-family: var(--font-mono);
+  font-size: clamp(.48rem, .62vw, .58rem);
+  justify-content: space-between;
+  letter-spacing: .11em;
+  position: relative;
+  text-transform: uppercase;
+  z-index: 2;
+}
+
+.cardTopline span:last-child { color: rgb(219 229 226 / 46%); font-size: .8em; }
+
+.cardSigil {
+  height: clamp(7.4rem, 14vh, 9rem);
+  left: 50%;
+  opacity: .72;
+  position: absolute;
+  top: 18%;
+  transform: translateX(-50%);
+  transition: opacity 260ms ease, transform 420ms cubic-bezier(.16, 1, .3, 1);
+  width: clamp(7.4rem, 14vh, 9rem);
+}
+
+.methodCard[data-method-active='true'] .cardSigil { opacity: 1; transform: translateX(-50%) scale(1.08) rotate(4deg); }
+
+.cardSigil::before,
+.cardSigil::after {
+  border: 1px solid rgb(var(--method-accent-rgb) / 31%);
+  content: '';
+  inset: 12%;
+  position: absolute;
+}
+
+.cardSigil::after { border-style: dashed; inset: 25%; transform: rotate(45deg); }
+
+.cardSigil span { background: var(--method-accent); box-shadow: 0 0 1.3rem rgb(var(--method-accent-rgb) / 80%); position: absolute; }
+
+.cardSigil--frame span:nth-child(1),
+.cardSigil--frame span:nth-child(2) { height: 1px; left: 4%; right: 4%; top: 50%; }
+.cardSigil--frame span:nth-child(2) { left: 50%; top: 4%; bottom: 4%; height: auto; right: auto; width: 1px; }
+.cardSigil--frame span:nth-child(3) { border: 1px solid var(--method-accent); background: transparent; height: 34%; left: 33%; top: 33%; width: 34%; }
+.cardSigil--frame span:nth-child(4) { border-radius: 50%; height: .55rem; left: calc(50% - .275rem); top: calc(50% - .275rem); width: .55rem; }
+
+.cardSigil--prove::before { border-radius: 50%; }
+.cardSigil--prove::after { inset: 17%; }
+.cardSigil--prove span { height: 1px; left: 13%; top: 50%; transform-origin: right; width: 37%; }
+.cardSigil--prove span:nth-child(2) { left: 50%; transform: rotate(90deg); }
+.cardSigil--prove span:nth-child(3) { left: 50%; transform: rotate(180deg); }
+.cardSigil--prove span:nth-child(4) { left: 50%; transform: rotate(270deg); }
+
+.cardSigil--build::before { inset: 14% 20%; transform: skewY(-12deg); }
+.cardSigil--build::after { inset: 27% 8%; transform: skewY(12deg); }
+.cardSigil--build span { height: 18%; transform: rotate(45deg); width: 18%; }
+.cardSigil--build span:nth-child(1) { left: 19%; top: 18%; }
+.cardSigil--build span:nth-child(2) { right: 19%; top: 18%; }
+.cardSigil--build span:nth-child(3) { bottom: 18%; left: 19%; }
+.cardSigil--build span:nth-child(4) { bottom: 18%; right: 19%; }
+
+.cardSigil--land::before { border-radius: 50%; inset: 18%; }
+.cardSigil--land::after { border-radius: 50%; inset: 35%; transform: none; }
+.cardSigil--land span { border-radius: 50%; height: .65rem; width: .65rem; }
+.cardSigil--land span:nth-child(1) { left: calc(50% - .325rem); top: 5%; }
+.cardSigil--land span:nth-child(2) { right: 5%; top: calc(50% - .325rem); }
+.cardSigil--land span:nth-child(3) { bottom: 5%; left: calc(50% - .325rem); }
+.cardSigil--land span:nth-child(4) { left: 5%; top: calc(50% - .325rem); }
+
+.cardCopy {
+  left: clamp(1.15rem, 1.6vw, 1.55rem);
+  position: absolute;
+  right: clamp(1.15rem, 1.6vw, 1.55rem);
+  top: 46%;
+  z-index: 2;
+}
+
+.cardPhase {
+  color: var(--method-accent);
+  font-family: var(--font-mono);
+  font-size: .5rem;
+  letter-spacing: .14em;
+  margin: 0 0 .45rem;
+}
+
+.cardCopy h3 {
+  font-size: clamp(2.8rem, 4.5vw, 4.7rem);
+  font-weight: 560;
+  letter-spacing: -.085em;
+  line-height: .86;
+  margin: 0;
+}
+
+.cardJapanese {
+  color: var(--method-accent);
+  font-size: clamp(.7rem, .85vw, .84rem);
+  margin: .72rem 0 0;
+}
+
+.cardDescription {
+  color: rgb(215 227 223 / 64%);
+  font-size: clamp(.72rem, .82vw, .86rem);
+  line-height: 1.78;
+  margin: 1rem 0 0;
+  max-width: 17rem;
+}
+
+.cardOutput {
+  border-top: 1px solid rgb(var(--method-accent-rgb) / 19%);
+  bottom: 1.35rem;
+  display: flex;
+  flex-direction: column;
+  gap: .38rem;
+  left: clamp(1.15rem, 1.6vw, 1.55rem);
+  padding-top: .75rem;
+  position: absolute;
+  right: clamp(1.15rem, 1.6vw, 1.55rem);
+  z-index: 2;
+}
+
+.cardOutput span {
+  color: var(--method-accent);
+  font-family: var(--font-mono);
+  font-size: .46rem;
+  letter-spacing: .13em;
+}
+
+.cardOutput strong {
+  color: rgb(213 226 221 / 47%);
+  font-family: var(--font-mono);
+  font-size: clamp(.48rem, .58vw, .58rem);
+  font-weight: 400;
+  letter-spacing: .045em;
+  text-transform: uppercase;
+}
+
+.cardCorner {
+  color: var(--method-accent);
+  font-family: var(--font-mono);
+  font-size: 1.1rem;
+  position: absolute;
+  right: 1.15rem;
+  top: 2.6rem;
+}
+
+.interactionHint {
+  bottom: 2.2rem;
+  color: rgb(185 207 199 / 45%);
+  display: flex;
+  font-family: var(--font-mono);
+  font-size: .48rem;
+  justify-content: space-between;
+  left: clamp(1.25rem, 4.7vw, 4.75rem);
+  letter-spacing: .13em;
+  margin: 0;
+  position: absolute;
+  right: clamp(1.25rem, 4.7vw, 4.75rem);
+  text-transform: uppercase;
+}
+
+@keyframes method-card-scan {
+  0% { opacity: 0; transform: translateY(0); }
+  18% { opacity: .7; }
+  74% { opacity: .22; }
+  100% { opacity: 0; transform: translateY(34rem); }
+}
+
+@media (max-width: 1100px) and (min-width: 901px) {
+  .title { font-size: clamp(3rem, 6.7vw, 5.2rem); }
+  .methodCard { width: clamp(13rem, 21.3vw, 15rem); }
+  .cardCopy h3 { font-size: clamp(2.5rem, 4.4vw, 3.6rem); }
+  .cardDescription { font-size: .7rem; }
+}
+
+@media (max-width: 900px) {
+  .methodSection { min-height: 0; padding: 7rem 1.25rem 9rem; }
+
+  .stickyStage {
+    background: linear-gradient(180deg, rgb(4 8 11 / 97%), rgb(5 10 13 / 94%));
+    height: auto;
+    overflow: visible;
+    position: relative;
+    top: auto;
+  }
+
+  .marker { left: 0; position: relative; right: auto; top: auto; }
+
+  .intro {
+    left: auto;
+    margin-top: 4rem;
+    position: relative;
+    text-align: left;
+    top: auto;
+    transform: none;
+    width: 100%;
+  }
+
+  .intro > p:first-child { margin-bottom: 1rem; }
+  .intro > p:last-child { font-size: .84rem; margin: 1.35rem 0 0; max-width: 35rem; }
+
+  .title {
+    flex-wrap: wrap;
+    font-size: clamp(2.55rem, 12vw, 4.5rem);
+    gap: .08em .13em;
+    justify-content: flex-start;
+    line-height: .92;
+    white-space: normal;
+  }
+
+  .title span { white-space: nowrap; }
+  .title i { font-size: .34em; }
+
+  .atmosphere { inset: -5rem -1.25rem 0; }
+  .atmosphereGrid { inset: 14rem -30% 0; opacity: .22; transform: none; }
+  .atmosphereBeam { top: 23rem; }
+  .atmosphereCore { height: 20rem; top: 27rem; width: 20rem; }
+
+  .deckStage {
+    inset: auto;
+    margin-top: 3.5rem;
+    perspective: none;
+    position: relative;
+  }
+
+  .deckAxis {
+    bottom: 2rem;
+    height: auto;
+    left: .55rem;
+    opacity: .36;
+    top: 0;
+  }
+
+  .deck {
+    display: grid;
+    gap: 1rem;
+    height: auto;
+    left: auto;
+    position: relative;
+    top: auto;
+    width: 100%;
+  }
+
+  .methodCard {
+    height: clamp(28rem, 123vw, 31rem);
+    left: auto;
+    opacity: 1;
+    position: relative;
+    top: auto;
+    transform: none !important;
+    width: 100%;
+    z-index: auto;
+  }
+
+  .cardSurface {
+    opacity: 0;
+    transform: translate3d(0, 2.4rem, 0) rotateZ(-1.4deg);
+    transition:
+      border-color 260ms ease,
+      box-shadow 360ms cubic-bezier(.16, 1, .3, 1),
+      opacity 640ms cubic-bezier(.16, 1, .3, 1),
+      transform 720ms cubic-bezier(.16, 1, .3, 1);
+  }
+
+  .methodCard:nth-child(even) .cardSurface { transform: translate3d(0, 2.4rem, 0) rotateZ(1.4deg); }
+  .methodCard[data-inview='true'] .cardSurface,
+  .methodCard[data-method-active='true'] .cardSurface,
+  .methodCard:focus-visible .cardSurface { opacity: 1; transform: none; }
+  .methodCard:nth-child(2) .cardSurface { transition-delay: 80ms; }
+  .methodCard:nth-child(3) .cardSurface { transition-delay: 120ms; }
+  .methodCard:nth-child(4) .cardSurface { transition-delay: 160ms; }
+
+  .cardTopline { font-size: .54rem; }
+  .cardSigil { height: 8.4rem; top: 17%; width: 8.4rem; }
+  .cardCopy { top: 45%; }
+  .cardCopy h3 { font-size: clamp(3.2rem, 15vw, 4.6rem); }
+  .cardJapanese { font-size: .8rem; }
+  .cardDescription { font-size: .84rem; max-width: 18rem; }
+  .cardOutput strong { font-size: .54rem; }
+
+  .interactionHint {
+    bottom: auto;
+    left: auto;
+    margin-top: 1.5rem;
+    position: relative;
+    right: auto;
+  }
+
+  .interactionHint span:first-child { display: none; }
+  .interactionHint span:last-child::before { content: 'SCROLL / '; }
+}
+
+.methodSection[data-reduced-motion='true'] {
+  min-height: auto;
+  padding: 7rem clamp(1.25rem, 4.7vw, 4.75rem) 10rem;
+}
+
+.methodSection[data-reduced-motion='true'] .stickyStage {
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+  position: relative;
+}
+
+.methodSection[data-reduced-motion='true'] .marker { left: 0; position: relative; right: auto; top: auto; }
+
+.methodSection[data-reduced-motion='true'] .intro {
+  left: auto;
+  margin: 4rem auto 0;
+  position: relative;
+  top: auto;
+  transform: none;
+}
+
+.methodSection[data-reduced-motion='true'] .deckStage { inset: auto; margin-top: 4rem; position: relative; }
+
+.methodSection[data-reduced-motion='true'] .deck {
+  display: grid;
+  gap: .75rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  height: auto;
+  left: auto;
+  position: relative;
+  top: auto;
+  width: 100%;
+}
+
+.methodSection[data-reduced-motion='true'] .methodCard {
+  height: 30rem;
+  left: auto;
+  opacity: 1;
+  position: relative;
+  top: auto;
+  transform: none !important;
+  width: auto;
+}
+
+.methodSection[data-reduced-motion='true'] .cardSurface { transform: none !important; }
+.methodSection[data-reduced-motion='true'] .interactionHint { display: none; }
+
+@media (max-width: 900px) and (prefers-reduced-motion: reduce) {
+  .methodSection[data-reduced-motion='true'] { padding: 7rem 1.25rem 9rem; }
+  .methodSection[data-reduced-motion='true'] .intro { margin-top: 4rem; text-align: left; }
+  .methodSection[data-reduced-motion='true'] .deck { grid-template-columns: 1fr; }
+  .methodSection[data-reduced-motion='true'] .methodCard { height: 29rem; width: 100%; }
+}

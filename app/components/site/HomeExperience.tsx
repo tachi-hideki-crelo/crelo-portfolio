@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic';
 
 import type { SiteContent } from '../../lib/types';
 import ContactForm from './ContactForm';
+import FdeMethod from './FdeMethod';
 import HeroExperience from './HeroExperience';
 import SiteChrome from './SiteChrome';
 import { getSiteModeCopy } from './site-mode';
@@ -17,13 +18,6 @@ const NeuralBackdrop = dynamic(() => import('../visual/NeuralBackdrop'), {
   ssr: false,
   loading: () => <div className="neural-backdrop neural-backdrop--loading" aria-hidden="true" />,
 });
-
-const processSteps = [
-  { code: '01', name: 'Frame', jp: '課題を定義する', copy: '現場の声と事業の制約をつなぎ、何を解くべきかを一緒に定めます。' },
-  { code: '02', name: 'Prove', jp: '仮説を確かめる', copy: '小さく作って触り、技術と業務の両面から進む理由を可視化します。' },
-  { code: '03', name: 'Build', jp: '使える形にする', copy: 'AI・ソフトウェア・連携を、運用に乗る設計へ落とし込みます。' },
-  { code: '04', name: 'Land', jp: '現場へ届ける', copy: '導入後の学習と改善まで伴走し、チームの手に残る仕組みにします。' },
-];
 
 const capabilities = [
   { number: '01', title: 'AI', label: 'INTELLIGENCE LAYER', copy: '生成AI・検索・評価を、業務の判断と行動へつなげる。', detail: 'Discovery / Evaluation / Prompt systems' },
@@ -62,25 +56,7 @@ export default function HomeExperience({ publicBuild, profile, workCases, footer
 
         <SelectedWork cases={workCases} />
 
-        <section id="method" className="method-section" aria-labelledby="method-title">
-          <div className="section-marker"><span>03</span><span>FDE METHOD / FIELD LOOP</span></div>
-          <div className="method-section__intro">
-            <p className="eyebrow eyebrow--mint">From ambiguity to adoption</p>
-            <h2 id="method-title">Frame <span>→</span> Prove <span>→</span> Build <span>→</span> Land</h2>
-            <p>技術を納品して終わらせず、事業の現場で使われ続けるところまで。4つの動詞で、変化を前へ進めます。</p>
-          </div>
-          <div className="method-rail" aria-label="FDE process">
-            {processSteps.map((step) => (
-              <article className="method-step" key={step.name}>
-                <div className="method-step__top"><span>{step.code}</span><span className="method-step__node" aria-hidden="true" /></div>
-                <h3>{step.name}</h3>
-                <p className="method-step__jp">{step.jp}</p>
-                <p>{step.copy}</p>
-                <span className="method-step__cursor" aria-hidden="true">+</span>
-              </article>
-            ))}
-          </div>
-        </section>
+        <FdeMethod />
 
         <section className="capabilities-section" aria-labelledby="capabilities-title">
           <div className="section-marker"><span>04</span><span>CAPABILITY MAP / SYSTEM LAYERS</span></div>
