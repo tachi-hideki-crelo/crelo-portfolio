@@ -103,13 +103,19 @@ function updateScatterFromScroll(
   reduceMotion: boolean,
 ) {
   const stage = section.querySelector<HTMLElement>('[data-work-stage]');
-  if (!stage) return;
+  const stageAnchor = section.querySelector<HTMLElement>('[data-work-stage-anchor]');
+  if (!stage || !stageAnchor) return;
 
   const rect = section.getBoundingClientRect();
+  const stageFlowTop = stageAnchor.getBoundingClientRect().top - rect.top;
   const travel = Math.max(section.offsetHeight - window.innerHeight, 1);
   const visualProgress = reduceMotion ? 0 : Math.min(Math.max(-rect.top / travel, 0), 1);
-  const stageRect = stage.getBoundingClientRect();
-  const entryProgress = getScatterEntryProgress(stageRect.top, window.innerHeight, reduceMotion);
+  const entryProgress = getScatterEntryProgress(
+    rect.top,
+    stageFlowTop,
+    window.innerHeight,
+    reduceMotion,
+  );
   const entryVisuals = getOrbitStageVisuals(entryProgress, reduceMotion);
   const useContainedLayout = reduceMotion || !isFinePointer();
 
@@ -534,6 +540,7 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
         </span>
       </div>
 
+      <span className={styles.stageAnchor} data-work-stage-anchor aria-hidden="true" />
       <div className={styles.desktopStage}>
         <ThemeBleedLayer
           caseStudy={activeCase}

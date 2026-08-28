@@ -123,7 +123,9 @@ test('selected work keeps motion browser-safe and has a static reduced-motion pa
   assert.match(selectedWorkSource, /--card-pointer-x/);
   assert.match(selectedWorkSource, /--work-rotation/);
   assert.match(selectedWorkSource, /updateScatterFromScroll\(section, reduceMotion\)/);
-  assert.match(selectedWorkSource, /getScatterEntryProgress\(stageRect\.top, window\.innerHeight, reduceMotion\)/);
+  assert.match(selectedWorkSource, /getScatterEntryProgress\([\s\S]*rect\.top,[\s\S]*stageFlowTop,[\s\S]*window\.innerHeight,[\s\S]*reduceMotion/);
+  assert.match(selectedWorkSource, /data-work-stage-anchor/);
+  assert.match(selectedWorkSource, /stageAnchor\.getBoundingClientRect\(\)\.top - rect\.top/);
   assert.match(selectedWorkSource, /getOrbitStageVisuals\(entryProgress, reduceMotion\)/);
   assert.match(selectedWorkSource, /getOrbitalCardMotion/);
   assert.match(selectedWorkSource, /dataset\.orbitReady/);
@@ -137,6 +139,7 @@ test('selected work keeps motion browser-safe and has a static reduced-motion pa
     selectedWorkSource.indexOf('function updateScatterFromScroll'),
     selectedWorkSource.indexOf('function CaseCard'),
   );
+  assert.doesNotMatch(scatterSource, /stage\.getBoundingClientRect\(\)/);
   assert.doesNotMatch(scatterSource, /setActive|handleSelect/);
   assert.match(selectedWorkSource, /className=\{styles\.stageVisual\}/);
   assert.match(selectedWorkSource, /className=\{styles\.mobilePanelVisual\}/);
@@ -172,6 +175,9 @@ test('selected work keeps motion browser-safe and has a static reduced-motion pa
   assert.doesNotMatch(selectedWorkStyles, /\.cursor\s*\{/);
   assert.doesNotMatch(selectedWorkStyles, /data-cursor-(?:inside|hover|focus)/);
   assert.match(selectedWorkStyles, /prefers-reduced-motion: reduce\) and \(min-width: 769px\)/);
+  assert.match(selectedWorkStyles, /\.selectedWork \{[\s\S]*?min-height: 200vh/);
+  assert.match(selectedWorkStyles, /prefers-reduced-motion: reduce\) and \(min-width: 769px\)[\s\S]*?min-height: 190vh/);
+  assert.match(selectedWorkStyles, /min-width: 769px\) and \(max-height: 688px\)[\s\S]*?\.desktopStage,[\s\S]*?\.stageShell[\s\S]*?min-height: 100vh/);
   assert.doesNotMatch(selectedWorkStyles, /calc\([^)]*\*/);
   assert.match(detailSource, /className=\{styles\.heroVisual\}/);
 });
@@ -270,7 +276,7 @@ test('detail metadata indexes only approved production cases with a valid HTTPS 
   assert.equal(getApprovedOgMedia(draftWithPrivateFacts), undefined);
 });
 
-test('scroll orbit starts later, follows circular paths, and preserves pointer magnetism', () => {
+test('scroll orbit keeps its start, expands as a tornado, and preserves pointer magnetism', () => {
   assert.equal(CARD_LAYOUT[0].x, '0vw');
   for (const layout of CARD_LAYOUT.slice(1)) {
     assert.ok(Math.abs(Number.parseFloat(layout.x)) >= 30);
@@ -286,15 +292,26 @@ test('scroll orbit starts later, follows circular paths, and preserves pointer m
   assert.equal(getOrbitProgress(1, 4), 1);
   assert.equal(getOrbitProgress(0, 4, true), 1);
 
-  assert.equal(getScatterEntryProgress(900, 900), 0);
-  assert.equal(getScatterEntryProgress(450, 900), 0);
-  assert.equal(getScatterEntryProgress(378, 900), 0);
-  assert.equal(getScatterEntryProgress(360, 900), 0);
-  assert.ok(getScatterEntryProgress(342, 900) > 0);
-  assert.ok(getScatterEntryProgress(342, 900) < 0.1);
-  assert.equal(getScatterEntryProgress(198, 900), 0.5);
-  assert.equal(getScatterEntryProgress(36, 900), 1);
-  assert.equal(getScatterEntryProgress(900, 900, true), 1);
+  assert.equal(getScatterEntryProgress(0, 531, 900), 0);
+  assert.equal(getScatterEntryProgress(-171, 531, 900), 0);
+  assert.ok(getScatterEntryProgress(-180, 531, 900) > 0);
+  assert.ok(getScatterEntryProgress(-180, 531, 900) < 0.03);
+  assert.equal(getScatterEntryProgress(-486, 531, 900), 0.5);
+  assert.equal(getScatterEntryProgress(-801, 531, 900), 1);
+  assert.equal(getScatterEntryProgress(0, 531, 900, true), 1);
+
+  for (const { viewportHeight, stageFlowTop } of [
+    { viewportHeight: 600, stageFlowTop: 366.375 },
+    { viewportHeight: 768, stageFlowTop: 516.891 },
+    { viewportHeight: 900, stageFlowTop: 534.594 },
+    { viewportHeight: 1080, stageFlowTop: 534.594 },
+  ]) {
+    const startDistance = stageFlowTop - viewportHeight * 0.4;
+    assert.equal(getScatterEntryProgress(-startDistance, stageFlowTop, viewportHeight), 0);
+    assert.ok(getScatterEntryProgress(-(startDistance + 1), stageFlowTop, viewportHeight) > 0);
+    assert.equal(getScatterEntryProgress(-viewportHeight * 0.89, stageFlowTop, viewportHeight), 1);
+    assert.ok(getScatterEntryProgress(-viewportHeight * 0.88, stageFlowTop, viewportHeight) < 1);
+  }
 
   assert.deepEqual(getOrbitStageVisuals(0), { opacity: 0, scale: 0.72, blur: 20 });
   const middleVisuals = getOrbitStageVisuals(0.5);
@@ -321,10 +338,9 @@ test('scroll orbit starts later, follows circular paths, and preserves pointer m
 
   const orbitMiddle = getOrbitalCardMotion({ ...orbitInput, progress: 0.5 });
   assert.ok(orbitMiddle.progress > 0.45 && orbitMiddle.progress < 0.65);
-  assert.ok(orbitMiddle.x < 0);
-  assert.ok(orbitMiddle.y < 0);
+  assert.ok(Math.hypot(orbitMiddle.x, orbitMiddle.y) > 100);
   assert.ok(orbitMiddle.z > orbitInput.targetZ);
-  assert.notEqual(orbitMiddle.rotate, orbitInput.targetRotate * orbitMiddle.progress);
+  assert.ok(Math.abs(orbitMiddle.rotate) > 90);
 
   const orbitEnd = getOrbitalCardMotion({ ...orbitInput, progress: 1 });
   assert.ok(Math.abs(orbitEnd.x - orbitInput.targetX) < 0.0001);
@@ -338,6 +354,20 @@ test('scroll orbit starts later, follows circular paths, and preserves pointer m
     { x: 400, y: -200, z: 40, rotate: 11, progress: 1 },
   );
 
+  const tornadoSamples = [0.16, 0.24, 0.32, 0.4, 0.48, 0.56, 0.64, 0.72, 0.8, 0.88]
+    .map((progress) => getOrbitalCardMotion({ ...orbitInput, progress }));
+  let tornadoSweep = 0;
+  for (let index = 1; index < tornadoSamples.length; index += 1) {
+    const previousAngle = Math.atan2(tornadoSamples[index - 1].y, tornadoSamples[index - 1].x);
+    const currentAngle = Math.atan2(tornadoSamples[index].y, tornadoSamples[index].x);
+    let angleDelta = currentAngle - previousAngle;
+    while (angleDelta > Math.PI) angleDelta -= Math.PI * 2;
+    while (angleDelta < -Math.PI) angleDelta += Math.PI * 2;
+    tornadoSweep += angleDelta;
+  }
+  assert.ok(tornadoSweep > Math.PI * 2, 'representative card must complete more than one tornado turn');
+
+  const middleQuadrants = new Set();
   CARD_LAYOUT.forEach((layout, index) => {
     const targetX = Number.parseFloat(layout.x) * 14.4;
     const targetY = Number.parseFloat(layout.y) * 9;
@@ -357,7 +387,9 @@ test('scroll orbit starts later, follows circular paths, and preserves pointer m
     assert.ok(Number.isFinite(middle.y));
     assert.ok(Number.isFinite(middle.z));
     assert.ok(Math.abs(crossProduct) > 1, `card ${index} must travel on a curved path`);
+    middleQuadrants.add(`${middle.x >= 0 ? 'right' : 'left'}-${middle.y >= 0 ? 'bottom' : 'top'}`);
   });
+  assert.ok(middleQuadrants.size >= 3, 'tornado phase offsets must distribute cards around the axis');
 
   const farMotion = getPointerCardMotion({
     baseX: 520,

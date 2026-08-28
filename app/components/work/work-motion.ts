@@ -48,18 +48,24 @@ function smoothstep(progress: number): number {
 }
 
 export function getScatterEntryProgress(
-  stageTop: number,
+  sectionTop: number,
+  stageFlowTop: number,
   viewportHeight: number,
   reduceMotion = false,
 ): number {
   if (reduceMotion) return 1;
 
   const safeHeight = Number.isFinite(viewportHeight) ? Math.max(viewportHeight, 1) : 1;
-  const safeStageTop = Number.isFinite(stageTop) ? stageTop : safeHeight;
-  const entryStart = (safeHeight * 40) / 100;
-  const entryTravel = (safeHeight * 36) / 100;
+  const safeSectionTop = Number.isFinite(sectionTop) ? sectionTop : 0;
+  const safeStageFlowTop = Number.isFinite(stageFlowTop)
+    ? Math.max(stageFlowTop, 0)
+    : safeHeight * 0.59;
+  const scrolledDistance = Math.max(-safeSectionTop, 0);
+  const entryStart = Math.max(safeStageFlowTop - safeHeight * 0.4, 0);
+  const entryEnd = safeHeight * 0.89;
+  const entryTravel = Math.max(entryEnd - entryStart, 1);
 
-  return clampProgress((entryStart - safeStageTop) / entryTravel);
+  return clampProgress((scrolledDistance - entryStart) / entryTravel);
 }
 
 export function getOrbitProgress(progress: number, index: number, reduceMotion = false): number {
@@ -111,29 +117,37 @@ export function getOrbitalCardMotion({
 
   const safeIndex = Math.min(Math.max(Number.isFinite(index) ? index : 0, 0), 4);
   const orbitProgress = getOrbitProgress(progress, safeIndex);
-  const direction = safeIndex % 2 === 0 ? 1 : -1;
   const targetRadius = Math.hypot(targetX, targetY);
   const targetAngle = targetRadius > 0.001
     ? Math.atan2(targetY, targetX)
     : -Math.PI / 2;
-  const sweep = Math.PI * (0.86 + safeIndex * 0.09 + (safeIndex === 0 ? 0.3 : 0));
-  const currentAngle = targetAngle - direction * (1 - orbitProgress) * sweep;
   const safeViewportWidth = Number.isFinite(viewportWidth) ? Math.max(viewportWidth, 1) : 1;
   const safeViewportHeight = Number.isFinite(viewportHeight) ? Math.max(viewportHeight, 1) : 1;
-  const minimumOrbitRadius = Math.min(
+  const tornadoCoreRadius = Math.min(
     Math.max(Math.min(safeViewportWidth, safeViewportHeight) * 0.095, 64),
     110,
   );
-  const centerOrbit = Math.max(minimumOrbitRadius - targetRadius, 0) * Math.sin(Math.PI * orbitProgress);
-  const currentRadius = targetRadius * orbitProgress + centerOrbit;
-  const depthArc = Math.sin(Math.PI * orbitProgress) * (54 + safeIndex * 9);
-  const spin = direction * (1 - orbitProgress) * (34 + safeIndex * 5);
+  const tornadoEnvelope = Math.sin(Math.PI * orbitProgress);
+  const turns = 1.12 + safeIndex * 0.055;
+  const phaseOffset = (safeIndex - 2) * ((Math.PI * 2) / 5);
+  const currentAngle = targetAngle
+    - (1 - orbitProgress) * Math.PI * 2 * turns
+    + phaseOffset * tornadoEnvelope;
+  const centerOrbit = Math.max(tornadoCoreRadius - targetRadius, 0) * tornadoEnvelope;
+  const funnelRadius = tornadoCoreRadius * 0.14 * tornadoEnvelope * (1 - orbitProgress);
+  const currentRadius = targetRadius * orbitProgress ** 1.12 + centerOrbit + funnelRadius;
+  const depthArc = tornadoEnvelope * (
+    98
+    + safeIndex * 13
+    + Math.cos(currentAngle + phaseOffset) * 32
+  );
+  const spin = (1 - orbitProgress) * (252 + safeIndex * 22);
 
   return {
     x: Math.cos(currentAngle) * currentRadius,
     y: Math.sin(currentAngle) * currentRadius,
     z: targetZ * orbitProgress + depthArc,
-    rotate: targetRotate * orbitProgress + spin,
+    rotate: targetRotate * orbitProgress - spin,
     progress: orbitProgress,
   };
 }
