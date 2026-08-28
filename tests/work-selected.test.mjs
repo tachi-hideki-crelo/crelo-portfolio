@@ -9,6 +9,7 @@ import {
   STATIC_CARD_LAYOUT,
   getBurstProgress,
   getPointerCardMotion,
+  getScatterEntryProgress,
 } from '../app/components/work/work-motion.ts';
 import { getApprovedMedia, getApprovedOgMedia, isPublicCaseStudy } from '../app/components/work/work-metadata.ts';
 import { projectPublicCaseStudies } from '../app/components/work/work-public.ts';
@@ -120,6 +121,7 @@ test('selected work keeps motion browser-safe and has a static reduced-motion pa
   assert.match(selectedWorkSource, /--card-pointer-x/);
   assert.match(selectedWorkSource, /--work-rotation/);
   assert.match(selectedWorkSource, /updateScatterFromScroll\(section, reduceMotion\)/);
+  assert.match(selectedWorkSource, /getScatterEntryProgress\(stageRect\.top, window\.innerHeight, reduceMotion\)/);
   assert.doesNotMatch(selectedWorkSource, /getActiveCaseIndex/);
   const scatterSource = selectedWorkSource.slice(
     selectedWorkSource.indexOf('function updateScatterFromScroll'),
@@ -132,9 +134,11 @@ test('selected work keeps motion browser-safe and has a static reduced-motion pa
   assert.match(selectedWorkSource, /getPointerCardMotion/);
   assert.match(selectedWorkSource, /requestAnimationFrame/);
   assert.match(selectedWorkSource, /data-work-stage/);
-  assert.match(selectedWorkSource, /dataset\.cursorInside/);
   assert.match(selectedWorkSource, /hoveredIndex/);
   assert.match(selectedWorkSource, /if \(index === sample\.hoveredIndex\) return;/);
+  assert.doesNotMatch(selectedWorkSource, /className=\{styles\.cursor\}/);
+  assert.doesNotMatch(selectedWorkSource, /--cursor-[xy]/);
+  assert.doesNotMatch(selectedWorkSource, /dataset\.cursor(?:Inside|Hover|Focus)/);
   assert.doesNotMatch(selectedWorkSource, /cursor\.style\.opacity/);
   assert.doesNotMatch(selectedWorkSource, /window\.addEventListener\('pointermove'/);
   assert.match(selectedWorkStyles, /perspective: 1100px/);
@@ -154,8 +158,8 @@ test('selected work keeps motion browser-safe and has a static reduced-motion pa
   assert.match(selectedWorkSource, /className=\{styles\.introPhrase\}><em>解像度<\/em>を上げる/);
   assert.match(selectedWorkStyles, /\.stageVisual > div[\s\S]*min-height: 0/);
   assert.doesNotMatch(selectedWorkStyles, /stageShell > \.visual/);
-  assert.match(selectedWorkStyles, /data-cursor-hover='true'/);
-  assert.match(selectedWorkStyles, /@media \(pointer: coarse\)/);
+  assert.doesNotMatch(selectedWorkStyles, /\.cursor\s*\{/);
+  assert.doesNotMatch(selectedWorkStyles, /data-cursor-(?:inside|hover|focus)/);
   assert.match(selectedWorkStyles, /prefers-reduced-motion: reduce\) and \(min-width: 769px\)/);
   assert.doesNotMatch(selectedWorkStyles, /calc\([^)]*\*/);
   assert.match(detailSource, /className=\{styles\.heroVisual\}/);
@@ -242,6 +246,15 @@ test('scroll burst keeps cards near the viewport and pointer motion uses a proxi
   assert.ok(getBurstProgress(0.2, 0) > 1);
   assert.equal(getBurstProgress(1, 4), 1);
   assert.equal(getBurstProgress(0, 4, true), 1);
+
+  assert.equal(getScatterEntryProgress(900, 900), 0);
+  assert.equal(getScatterEntryProgress(522, 900), 0);
+  assert.equal(getScatterEntryProgress(495, 900), 0);
+  assert.ok(getScatterEntryProgress(450, 900) >= 0.2);
+  assert.ok(getBurstProgress(getScatterEntryProgress(450, 900), 0) > 1);
+  assert.ok(getScatterEntryProgress(441, 900) >= 0.25);
+  assert.equal(getScatterEntryProgress(198, 900), 1);
+  assert.equal(getScatterEntryProgress(900, 900, true), 1);
 
   const farMotion = getPointerCardMotion({
     baseX: 520,

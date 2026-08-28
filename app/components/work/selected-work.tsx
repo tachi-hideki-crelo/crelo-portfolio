@@ -10,6 +10,7 @@ import {
   STATIC_CARD_LAYOUT,
   getBurstProgress,
   getPointerCardMotion,
+  getScatterEntryProgress,
 } from './work-motion';
 import type { PublicCaseStudy } from './work-public';
 import styles from './selected-work.module.css';
@@ -88,9 +89,7 @@ function updateScatterFromScroll(
   const travel = Math.max(section.offsetHeight - window.innerHeight, 1);
   const visualProgress = reduceMotion ? 0 : Math.min(Math.max(-rect.top / travel, 0), 1);
   const stageRect = stage.getBoundingClientRect();
-  const entryProgress = reduceMotion
-    ? 1
-    : Math.min(Math.max((window.innerHeight - stageRect.top) / Math.max(window.innerHeight * 0.72, 1), 0), 1);
+  const entryProgress = getScatterEntryProgress(stageRect.top, window.innerHeight, reduceMotion);
   const entryOpacity = reduceMotion ? 1 : Math.min(entryProgress * 2.6, 1);
   const entryScale = reduceMotion ? 1 : 0.64 + Math.min(entryProgress * 1.7, 1) * 0.36;
   const useContainedLayout = reduceMotion || !isFinePointer();
@@ -366,18 +365,13 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
     (event: ReactPointerEvent<HTMLDivElement>) => {
       const stage = event.currentTarget;
       if (reduceMotion || !isFinePointer() || event.pointerType === 'touch') {
-        delete stage.dataset.cursorInside;
-        delete stage.dataset.cursorHover;
+        pointerSampleRef.current = null;
         return;
       }
 
       const target = event.target as Element;
       const hoveredCard = target.closest<HTMLElement>('[data-case-index]');
       const hoveredIndex = hoveredCard ? Number(hoveredCard.dataset.caseIndex) : null;
-      stage.style.setProperty('--cursor-x', `${event.clientX}px`);
-      stage.style.setProperty('--cursor-y', `${event.clientY}px`);
-      stage.dataset.cursorInside = 'true';
-      stage.dataset.cursorHover = hoveredIndex === null ? 'false' : 'true';
 
       pointerSampleRef.current = { stage, clientX: event.clientX, clientY: event.clientY, hoveredIndex };
       if (pointerFrameRef.current !== null) return;
@@ -427,29 +421,18 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
       card.style.setProperty('--card-pointer-rotate-x', '0deg');
       card.style.setProperty('--card-pointer-rotate-y', '0deg');
     });
-    delete event.currentTarget.dataset.cursorInside;
-    delete event.currentTarget.dataset.cursorHover;
-    delete event.currentTarget.dataset.cursorFocus;
   }, []);
 
   const handleStageFocusCapture = useCallback((event: FocusEvent<HTMLDivElement>) => {
     const target = event.target as Element;
     const card = target.closest<HTMLElement>('[data-case-index]');
     if (!card) return;
-    event.currentTarget.dataset.cursorFocus = 'true';
     const baseX = Number.parseFloat(card.style.getPropertyValue('--card-x-px')) || 0;
     const baseY = Number.parseFloat(card.style.getPropertyValue('--card-y-px')) || 0;
     card.style.setProperty('--card-pointer-x', `${(-baseX * 0.58).toFixed(3)}px`);
     card.style.setProperty('--card-pointer-y', `${(-baseY * 0.58).toFixed(3)}px`);
     card.style.setProperty('--card-pointer-rotate-x', '0deg');
     card.style.setProperty('--card-pointer-rotate-y', '0deg');
-  }, []);
-
-  const handleStageBlurCapture = useCallback((event: FocusEvent<HTMLDivElement>) => {
-    const nextTarget = event.relatedTarget as Node | null;
-    if (!nextTarget || !event.currentTarget.contains(nextTarget) || !(nextTarget as Element).closest?.('[data-case-index]')) {
-      delete event.currentTarget.dataset.cursorFocus;
-    }
   }, []);
 
   const sectionStyle: CSSVars = useMemo(
@@ -496,7 +479,6 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
           onPointerMove={handleStagePointerMove}
           onPointerLeave={handleStagePointerLeave}
           onFocusCapture={handleStageFocusCapture}
-          onBlurCapture={handleStageBlurCapture}
         >
           <div className={styles.tabList} role="tablist" aria-label="Selected work cases" aria-orientation="horizontal">
             {caseStudies.map((caseStudy, index) => (
@@ -542,7 +524,6 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
           <div className={styles.stageVisual}>
             <WorkVisual accent={activeTheme.accent} compact label="FDE / CASE ROUTE" />
           </div>
-          <span className={styles.cursor} aria-hidden="true"><span>↗</span></span>
         </div>
       </div>
 

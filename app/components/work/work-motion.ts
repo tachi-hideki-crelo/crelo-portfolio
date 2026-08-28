@@ -28,6 +28,21 @@ export function clampProgress(progress: number): number {
   return Math.min(Math.max(progress, 0), 1);
 }
 
+export function getScatterEntryProgress(
+  stageTop: number,
+  viewportHeight: number,
+  reduceMotion = false,
+): number {
+  if (reduceMotion) return 1;
+
+  const safeHeight = Number.isFinite(viewportHeight) ? Math.max(viewportHeight, 1) : 1;
+  const safeStageTop = Number.isFinite(stageTop) ? stageTop : safeHeight;
+  const entryStart = (safeHeight * 55) / 100;
+  const entryTravel = (safeHeight * 24) / 100;
+
+  return clampProgress((entryStart - safeStageTop) / entryTravel);
+}
+
 export function getBurstProgress(progress: number, index: number, reduceMotion = false): number {
   if (reduceMotion) return 1;
   const delay = Math.max(index, 0) * 0.012;
