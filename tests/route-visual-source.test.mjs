@@ -25,5 +25,6 @@ test('WebGL1-only browsers take the static fallback path', () => {
   assert.match(cosmos, /WebGL1-only devices use/);
   assert.match(cosmos, /const supported = Boolean\(context\)/);
   assert.match(cosmos, /forceStatic \|\| tier === 'static' \|\| !webglAvailable/);
-  assert.match(cosmos, /data-fallback=\{isStatic \? 'canvas2d' : 'webgl2'\}/);
+  assert.match(cosmos, /const fallbackMode = capabilityReady \? \(isStatic \? 'canvas2d' : 'webgl2'\) : 'pending'/);
+  assert.match(cosmos, /data-fallback=\{fallbackMode\}/);
 });

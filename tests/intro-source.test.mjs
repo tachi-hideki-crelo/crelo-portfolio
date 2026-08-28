@@ -19,3 +19,12 @@ test('intro failure paths restore scroll and focus through the shared finish cle
   assert.match(source, /logo\.onerror = \(\) =>/);
   assert.match(source, /mainRef\.current\?\.focus\(\{ preventScroll: true \}\)/);
 });
+
+test('intro explicitly hands control to the Hero entrance without double-finishing', () => {
+  assert.match(source, /onIntroStart: \(\) => void/);
+  assert.match(source, /onIntroComplete: \(\) => void/);
+  assert.match(source, /if \(finishingRef\.current\) return/);
+  assert.match(source, /onIntroComplete\(\)/);
+  assert.match(source, /const replay = \(\) => startIntro\(\)/);
+  assert.match(source, /if \(seen\) \{[\s\S]*onIntroComplete\(\)/);
+});

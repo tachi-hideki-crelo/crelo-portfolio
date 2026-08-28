@@ -65,6 +65,30 @@ test('HeroCosmosCanvas renders a layered galactic core and varied warm satellite
   assert.match(cosmos, /for \(let index = 0; index < 16; index \+= 1\)/);
 });
 
+test('Hero cosmos forms from an empty first frame after the intro handoff', () => {
+  assert.match(hero, /const formationProgress = useMotionValue\(0\)/);
+  assert.match(hero, /animate\(formationProgress, 1/);
+  assert.match(hero, /delay: 0\.32/);
+  assert.match(hero, /duration: 2\.25/);
+  assert.match(hero, /const scrollAlreadyAdvanced = progress\.get\(\) >= 0\.14/);
+  assert.match(hero, /value >= 0\.14 && formationProgress\.get\(\) < 1/);
+  assert.match(hero, /formationAnimationRef\.current\?\.stop\(\)/);
+  assert.match(cosmos, /getHeroFormationTimeline\(formationProgress\.get\(\)\)/);
+  assert.match(cosmos, /<group ref=\{rootRef\} visible=\{false\}>/);
+  assert.match(cosmos, /root\.visible = formation\.particleReveal > 0\.001 \|\| formation\.sphereReveal > 0\.001/);
+  assert.match(cosmos, /uReveal: \{ value: 0 \}/);
+  assert.match(cosmos, /uFormation: \{ value: 0 \}/);
+  assert.match(cosmos, /opacity: 0, wireframe: true/);
+  assert.match(cosmos, /material\.opacity = Number\(material\.userData\.baseOpacity/);
+  assert.match(cosmos, /formation\.orbitReveal/);
+  assert.match(cosmos, /satelliteRevealAt\(formation\.satelliteReveal, index\)/);
+  assert.match(cosmos, /satelliteScale\(index\) \* localReveal/);
+  assert.match(cosmos, /const renderTier = capabilityReady \?/);
+  assert.match(cosmos, /\{!capabilityReady \? null : isStatic \?/);
+  const staticSource = cosmos.slice(cosmos.indexOf('function drawStaticCosmos'), cosmos.indexOf('\nfunction StaticCosmos'));
+  assert.doesNotMatch(staticSource, /formationProgress/);
+});
+
 test('HeroCosmosCanvas shares MotionValue progress without scroll React state', () => {
   assert.match(cosmos, /progress: MotionValue<number>/);
   assert.match(cosmos, /progress\.get\(\)/);

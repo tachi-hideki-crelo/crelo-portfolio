@@ -1,8 +1,8 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useCallback, useRef, useState } from 'react';
-import { motion, useMotionValueEvent, useReducedMotion, useScroll, useSpring, useTransform } from 'motion/react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { animate, motion, useMotionValue, useMotionValueEvent, useReducedMotion, useScroll, useSpring, useTransform } from 'motion/react';
 import { getHeroTimeline } from './hero-timeline';
 
 const HeroCosmosCanvas = dynamic(() => import('../visual/HeroCosmosCanvas'), {
@@ -10,14 +10,21 @@ const HeroCosmosCanvas = dynamic(() => import('../visual/HeroCosmosCanvas'), {
   loading: () => <div className="hero-cosmos hero-cosmos--loading" data-fallback="canvas2d" aria-hidden="true" />,
 });
 
-export default function HeroExperience() {
+type HeroExperienceProps = {
+  entranceReady: boolean;
+  entranceSequence: number;
+};
+
+export default function HeroExperience({ entranceReady, entranceSequence }: HeroExperienceProps) {
   const heroRef = useRef<HTMLElement>(null);
   const motionReduced = useReducedMotion();
   const [visualStatic, setVisualStatic] = useState(false);
   const [ctaInteractive, setCtaInteractive] = useState(false);
   const ctaInteractiveRef = useRef(false);
+  const formationAnimationRef = useRef<{ stop: () => void } | null>(null);
   const { scrollYProgress } = useScroll({ target: heroRef, offset: ['start start', 'end end'] });
   const progress = useSpring(scrollYProgress, { stiffness: 115, damping: 28, mass: 0.24 });
+  const formationProgress = useMotionValue(0);
   const fdeOpacity = useTransform(progress, (value) => getHeroTimeline(value).fdeOpacity);
   const statementOpacity = useTransform(progress, (value) => getHeroTimeline(value).statementOpacity);
   const statementFirstOpacity = useTransform(progress, (value) => getHeroTimeline(value).statementFirstOpacity);
@@ -38,7 +45,46 @@ export default function HeroExperience() {
   }, []);
   const staticMode = motionReduced === true || visualStatic;
   const ctaIsInteractive = staticMode || ctaInteractive;
+  useEffect(() => {
+    formationAnimationRef.current?.stop();
+    formationAnimationRef.current = null;
+    if (motionReduced === true) {
+      formationProgress.set(1);
+      return;
+    }
+    // Replaying the intro from a later act must not leave visible copy floating
+    // over a temporarily empty scene. Only reset at the Hero's opening act.
+    const scrollAlreadyAdvanced = progress.get() >= 0.14;
+    if (!entranceReady) {
+      formationProgress.set(scrollAlreadyAdvanced ? 1 : 0);
+      return;
+    }
+    if (scrollAlreadyAdvanced) {
+      formationProgress.set(1);
+      return;
+    }
+    formationProgress.set(0);
+    const controls = animate(formationProgress, 1, {
+      // Let the intro dissolve into the background field before the first
+      // particles ignite; the empty beat is part of the requested handoff.
+      delay: 0.32,
+      duration: 2.25,
+      ease: [0.16, 0.84, 0.22, 1],
+    });
+    formationAnimationRef.current = controls;
+    return () => {
+      controls.stop();
+      if (formationAnimationRef.current === controls) formationAnimationRef.current = null;
+    };
+  }, [entranceReady, entranceSequence, formationProgress, motionReduced, progress]);
   useMotionValueEvent(progress, 'change', (value) => {
+    // Fast scrolling may overtake the time-driven entrance. Complete the
+    // structure before the FDE copy enters at the same 0.14 boundary.
+    if (value >= 0.14 && formationProgress.get() < 1) {
+      formationAnimationRef.current?.stop();
+      formationAnimationRef.current = null;
+      formationProgress.set(1);
+    }
     const nextInteractive = staticMode || (value >= 0.8 && value < 0.94);
     if (ctaInteractiveRef.current === nextInteractive) return;
     ctaInteractiveRef.current = nextInteractive;
@@ -54,7 +100,7 @@ export default function HeroExperience() {
         </motion.div>
 
         <div className="hero-story__cosmos" aria-hidden="true">
-          <HeroCosmosCanvas progress={progress} forceStatic={motionReduced === true} onStaticChange={handleStaticChange} />
+          <HeroCosmosCanvas progress={progress} formationProgress={formationProgress} forceStatic={motionReduced === true} onStaticChange={handleStaticChange} />
         </div>
 
         <div className="hero-story__copy">

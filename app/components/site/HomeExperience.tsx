@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 
 import type { SiteContent } from '../../lib/types';
@@ -41,17 +41,24 @@ type HomeExperienceProps = {
 
 export default function HomeExperience({ publicBuild, profile, workCases, footerYear }: HomeExperienceProps) {
   const mainRef = useRef<HTMLElement>(null);
+  const [heroEntrance, setHeroEntrance] = useState({ ready: false, sequence: 0 });
+  const handleIntroStart = useCallback(() => {
+    setHeroEntrance((current) => current.ready ? { ...current, ready: false } : current);
+  }, []);
+  const handleIntroComplete = useCallback(() => {
+    setHeroEntrance((current) => ({ ready: true, sequence: current.sequence + 1 }));
+  }, []);
   const profileReady = publicBuild && profile.approved && Boolean(profile.name && profile.portraitSrc && profile.portraitAlt && profile.career);
   const modeCopy = getSiteModeCopy(publicBuild);
 
   return (
     <div className="site-shell">
       <NeuralBackdrop />
-      <IntroExperience mainRef={mainRef} />
+      <IntroExperience mainRef={mainRef} onIntroStart={handleIntroStart} onIntroComplete={handleIntroComplete} />
       <SiteChrome publicBuild={publicBuild} />
 
       <main id="main-content" ref={mainRef} className="site-main" tabIndex={-1}>
-        <HeroExperience />
+        <HeroExperience entranceReady={heroEntrance.ready} entranceSequence={heroEntrance.sequence} />
 
         <SelectedWork cases={workCases} />
 

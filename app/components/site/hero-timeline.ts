@@ -28,6 +28,14 @@ export type HeroTimelineState = {
   particleOpacity: number;
 };
 
+export type HeroFormationState = {
+  particleReveal: number;
+  sphereReveal: number;
+  orbitReveal: number;
+  satelliteReveal: number;
+  formationGlow: number;
+};
+
 export function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
 }
@@ -55,6 +63,27 @@ export function heroPhaseAt(progress: number): HeroPhase {
   if (value < 0.8) return 'statement';
   if (value < 0.94) return 'cta';
   return 'dissolve';
+}
+
+export function getHeroFormationTimeline(progress: number): HeroFormationState {
+  const value = clamp01(progress);
+  // The intro hands over to a genuinely empty Hero. A loose particle field
+  // then condenses into the sphere before its cyber shell, orbital hardware,
+  // and staggered satellites resolve. This entrance is time-driven and stays
+  // independent from the longer scroll story below.
+  const particleReveal = smoothstep(segment(value, 0.02, 0.5));
+  const sphereReveal = smoothstep(segment(value, 0.12, 0.72));
+  const orbitReveal = smoothstep(segment(value, 0.3, 0.88));
+  const satelliteReveal = smoothstep(segment(value, 0.42, 1));
+  const glowProgress = segment(value, 0.08, 0.92);
+
+  return {
+    particleReveal,
+    sphereReveal,
+    orbitReveal,
+    satelliteReveal,
+    formationGlow: Math.sin(glowProgress * Math.PI),
+  };
 }
 
 /**

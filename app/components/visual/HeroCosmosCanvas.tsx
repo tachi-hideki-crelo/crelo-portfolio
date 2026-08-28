@@ -5,7 +5,7 @@ import type { MotionValue } from 'motion/react';
 import * as THREE from 'three';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { getHeroTimeline } from '../site/hero-timeline';
+import { getHeroFormationTimeline, getHeroTimeline } from '../site/hero-timeline';
 
 export type HeroCosmosTier = 'pc' | 'tablet' | 'mobile' | 'static';
 
@@ -40,6 +40,7 @@ const SATELLITE_PALETTE = [
 
 type HeroCosmosCanvasProps = {
   progress: MotionValue<number>;
+  formationProgress: MotionValue<number>;
   forceStatic: boolean;
   onStaticChange: (staticMode: boolean) => void;
 };
@@ -47,6 +48,7 @@ type HeroCosmosCanvasProps = {
 type HeroCosmosR3FProps = {
   config: TierConfig;
   progress: MotionValue<number>;
+  formationProgress: MotionValue<number>;
   paused: boolean;
   onContextLost: () => void;
 };
@@ -112,6 +114,16 @@ function seededUnit(index: number): number {
 function satelliteScale(index: number): number {
   const base = 0.46 + seededUnit(index) * 1.08;
   return index % 11 === 0 ? base + 0.66 : base;
+}
+
+function smoothReveal(value: number): number {
+  const clamped = THREE.MathUtils.clamp(value, 0, 1);
+  return clamped * clamped * (3 - 2 * clamped);
+}
+
+function satelliteRevealAt(reveal: number, index: number): number {
+  const delay = (index % 7) * 0.045 + seededUnit(index + 191) * 0.08;
+  return smoothReveal((reveal - delay) / Math.max(1 - delay, 0.001));
 }
 
 function drawStaticCosmos(context: CanvasRenderingContext2D, width: number, height: number, progress: number, points: Float32Array, dpr: number) {
@@ -249,8 +261,8 @@ function createOrbitGroup(orbitCount: number): THREE.Group {
     }
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
     const material = dashed
-      ? new THREE.LineDashedMaterial({ color, transparent: true, opacity, dashSize: 0.09, gapSize: 0.065, blending: THREE.AdditiveBlending, depthWrite: false })
-      : new THREE.LineBasicMaterial({ color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false });
+      ? new THREE.LineDashedMaterial({ color, transparent: true, opacity: 0, dashSize: 0.09, gapSize: 0.065, blending: THREE.AdditiveBlending, depthWrite: false })
+      : new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
     material.userData.baseOpacity = opacity;
     const line = new THREE.Line(geometry, material);
     if (dashed) line.computeLineDistances();
@@ -259,7 +271,7 @@ function createOrbitGroup(orbitCount: number): THREE.Group {
   return group;
 }
 
-function CosmosScene({ config, progress }: { config: TierConfig; progress: MotionValue<number> }) {
+function CosmosScene({ config, progress, formationProgress }: { config: TierConfig; progress: MotionValue<number>; formationProgress: MotionValue<number> }) {
   const rootRef = useRef<THREE.Group>(null);
   const satellitesRef = useRef<THREE.InstancedMesh>(null);
   const satelliteGlowsRef = useRef<THREE.InstancedMesh>(null);
@@ -276,10 +288,12 @@ function CosmosScene({ config, progress }: { config: TierConfig; progress: Motio
     transparent: true,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
-    uniforms: { uTime: { value: 0 }, uDissolve: { value: 0 } },
+    uniforms: { uTime: { value: 0 }, uDissolve: { value: 0 }, uReveal: { value: 0 }, uFormation: { value: 0 } },
     vertexShader: `
       uniform float uTime;
       uniform float uDissolve;
+      uniform float uReveal;
+      uniform float uFormation;
       varying vec3 vNormal;
       varying vec3 vViewPosition;
       varying vec3 vObjectPosition;
@@ -288,6 +302,9 @@ function CosmosScene({ config, progress }: { config: TierConfig; progress: Motio
       }
       void main() {
         vec3 displaced = position + normal * fieldNoise(position * 1.7) * 0.055;
+        float assemblyNoise = fieldNoise(position * 6.4 + vec3(uTime * 0.12));
+        displaced += normal * (1.0 - uReveal) * assemblyNoise * 0.24;
+        displaced += normal * uFormation * sin(position.y * 18.0 - uTime * 2.1) * 0.035;
         displaced += normal * uDissolve * fieldNoise(position * 7.0 + 2.0) * 0.22;
         vNormal = normalize(normalMatrix * normal);
         vObjectPosition = displaced;
@@ -299,6 +316,8 @@ function CosmosScene({ config, progress }: { config: TierConfig; progress: Motio
     fragmentShader: `
       uniform float uTime;
       uniform float uDissolve;
+      uniform float uReveal;
+      uniform float uFormation;
       varying vec3 vNormal;
       varying vec3 vViewPosition;
       varying vec3 vObjectPosition;
@@ -329,7 +348,8 @@ function CosmosScene({ config, progress }: { config: TierConfig; progress: Motio
         vec3 color = mix(deepSpace, nebula, min(1.0, fresnel * 0.88 + cloud * 0.34 + spiral * 0.16));
         color += mix(cyan, gold, spiral) * cyberGrid * 0.22;
         color += hotWhite * starNoise * 0.72;
-        float alpha = (0.1 + fresnel * 0.58 + cloud * 0.22 + spiral * 0.1 + cyberGrid * 0.16 + starNoise * 0.3) * (1.0 - uDissolve * 0.94);
+        color += mix(hotWhite, gold, spiral) * uFormation * (0.08 + fresnel * 0.34);
+        float alpha = (0.1 + fresnel * 0.58 + cloud * 0.22 + spiral * 0.1 + cyberGrid * 0.16 + starNoise * 0.3) * uReveal * (1.0 - uDissolve * 0.94);
         gl_FragColor = vec4(color, alpha);
       }
     `,
@@ -338,7 +358,7 @@ function CosmosScene({ config, progress }: { config: TierConfig; progress: Motio
     transparent: true,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
-    uniforms: { uTime: { value: 0 }, uDissolve: { value: 0 } },
+    uniforms: { uTime: { value: 0 }, uDissolve: { value: 0 }, uReveal: { value: 0 }, uFormation: { value: 0 } },
     vertexShader: `
       varying vec3 vNormal;
       varying vec3 vViewPosition;
@@ -354,6 +374,8 @@ function CosmosScene({ config, progress }: { config: TierConfig; progress: Motio
     fragmentShader: `
       uniform float uTime;
       uniform float uDissolve;
+      uniform float uReveal;
+      uniform float uFormation;
       varying vec3 vNormal;
       varying vec3 vViewPosition;
       varying vec3 vObjectPosition;
@@ -369,8 +391,8 @@ function CosmosScene({ config, progress }: { config: TierConfig; progress: Motio
         vec3 gold = vec3(1.0, 0.46, 0.04);
         vec3 color = mix(violet, cyan, cloud);
         color = mix(color, gold, pulse * cloud * 0.28);
-        color += vec3(1.0, 0.88, 0.58) * pow(pulse, 7.0) * 0.18;
-        float alpha = (0.1 + center * 0.22 + cloud * 0.18) * (1.0 - uDissolve * 0.96);
+        color += vec3(1.0, 0.88, 0.58) * (pow(pulse, 7.0) * 0.18 + uFormation * center * 0.24);
+        float alpha = (0.1 + center * 0.22 + cloud * 0.18) * uReveal * (1.0 - uDissolve * 0.96);
         gl_FragColor = vec4(color, alpha);
       }
     `,
@@ -380,7 +402,7 @@ function CosmosScene({ config, progress }: { config: TierConfig; progress: Motio
     depthWrite: false,
     side: THREE.BackSide,
     blending: THREE.AdditiveBlending,
-    uniforms: { uTime: { value: 0 }, uDissolve: { value: 0 } },
+    uniforms: { uTime: { value: 0 }, uDissolve: { value: 0 }, uReveal: { value: 0 }, uFormation: { value: 0 } },
     vertexShader: `
       varying vec3 vNormal;
       varying vec3 vViewPosition;
@@ -396,6 +418,8 @@ function CosmosScene({ config, progress }: { config: TierConfig; progress: Motio
     fragmentShader: `
       uniform float uTime;
       uniform float uDissolve;
+      uniform float uReveal;
+      uniform float uFormation;
       varying vec3 vNormal;
       varying vec3 vViewPosition;
       varying vec3 vObjectPosition;
@@ -408,13 +432,14 @@ function CosmosScene({ config, progress }: { config: TierConfig; progress: Motio
         vec3 gold = vec3(1.0, 0.56, 0.08);
         vec3 color = mix(cyan, violet, wave);
         color = mix(color, gold, smoothstep(0.84, 1.0, wave) * 0.34);
-        float alpha = fresnel * (0.1 + wave * 0.12) * (1.0 - uDissolve * 0.96);
+        color += vec3(1.0, 0.88, 0.56) * uFormation * fresnel * 0.28;
+        float alpha = fresnel * (0.1 + wave * 0.12 + uFormation * 0.08) * uReveal * (1.0 - uDissolve * 0.96);
         gl_FragColor = vec4(color, alpha);
       }
     `,
   }), []);
-  const wireMaterial = useMemo(() => new THREE.MeshBasicMaterial({ color: 0x70e7ff, transparent: true, opacity: 0.15, wireframe: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }), []);
-  const goldWireMaterial = useMemo(() => new THREE.MeshBasicMaterial({ color: 0xffc84a, transparent: true, opacity: 0.075, wireframe: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }), []);
+  const wireMaterial = useMemo(() => new THREE.MeshBasicMaterial({ color: 0x70e7ff, transparent: true, opacity: 0, wireframe: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }), []);
+  const goldWireMaterial = useMemo(() => new THREE.MeshBasicMaterial({ color: 0xffc84a, transparent: true, opacity: 0, wireframe: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }), []);
   const pointData = useMemo(() => {
     const positions = seededPoints(config.points);
     const geometryPoints = new THREE.BufferGeometry();
@@ -431,7 +456,7 @@ function CosmosScene({ config, progress }: { config: TierConfig; progress: Motio
       transparent: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
-      uniforms: { uTime: { value: 0 }, uDissolve: { value: 0 } },
+      uniforms: { uTime: { value: 0 }, uDissolve: { value: 0 }, uReveal: { value: 0 }, uFormation: { value: 0 } },
       vertexShader: `
         attribute float aSize;
         attribute float aAlpha;
@@ -439,12 +464,20 @@ function CosmosScene({ config, progress }: { config: TierConfig; progress: Motio
         varying vec3 vColor;
         uniform float uTime;
         uniform float uDissolve;
+        uniform float uReveal;
+        uniform float uFormation;
         void main() {
           vec3 moved = position;
           moved.x += sin(uTime * 0.18 + position.y * 4.0) * 0.04;
           moved.y += cos(uTime * 0.14 + position.x * 3.0) * 0.04;
+          float scatter = 1.0 - uReveal;
+          float formationAngle = scatter * (1.35 + position.y * 0.3) + uTime * scatter * 0.08;
+          mat2 formationSpin = mat2(cos(formationAngle), -sin(formationAngle), sin(formationAngle), cos(formationAngle));
+          moved.xy = formationSpin * moved.xy;
+          moved *= 1.0 + scatter * 0.78;
+          moved.z += sin(position.x * 3.4 + uTime * 0.4) * scatter * 0.24;
           moved *= 1.0 + uDissolve * 0.9;
-          vAlpha = aAlpha;
+          vAlpha = aAlpha * uReveal * (1.0 + uFormation * 0.34);
           float hue = sin(position.x * 2.4 + position.z * 4.1) * 0.5 + 0.5;
           float warm = smoothstep(0.56, 0.96, hue);
           vColor = mix(vec3(0.12, 0.74, 1.0), vec3(0.5, 0.18, 1.0), hue);
@@ -478,20 +511,22 @@ function CosmosScene({ config, progress }: { config: TierConfig; progress: Motio
       transparent: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
-      uniforms: { uTime: { value: 0 }, uDissolve: { value: 0 } },
+      uniforms: { uTime: { value: 0 }, uDissolve: { value: 0 }, uReveal: { value: 0 }, uFormation: { value: 0 } },
       vertexShader: `
         attribute float aPulse;
         varying float vAlpha;
         varying vec3 vColor;
         uniform float uTime;
         uniform float uDissolve;
+        uniform float uReveal;
+        uniform float uFormation;
         void main() {
           float flicker = 0.72 + 0.28 * sin(uTime * (0.8 + aPulse) + position.x * 19.0);
-          vec3 moved = position * (1.0 + uDissolve * 0.34);
+          vec3 moved = position * (1.34 - uReveal * 0.34 + uDissolve * 0.34);
           vec4 viewPosition = modelViewMatrix * vec4(moved, 1.0);
           gl_Position = projectionMatrix * viewPosition;
           gl_PointSize = (1.1 + aPulse * 2.15) * flicker * (34.0 / max(1.0, -viewPosition.z));
-          vAlpha = flicker * (0.38 + aPulse * 0.46) * (1.0 - uDissolve * 0.96);
+          vAlpha = flicker * (0.38 + aPulse * 0.46) * uReveal * (1.0 + uFormation * 0.28) * (1.0 - uDissolve * 0.96);
           vColor = mix(vec3(0.24, 0.82, 1.0), vec3(1.0, 0.78, 0.24), aPulse);
         }
       `,
@@ -515,8 +550,8 @@ function CosmosScene({ config, progress }: { config: TierConfig; progress: Motio
   const goldWireMaterialRef = useRef(goldWireMaterial);
   const coreStarMaterialRef = useRef(coreStarData.material);
   const satelliteGeometry = useMemo(() => new THREE.SphereGeometry(0.045, 12, 10), []);
-  const satelliteMaterial = useMemo(() => new THREE.MeshPhongMaterial({ color: 0xffffff, emissive: 0x3a2105, emissiveIntensity: 1.35, specular: 0xfff4ce, shininess: 92, transparent: true, opacity: 0.92, blending: THREE.NormalBlending, depthWrite: false, toneMapped: false }), []);
-  const satelliteGlowMaterial = useMemo(() => new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.055, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }), []);
+  const satelliteMaterial = useMemo(() => new THREE.MeshPhongMaterial({ color: 0xffffff, emissive: 0x3a2105, emissiveIntensity: 1.35, specular: 0xfff4ce, shininess: 92, transparent: true, opacity: 0, blending: THREE.NormalBlending, depthWrite: false, toneMapped: false }), []);
+  const satelliteGlowMaterial = useMemo(() => new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }), []);
   const satelliteMaterialRef = useRef(satelliteMaterial);
   const satelliteGlowMaterialRef = useRef(satelliteGlowMaterial);
   const satelliteColors = useMemo(() => Array.from({ length: config.satellites }, (_, index) => new THREE.Color(SATELLITE_PALETTE[index % SATELLITE_PALETTE.length])), [config.satellites]);
@@ -563,33 +598,48 @@ function CosmosScene({ config, progress }: { config: TierConfig; progress: Motio
     const satellites = satellitesRef.current;
     const satelliteGlows = satelliteGlowsRef.current;
     const state = getHeroTimeline(progress.get());
+    const formation = getHeroFormationTimeline(formationProgress.get());
     if (!root) return;
     const time = clock.elapsedTime;
+    root.visible = formation.particleReveal > 0.001 || formation.sphereReveal > 0.001;
     const targetX = state.sphereX * config.xFactor;
     const targetY = state.sphereY + config.yOffset;
-    const targetScale = state.sphereScale * config.sphereScale;
+    const entranceScale = 0.78 + formation.sphereReveal * 0.22 + formation.formationGlow * 0.035;
+    const targetScale = state.sphereScale * config.sphereScale * entranceScale;
     root.position.x = THREE.MathUtils.damp(root.position.x, targetX, 8, delta);
     root.position.y = THREE.MathUtils.damp(root.position.y, targetY, 8, delta);
     root.position.z = THREE.MathUtils.damp(root.position.z, 0, 8, delta);
-    root.rotation.x = THREE.MathUtils.damp(root.rotation.x, state.sphereRotationX, 8, delta);
-    root.rotation.y = THREE.MathUtils.damp(root.rotation.y, state.sphereRotationY, 8, delta);
-    root.rotation.z = THREE.MathUtils.damp(root.rotation.z, state.sphereRotationZ, 8, delta);
+    root.rotation.x = THREE.MathUtils.damp(root.rotation.x, state.sphereRotationX + (1 - formation.sphereReveal) * 0.42, 8, delta);
+    root.rotation.y = THREE.MathUtils.damp(root.rotation.y, state.sphereRotationY + (1 - formation.sphereReveal) * 1.08, 8, delta);
+    root.rotation.z = THREE.MathUtils.damp(root.rotation.z, state.sphereRotationZ - (1 - formation.sphereReveal) * 0.34, 8, delta);
     const nextScale = THREE.MathUtils.damp(root.scale.x, targetScale, 8, delta);
     root.scale.setScalar(nextScale);
     orbMaterialRef.current.uniforms.uTime.value = time;
     orbMaterialRef.current.uniforms.uDissolve.value = state.dissolve;
+    orbMaterialRef.current.uniforms.uReveal.value = formation.sphereReveal;
+    orbMaterialRef.current.uniforms.uFormation.value = formation.formationGlow;
     coreMaterialRef.current.uniforms.uTime.value = time;
     coreMaterialRef.current.uniforms.uDissolve.value = state.dissolve;
+    coreMaterialRef.current.uniforms.uReveal.value = formation.sphereReveal;
+    coreMaterialRef.current.uniforms.uFormation.value = formation.formationGlow;
     auraMaterialRef.current.uniforms.uTime.value = time;
     auraMaterialRef.current.uniforms.uDissolve.value = state.dissolve;
+    auraMaterialRef.current.uniforms.uReveal.value = formation.sphereReveal;
+    auraMaterialRef.current.uniforms.uFormation.value = formation.formationGlow;
     pointMaterialRef.current.uniforms.uTime.value = time;
     pointMaterialRef.current.uniforms.uDissolve.value = state.dissolve;
+    pointMaterialRef.current.uniforms.uReveal.value = formation.particleReveal;
+    pointMaterialRef.current.uniforms.uFormation.value = formation.formationGlow;
     coreStarMaterialRef.current.uniforms.uTime.value = time;
     coreStarMaterialRef.current.uniforms.uDissolve.value = state.dissolve;
-    wireMaterialRef.current.opacity = 0.15 * (1 - state.dissolve * 0.94);
-    goldWireMaterialRef.current.opacity = 0.075 * (1 - state.dissolve * 0.94);
-    satelliteMaterialRef.current.opacity = 0.92 * (1 - state.dissolve * 0.94);
-    satelliteGlowMaterialRef.current.opacity = 0.055 * (1 - state.dissolve * 0.96);
+    coreStarMaterialRef.current.uniforms.uReveal.value = formation.sphereReveal;
+    coreStarMaterialRef.current.uniforms.uFormation.value = formation.formationGlow;
+    wireMaterialRef.current.opacity = 0.15 * formation.orbitReveal * (1 - state.dissolve * 0.94);
+    goldWireMaterialRef.current.opacity = 0.075 * formation.orbitReveal * (1 - state.dissolve * 0.94);
+    satelliteMaterialRef.current.opacity = 0.92 * formation.satelliteReveal * (1 - state.dissolve * 0.94);
+    satelliteGlowMaterialRef.current.opacity = 0.055 * formation.satelliteReveal * (1 - state.dissolve * 0.96);
+    orbitGroupRef.current.visible = formation.orbitReveal > 0.001;
+    orbitGroupRef.current.scale.setScalar(0.72 + formation.orbitReveal * 0.28);
     orbitGroupRef.current.rotation.x = time * 0.035;
     orbitGroupRef.current.rotation.y = -time * 0.028;
     orbitGroupRef.current.rotation.z = time * 0.045;
@@ -597,7 +647,7 @@ function CosmosScene({ config, progress }: { config: TierConfig; progress: Motio
       if (object instanceof THREE.Line) {
         const materials = Array.isArray(object.material) ? object.material : [object.material];
         materials.forEach((material) => {
-          material.opacity = Number(material.userData.baseOpacity ?? 0.25) * (1 - state.dissolve * 0.96);
+          material.opacity = Number(material.userData.baseOpacity ?? 0.25) * formation.orbitReveal * (1 - state.dissolve * 0.96);
         });
       }
     });
@@ -612,9 +662,11 @@ function CosmosScene({ config, progress }: { config: TierConfig; progress: Motio
     }
     if (satellites && satelliteGlows) {
       for (let index = 0; index < config.satellites; index += 1) {
+        const localReveal = satelliteRevealAt(formation.satelliteReveal, index);
         const phase = seededUnit(index + 71) * Math.PI * 2;
         const angle = time * (0.13 + (index % 6) * 0.017) + (index / Math.max(1, config.satellites)) * Math.PI * 2 + phase;
-        const radius = 1.16 + (index % 6) * 0.27 + (index % 13 === 0 ? 0.22 : 0);
+        const targetRadius = 1.16 + (index % 6) * 0.27 + (index % 13 === 0 ? 0.22 : 0);
+        const radius = targetRadius * (0.24 + localReveal * 0.76);
         const inclination = 0.3 + (index % 5) * 0.1;
         dummy.position.set(
           Math.cos(angle) * radius,
@@ -622,7 +674,7 @@ function CosmosScene({ config, progress }: { config: TierConfig; progress: Motio
           Math.sin(angle + phase * 0.32) * radius * (0.3 + (index % 3) * 0.09),
         );
         dummy.rotation.set(angle * 0.18, -angle * 0.24, angle * 0.12);
-        const size = satelliteScale(index) * (1 - state.dissolve * 0.38);
+        const size = satelliteScale(index) * localReveal * (1 - state.dissolve * 0.38);
         dummy.scale.setScalar(size);
         dummy.updateMatrix();
         satellites.setMatrixAt(index, dummy.matrix);
@@ -654,7 +706,7 @@ function CosmosScene({ config, progress }: { config: TierConfig; progress: Motio
       <ambientLight color={0x8d95b8} intensity={1.5} />
       <pointLight color={0xffdda0} intensity={36} distance={12} decay={2} position={[4, 3, 5]} />
       <pointLight color={0x56dfff} intensity={18} distance={11} decay={2} position={[-4, -2, 4]} />
-      <group ref={rootRef}>
+      <group ref={rootRef} visible={false}>
         <mesh geometry={geometry} material={coreMaterial} scale={0.9} />
         <points ref={coreStarsRef} geometry={coreStarData.geometry} material={coreStarData.material} scale={0.96} />
         <mesh geometry={geometry} material={orbMaterial} />
@@ -670,7 +722,7 @@ function CosmosScene({ config, progress }: { config: TierConfig; progress: Motio
   );
 }
 
-function HeroCosmosR3F({ config, progress, paused, onContextLost }: HeroCosmosR3FProps) {
+function HeroCosmosR3F({ config, progress, formationProgress, paused, onContextLost }: HeroCosmosR3FProps) {
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const handleContextLost = useCallback((event: Event) => {
     event.preventDefault();
@@ -695,12 +747,12 @@ function HeroCosmosR3F({ config, progress, paused, onContextLost }: HeroCosmosR3
         gl.domElement.addEventListener('webglcontextlost', handleContextLost, { passive: false });
       }}
     >
-      <CosmosScene key={`${config.detail}-${config.points}`} config={config} progress={progress} />
+      <CosmosScene key={`${config.detail}-${config.points}`} config={config} progress={progress} formationProgress={formationProgress} />
     </Canvas>
   );
 }
 
-export default function HeroCosmosCanvas({ progress, forceStatic, onStaticChange }: HeroCosmosCanvasProps) {
+export default function HeroCosmosCanvas({ progress, formationProgress, forceStatic, onStaticChange }: HeroCosmosCanvasProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [tier, setTier] = useState<HeroCosmosTier>('static');
   const [webglAvailable, setWebglAvailable] = useState(false);
@@ -716,6 +768,8 @@ export default function HeroCosmosCanvas({ progress, forceStatic, onStaticChange
   }, []);
   const isStatic = forceStatic || tier === 'static' || !webglAvailable;
   const config = TIER_CONFIG[tier];
+  const renderTier = capabilityReady ? (isStatic ? 'static' : tier) : 'pending';
+  const fallbackMode = capabilityReady ? (isStatic ? 'canvas2d' : 'webgl2') : 'pending';
 
   useEffect(() => {
     // Do not announce the initial SSR-safe static placeholder as a fallback.
@@ -763,18 +817,18 @@ export default function HeroCosmosCanvas({ progress, forceStatic, onStaticChange
     <div
       ref={hostRef}
       className="hero-cosmos"
-      data-render-tier={isStatic ? 'static' : tier}
+      data-render-tier={renderTier}
       data-config-tier={tier}
       data-detail={isStatic ? 0 : config.detail}
       data-points={isStatic ? TIER_CONFIG.static.points : config.points}
       data-core-stars={isStatic ? 0 : config.coreStars}
       data-satellites={isStatic ? 0 : config.satellites}
       data-orbits={isStatic ? 0 : config.orbits}
-      data-fallback={isStatic ? 'canvas2d' : 'webgl2'}
+      data-fallback={fallbackMode}
       data-paused={paused ? 'true' : 'false'}
       aria-hidden="true"
     >
-      {isStatic ? <StaticCosmos progress={progress} config={TIER_CONFIG.static} /> : <HeroCosmosR3F config={config} progress={progress} paused={paused} onContextLost={handleContextLost} />}
+      {!capabilityReady ? null : isStatic ? <StaticCosmos progress={progress} config={TIER_CONFIG.static} /> : <HeroCosmosR3F config={config} progress={progress} formationProgress={formationProgress} paused={paused} onContextLost={handleContextLost} />}
     </div>
   );
 }

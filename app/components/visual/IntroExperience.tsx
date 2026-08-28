@@ -9,6 +9,12 @@ const REPLAY_EVENT = 'crelo:replay-intro';
 
 type Particle = { x: number; y: number; tx: number; ty: number; size: number; alpha: number; phase: number };
 
+type IntroExperienceProps = {
+  mainRef: RefObject<HTMLElement | null>;
+  onIntroStart: () => void;
+  onIntroComplete: () => void;
+};
+
 function createParticles(count: number): Particle[] {
   let value = 31;
   const random = () => {
@@ -51,27 +57,35 @@ function setTargetPoints(particles: Particle[], image: HTMLImageElement) {
   });
 }
 
-export default function IntroExperience({ mainRef }: { mainRef: RefObject<HTMLElement | null> }) {
+export default function IntroExperience({ mainRef, onIntroStart, onIntroComplete }: IntroExperienceProps) {
   const [visible, setVisible] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
   const skipRef = useRef<HTMLButtonElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const finishingRef = useRef(false);
 
   const finish = useCallback(() => {
+    if (finishingRef.current) return;
+    finishingRef.current = true;
     try {
       window.sessionStorage.setItem(INTRO_KEY, '1');
     } catch {
       // Private browsing and storage policies must not prevent the intro from closing.
     }
     setVisible(false);
+    onIntroComplete();
     window.setTimeout(() => mainRef.current?.focus({ preventScroll: true }), 30);
-  }, [mainRef]);
+  }, [mainRef, onIntroComplete]);
+
+  const startIntro = useCallback(() => {
+    finishingRef.current = false;
+    onIntroStart();
+    setVisible(true);
+  }, [onIntroStart]);
 
   useEffect(() => {
-    const replay = () => {
-      setVisible(true);
-    };
+    const replay = () => startIntro();
     window.addEventListener(REPLAY_EVENT, replay);
     let seen = false;
     try {
@@ -79,14 +93,20 @@ export default function IntroExperience({ mainRef }: { mainRef: RefObject<HTMLEl
     } catch {
       seen = false;
     }
-    const revealTimer = !seen ? window.setTimeout(() => setVisible(true), 0) : 0;
+    const revealTimer = window.setTimeout(() => {
+      if (seen) {
+        onIntroComplete();
+        return;
+      }
+      startIntro();
+    }, 0);
     const motionTimer = window.setTimeout(() => setReducedMotion(window.matchMedia('(prefers-reduced-motion: reduce)').matches), 0);
     return () => {
-      if (revealTimer) window.clearTimeout(revealTimer);
+      window.clearTimeout(revealTimer);
       window.clearTimeout(motionTimer);
       window.removeEventListener(REPLAY_EVENT, replay);
     };
-  }, []);
+  }, [onIntroComplete, startIntro]);
 
   useEffect(() => {
     if (!visible) return;

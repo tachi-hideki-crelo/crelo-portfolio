@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { getHeroTimeline, heroPhaseAt } from '../app/components/site/hero-timeline.ts';
+import { getHeroFormationTimeline, getHeroTimeline, heroPhaseAt } from '../app/components/site/hero-timeline.ts';
 
 test('Hero timeline keeps the five-act phase boundaries deterministic', () => {
   assert.equal(heroPhaseAt(0), 'sphere');
@@ -43,4 +43,34 @@ test('Hero timeline matches the requested checkpoint choreography', () => {
   assert.notEqual(initial.sphereRotationX, first.sphereRotationX);
   assert.notEqual(first.sphereRotationY, statement.sphereRotationY);
   assert.notEqual(statement.cameraYaw, cta.cameraYaw);
+});
+
+test('Hero formation starts empty and resolves layers in a deterministic order', () => {
+  const empty = getHeroFormationTimeline(0);
+  assert.deepEqual(empty, {
+    particleReveal: 0,
+    sphereReveal: 0,
+    orbitReveal: 0,
+    satelliteReveal: 0,
+    formationGlow: 0,
+  });
+
+  const particles = getHeroFormationTimeline(0.1);
+  assert.ok(particles.particleReveal > 0);
+  assert.equal(particles.sphereReveal, 0);
+  assert.equal(particles.orbitReveal, 0);
+  assert.equal(particles.satelliteReveal, 0);
+
+  const core = getHeroFormationTimeline(0.55);
+  assert.ok(core.particleReveal > core.sphereReveal);
+  assert.ok(core.sphereReveal > core.orbitReveal);
+  assert.ok(core.orbitReveal > core.satelliteReveal);
+  assert.ok(core.formationGlow > 0.9);
+
+  const complete = getHeroFormationTimeline(1);
+  assert.equal(complete.particleReveal, 1);
+  assert.equal(complete.sphereReveal, 1);
+  assert.equal(complete.orbitReveal, 1);
+  assert.equal(complete.satelliteReveal, 1);
+  assert.ok(Math.abs(complete.formationGlow) < Number.EPSILON);
 });
