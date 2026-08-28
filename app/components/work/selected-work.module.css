@@ -1,20 +1,17 @@
 .selectedWork {
   --theme-accent: #a6ffdb;
-  --theme-accent-rgb: 166, 255, 219;
+  --theme-accent-rgb: 166 255 219;
   --work-progress: 0;
   --work-rotation: 0deg;
   --work-entry-opacity: 0;
   --work-entry-scale: 0.64;
   --work-entry-blur: 22px;
-  background:
-    radial-gradient(circle at 50% 42%, rgb(var(--theme-accent-rgb) / 7%), transparent 34rem),
-    linear-gradient(180deg, #090e10 0%, #050809 68%, #090d0e 100%);
+  background: linear-gradient(180deg, #090e10 0%, #050809 68%, #090d0e 100%);
   isolation: isolate;
   min-height: 250vh;
   overflow: clip;
   padding: clamp(5rem, 11vw, 10rem) clamp(1.25rem, 5vw, 5.5rem) 0;
   position: relative;
-  transition: background 500ms ease;
 }
 
 .selectedWork::before,
@@ -37,6 +34,60 @@
   mask-image: linear-gradient(to bottom, transparent, #000 12%, #000 70%, transparent 95%);
   opacity: 0.55;
   z-index: -1;
+}
+
+.themeBleed {
+  --bleed-rgb: 166 255 219;
+  overflow: hidden;
+  pointer-events: none;
+  position: absolute;
+  transform-origin: 50% 48%;
+  z-index: 0;
+}
+
+.themeBleed::before,
+.themeBleed::after,
+.themeBleedCore,
+.themeBleedHaze {
+  content: '';
+  pointer-events: none;
+  position: absolute;
+}
+
+.themeBleed::before {
+  background:
+    radial-gradient(ellipse 72% 28% at 16% 31%, rgb(var(--bleed-rgb) / 19%) 0%, rgb(var(--bleed-rgb) / 7%) 43%, transparent 76%),
+    radial-gradient(ellipse 66% 35% at 86% 54%, rgb(var(--bleed-rgb) / 17%) 0%, rgb(var(--bleed-rgb) / 6%) 44%, transparent 78%),
+    radial-gradient(ellipse 54% 26% at 47% 78%, rgb(var(--bleed-rgb) / 11%) 0%, transparent 74%);
+  inset: -4% -12% 4%;
+  mask-image: linear-gradient(to bottom, transparent 2%, #000 18%, #000 87%, transparent 100%);
+}
+
+.themeBleed::after {
+  background: conic-gradient(from 212deg at 50% 48%, transparent 0deg 73deg, rgb(var(--bleed-rgb) / 7%) 94deg, rgb(var(--bleed-rgb) / 14%) 111deg, transparent 139deg 360deg);
+  inset: 15% -22% 17%;
+  mask-image: radial-gradient(ellipse at center, #000 0%, rgb(0 0 0 / 72%) 46%, transparent 76%);
+  opacity: 0.72;
+  transform: rotate(-8deg) scale(1.12);
+}
+
+.themeBleedCore {
+  background:
+    radial-gradient(ellipse 31% 36% at 50% 47%, rgb(var(--bleed-rgb) / 24%) 0%, rgb(var(--bleed-rgb) / 9%) 42%, transparent 76%),
+    radial-gradient(ellipse 22% 27% at 28% 59%, rgb(var(--bleed-rgb) / 13%) 0%, transparent 72%),
+    radial-gradient(ellipse 24% 31% at 73% 39%, rgb(var(--bleed-rgb) / 12%) 0%, transparent 72%);
+  inset: 21% -8% 8%;
+  opacity: 0.92;
+}
+
+.themeBleedHaze {
+  background:
+    linear-gradient(118deg, transparent 19%, rgb(var(--bleed-rgb) / 7%) 39%, transparent 61%),
+    linear-gradient(67deg, transparent 28%, rgb(var(--bleed-rgb) / 5%) 49%, transparent 70%);
+  inset: 7% -16% 3%;
+  mask-image: radial-gradient(ellipse at center, #000 0%, rgb(0 0 0 / 68%) 54%, transparent 85%);
+  opacity: 0.9;
+  transform: skewY(-4deg);
 }
 
 .workIntro {
@@ -107,11 +158,16 @@
 
 .desktopStage {
   height: 100vh;
+  isolation: isolate;
   margin: 0 auto;
   max-width: 88rem;
   min-height: 43rem;
   position: sticky;
   top: 0;
+}
+
+.desktopThemeBleed {
+  inset: -8% -8vw;
 }
 
 .stageShell {
@@ -122,6 +178,7 @@
   perspective-origin: 50% 48%;
   position: relative;
   transform-style: preserve-3d;
+  z-index: 2;
 }
 
 .stageAtmosphere {
@@ -138,6 +195,7 @@
   transform: translate(-50%, -50%) rotate(var(--work-rotation));
   transition: background 500ms ease;
   width: min(68vw, 47rem);
+  z-index: 1;
 }
 
 .stageAtmosphere::before,
@@ -174,7 +232,7 @@
 
 .card {
   --case-accent: #a6ffdb;
-  --case-accent-rgb: 166, 255, 219;
+  --case-accent-rgb: 166 255 219;
   --card-x: 0%;
   --card-y: 0%;
   --card-z: 0px;
@@ -536,6 +594,10 @@
   display: none;
 }
 
+.mobileThemeBleed {
+  display: none;
+}
+
 @media (max-width: 1000px) and (min-width: 769px) {
   .card {
     width: min(34vw, 24rem);
@@ -556,6 +618,23 @@
     min-height: 0;
     overflow: hidden;
     padding: 6rem 1.25rem 6rem;
+  }
+
+  .themeBleed::before {
+    background:
+      radial-gradient(ellipse 88% 31% at 9% 24%, rgb(var(--bleed-rgb) / 16%) 0%, rgb(var(--bleed-rgb) / 6%) 45%, transparent 80%),
+      radial-gradient(ellipse 86% 38% at 94% 67%, rgb(var(--bleed-rgb) / 15%) 0%, rgb(var(--bleed-rgb) / 5%) 46%, transparent 82%);
+    inset: -2% -34% 0;
+  }
+
+  .themeBleedCore {
+    background: radial-gradient(ellipse 72% 30% at 50% 53%, rgb(var(--bleed-rgb) / 18%) 0%, rgb(var(--bleed-rgb) / 7%) 42%, transparent 78%);
+    inset: 16% -28% 4%;
+    opacity: 0.78;
+  }
+
+  .themeBleedHaze {
+    opacity: 0.6;
   }
 
   .workIntro h2 {
@@ -581,8 +660,20 @@
 
   .mobileStage {
     display: block;
+    isolation: isolate;
     margin: 3.3rem auto 0;
     max-width: 42rem;
+    position: relative;
+  }
+
+  .mobileThemeBleed {
+    display: block;
+    inset: -3rem -1.25rem -4rem;
+  }
+
+  .mobileTabList {
+    position: relative;
+    z-index: 1;
   }
 
   .mobileTabList ul {
@@ -710,6 +801,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .selectedWork,
+  .themeBleed,
   .tabList,
   .card,
   .cardButton,

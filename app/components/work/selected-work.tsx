@@ -2,7 +2,7 @@
 
 import type { CSSProperties, FocusEvent, KeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { motion, useReducedMotion } from 'motion/react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 
 import { WorkVisual } from './work-visual';
 import {
@@ -24,11 +24,11 @@ type CaseTheme = {
 };
 
 const THEMES: Record<string, CaseTheme> = {
-  mint: { accent: '#a6ffdb', accentSoft: '166, 255, 219', index: '01' },
-  cyan: { accent: '#7bdcff', accentSoft: '123, 220, 255', index: '02' },
-  violet: { accent: '#c5a8ff', accentSoft: '197, 168, 255', index: '03' },
-  amber: { accent: '#ffd28a', accentSoft: '255, 210, 138', index: '04' },
-  rose: { accent: '#ff9fcb', accentSoft: '255, 159, 203', index: '05' },
+  mint: { accent: '#a6ffdb', accentSoft: '166 255 219', index: '01' },
+  cyan: { accent: '#7bdcff', accentSoft: '123 220 255', index: '02' },
+  violet: { accent: '#c5a8ff', accentSoft: '197 168 255', index: '03' },
+  amber: { accent: '#ffd28a', accentSoft: '255 210 138', index: '04' },
+  rose: { accent: '#ff9fcb', accentSoft: '255 159 203', index: '05' },
 };
 
 function approvedText(value: string | null): string | null {
@@ -127,7 +127,7 @@ function CaseCard({
   index: number;
   active: boolean;
   onSelect: (index: number) => void;
-  onPointerEnter: (event: ReactPointerEvent<HTMLButtonElement>, index: number) => void;
+  onPointerEnter: (event: ReactPointerEvent<HTMLElement>, index: number) => void;
 }) {
   const theme = getTheme(caseStudy);
   const layout = CARD_LAYOUT[index] ?? CARD_LAYOUT[0];
@@ -159,6 +159,7 @@ function CaseCard({
       data-case-index={index}
       data-active={active}
       style={cardStyle}
+      onPointerEnter={(event) => onPointerEnter(event, index)}
     >
       <button
         className={styles.cardButton}
@@ -173,7 +174,6 @@ function CaseCard({
         tabIndex={active ? 0 : -1}
         onClick={() => onSelect(index)}
         onFocus={() => onSelect(index)}
-        onPointerEnter={(event) => onPointerEnter(event, index)}
       >
         <span className={styles.cardTopline}>
           <span>CASE {String(caseStudy.displayOrder).padStart(2, '0')}</span>
@@ -280,6 +280,37 @@ type SelectedWorkProps = {
   cases: readonly PublicCaseStudy[];
 };
 
+function ThemeBleedLayer({
+  caseStudy,
+  theme,
+  reduceMotion,
+  className,
+}: {
+  caseStudy: PublicCaseStudy;
+  theme: CaseTheme;
+  reduceMotion: boolean;
+  className: string;
+}) {
+  return (
+    <AnimatePresence initial={false}>
+      <motion.div
+        aria-hidden="true"
+        className={`${styles.themeBleed} ${className}`}
+        data-theme-bleed={caseStudy.theme}
+        key={`theme-bleed-${caseStudy.slug}`}
+        style={{ '--bleed-rgb': theme.accentSoft } as CSSVars}
+        initial={reduceMotion ? false : { opacity: 0, scale: 0.985 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 1.012 }}
+        transition={reduceMotion ? { duration: 0 } : { duration: 0.56, ease: [0.16, 1, 0.3, 1] }}
+      >
+        <span className={styles.themeBleedCore} />
+        <span className={styles.themeBleedHaze} />
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
 export function SelectedWork({ cases }: SelectedWorkProps) {
   const sectionRef = useRef<HTMLElement | null>(null);
   const frameRef = useRef<number | null>(null);
@@ -305,7 +336,7 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
   }, [caseCount]);
 
   const handleCardPointerEnter = useCallback(
-    (event: ReactPointerEvent<HTMLButtonElement>, index: number) => {
+    (event: ReactPointerEvent<HTMLElement>, index: number) => {
       if (event.pointerType === 'mouse' || isFinePointer()) handleSelect(index);
     },
     [handleSelect],
@@ -452,6 +483,7 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
       className={styles.selectedWork}
       id="selected-work"
       aria-labelledby="selected-work-title"
+      data-active-theme={activeCase.theme}
       style={sectionStyle}
       onKeyDown={handleKeyboard}
     >
@@ -472,6 +504,12 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
       </div>
 
       <div className={styles.desktopStage}>
+        <ThemeBleedLayer
+          caseStudy={activeCase}
+          theme={activeTheme}
+          reduceMotion={reduceMotion}
+          className={styles.desktopThemeBleed}
+        />
         <div className={styles.stageAtmosphere} aria-hidden="true" />
         <div
           className={styles.stageShell}
@@ -528,6 +566,12 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
       </div>
 
       <div className={styles.mobileStage}>
+        <ThemeBleedLayer
+          caseStudy={activeCase}
+          theme={activeTheme}
+          reduceMotion={reduceMotion}
+          className={styles.mobileThemeBleed}
+        />
         <div className={styles.mobileTabList} role="tablist" aria-label="Selected work cases" aria-orientation="vertical">
           <ul>
             {caseStudies.map((caseStudy, index) => (

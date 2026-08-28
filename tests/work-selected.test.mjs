@@ -165,6 +165,32 @@ test('selected work keeps motion browser-safe and has a static reduced-motion pa
   assert.match(detailSource, /className=\{styles\.heroVisual\}/);
 });
 
+test('selected work bleeds the active case theme into its black background without replacing card accents', () => {
+  assert.match(selectedWorkSource, /AnimatePresence/);
+  assert.match(selectedWorkSource, /data-active-theme=\{activeCase\.theme\}/);
+  assert.match(selectedWorkSource, /data-theme-bleed=\{caseStudy\.theme\}/);
+  assert.match(selectedWorkSource, /--bleed-rgb/);
+  assert.match(selectedWorkSource, /key=\{`theme-bleed-\$\{caseStudy\.slug\}`\}/);
+  assert.match(selectedWorkSource, /className=\{styles\.desktopThemeBleed\}/);
+  assert.match(selectedWorkSource, /className=\{styles\.mobileThemeBleed\}/);
+  assert.match(selectedWorkStyles, /\.themeBleed[\s\S]*pointer-events: none[\s\S]*z-index: 0/);
+  assert.doesNotMatch(selectedWorkStyles, /\.themeBleed[\s\S]{0,240}will-change/);
+  assert.match(selectedWorkStyles, /\.themeBleed::before[\s\S]*radial-gradient[\s\S]*--bleed-rgb/);
+  assert.match(selectedWorkStyles, /\.desktopThemeBleed[\s\S]*inset: -8% -8vw/);
+  assert.match(selectedWorkStyles, /\.mobileThemeBleed[\s\S]*inset: -3rem -1\.25rem -4rem/);
+  assert.match(selectedWorkStyles, /\.cardButton[\s\S]*border: 1px solid rgb\(var\(--case-accent-rgb\) \/ 42%\)/);
+  assert.match(selectedWorkStyles, /\.mobileItemActive[\s\S]*border-color: var\(--case-accent\)/);
+  assert.match(selectedWorkStyles, /prefers-reduced-motion: reduce\)[\s\S]*\.themeBleed/);
+
+  const cardMarkup = selectedWorkSource.slice(selectedWorkSource.indexOf('<article'), selectedWorkSource.indexOf('function MobileCaseItem'));
+  assert.ok(cardMarkup.indexOf('onPointerEnter=') < cardMarkup.indexOf('<button'));
+
+  const themeRgbValues = [...selectedWorkSource.matchAll(/accentSoft: '([^']+)'/g)].map((match) => match[1]);
+  assert.equal(themeRgbValues.length, 5);
+  assert.equal(new Set(themeRgbValues).size, 5);
+  assert.ok(themeRgbValues.every((value) => /^\d+ \d+ \d+$/.test(value)));
+});
+
 test('detail route has static params, notFound handling, noindex metadata and all publication fields', () => {
   assert.match(detailSource, /generateStaticParams/);
   assert.match(detailSource, /notFound\(\)/);
