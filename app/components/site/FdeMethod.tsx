@@ -19,7 +19,7 @@ const processSteps = [
     name: 'Frame',
     jp: '課題を定義する',
     signal: 'DISCOVERY / CONTEXT',
-    copy: '現場の声と事業の制約をつなぎ、何を解くべきかを一緒に定めます。',
+    copy: '現場の声と事業の制約をつなぎ、問題点や課題点をデータを用いて定めます。',
     output: 'Problem frame / success signal',
     accent: '#a6ffdb',
     accentRgb: '166 255 219',
@@ -30,7 +30,7 @@ const processSteps = [
     name: 'Prove',
     jp: '仮説を確かめる',
     signal: 'PROTOTYPE / EVIDENCE',
-    copy: '小さく作って触り、技術と業務の両面から進む理由を可視化します。',
+    copy: '小さく作って効果を検証し、仮説の成否を判断します。',
     output: 'Working proof / decision evidence',
     accent: '#79dcff',
     accentRgb: '121 220 255',
@@ -52,7 +52,7 @@ const processSteps = [
     name: 'Land',
     jp: '現場へ届ける',
     signal: 'ROLLOUT / ADOPTION',
-    copy: '導入後の学習と改善まで伴走し、チームの手に残る仕組みにします。',
+    copy: '導入後のデータ収集、その後の改善まで伴走し、業務の日々の変化にも柔軟に対応します。',
     output: 'Field adoption / iteration loop',
     accent: '#ff9fcb',
     accentRgb: '255 159 203',
@@ -223,7 +223,7 @@ export default function FdeMethod() {
           <h2 id="method-title" className={styles.title}>
             <span>Frame</span><i aria-hidden="true">→</i><span>Prove</span><i aria-hidden="true">→</i><span>Build</span><i aria-hidden="true">→</i><span>Land</span>
           </h2>
-          <p>技術を納品して終わらせず、事業の現場で使われ続けるところまで。4つの動詞で、変化を前へ進めます。</p>
+          <p>納品して終わりではなく、実際の現場で使われ続けるところまで。<br />4つのFlowで、変化、改善まで担当します。</p>
         </header>
 
         <div className={styles.deckStage} data-method-deck-stage>

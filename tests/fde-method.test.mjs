@@ -73,6 +73,10 @@ test('FDE method hover lifts the target and softly separates siblings', () => {
 
 test('FDE method uses a sticky desktop deck with accessible mobile and reduced-motion fallbacks', () => {
   assert.match(homeSource, /<FdeMethod \/>/);
+  assert.match(methodSource, /納品して終わりではなく、実際の現場で使われ続けるところまで。<br \/>4つのFlowで、変化、改善まで担当します。/);
+  assert.match(methodSource, /現場の声と事業の制約をつなぎ、問題点や課題点をデータを用いて定めます。/);
+  assert.match(methodSource, /小さく作って効果を検証し、仮説の成否を判断します。/);
+  assert.match(methodSource, /導入後のデータ収集、その後の改善まで伴走し、業務の日々の変化にも柔軟に対応します。/);
   assert.match(methodSource, /requestAnimationFrame/);
   assert.match(methodSource, /useReducedMotion/);
   assert.match(methodSource, /tabIndex=\{0\}/);
