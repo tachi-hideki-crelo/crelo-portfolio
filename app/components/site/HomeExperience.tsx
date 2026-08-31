@@ -10,6 +10,7 @@ import FdeMethod from './FdeMethod';
 import HeroExperience from './HeroExperience';
 import SiteChrome from './SiteChrome';
 import { getSiteModeCopy } from './site-mode';
+import WebTemplateGallery from './WebTemplateGallery';
 import IntroExperience from '../visual/IntroExperience';
 import SelectedWork from '../work/selected-work';
 import type { PublicCaseStudy } from '../work/work-public';
@@ -18,13 +19,6 @@ const NeuralBackdrop = dynamic(() => import('../visual/NeuralBackdrop'), {
   ssr: false,
   loading: () => <div className="neural-backdrop neural-backdrop--loading" aria-hidden="true" />,
 });
-
-const capabilities = [
-  { number: '01', title: 'AI', label: 'INTELLIGENCE LAYER', copy: '生成AI・検索・評価を、業務の判断と行動へつなげる。', detail: 'Discovery / Evaluation / Prompt systems' },
-  { number: '02', title: 'Software', label: 'PRODUCT SURFACE', copy: '曖昧な要件を、触れるプロダクトと持続するコードへ。', detail: 'Web apps / Interfaces / APIs' },
-  { number: '03', title: 'Integration', label: 'SYSTEM BRIDGE', copy: '既存のデータと人の流れを断ち切らず、連携を設計する。', detail: 'Data flows / Automation / Security' },
-  { number: '04', title: 'Deployment', label: 'FIELD OPERATIONS', copy: 'リリースの先にある現場定着まで、観測し、調整する。', detail: 'Enablement / Rollout / Iteration' },
-];
 
 type HomeExperienceProps = {
   publicBuild: boolean;
@@ -58,21 +52,7 @@ export default function HomeExperience({ publicBuild, profile, workCases, footer
 
         <FdeMethod />
 
-        <section className="capabilities-section" aria-labelledby="capabilities-title">
-          <div className="section-marker"><span>04</span><span>CAPABILITY MAP / SYSTEM LAYERS</span></div>
-          <div className="capabilities-section__head"><div><p className="eyebrow eyebrow--amber">Capability map</p><h2 id="capabilities-title">Business context <br /><em>into</em> working systems.</h2></div><p>ひとつの専門領域に閉じず、事業・技術・現場の境界を往復します。</p></div>
-          <div className="capability-grid">
-            {capabilities.map((capability) => (
-              <article className="capability-card" key={capability.title}>
-                <div className="capability-card__top"><span>{capability.number}</span><span className="capability-card__signal" aria-hidden="true" /></div>
-                <span className="capability-card__label">{capability.label}</span>
-                <h3>{capability.title}</h3>
-                <p>{capability.copy}</p>
-                <span className="capability-card__detail">{capability.detail}</span>
-              </article>
-            ))}
-          </div>
-        </section>
+        <WebTemplateGallery />
 
         <section id="profile" className="profile-section" aria-labelledby="profile-title">
           <div className="section-marker"><span>05</span><span>{profileReady ? modeCopy.profileMarker : getSiteModeCopy(false).profileMarker}</span></div>

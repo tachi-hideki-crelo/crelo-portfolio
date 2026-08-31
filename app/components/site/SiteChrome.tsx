@@ -7,8 +7,9 @@ import { REPLAY_EVENT } from '../visual/IntroExperience';
 import { getSiteModeCopy } from './site-mode';
 
 const navItems = [
-  { href: '#selected-work', label: 'Selected work' },
+  { href: '#selected-work', label: 'Selected Work' },
   { href: '#method', label: 'Method' },
+  { href: '#templates', label: 'Templates' },
   { href: '#profile', label: 'Profile' },
   { href: '#contact', label: 'Contact' },
 ];

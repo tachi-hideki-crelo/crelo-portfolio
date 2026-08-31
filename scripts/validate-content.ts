@@ -2,9 +2,16 @@ import { resolve } from 'node:path';
 
 import { assertProductionContent, validateProductionContent } from '../app/lib/content-gate.ts';
 import { caseStudies, siteContent } from '../app/lib/content.ts';
+import { validateWebTemplateGalleryConfig, webTemplateGallery } from '../app/components/site/web-template-gallery-data.ts';
 import { validatePublicContentAssets } from './validate-public-assets.ts';
 
 const isProduction = process.argv.includes('--production') || process.env.CONTENT_MODE === 'production';
+
+const templateGalleryResult = validateWebTemplateGalleryConfig(webTemplateGallery);
+if (!templateGalleryResult.ok) {
+  console.error(`WEB_TEMPLATE_GALLERY_GATE_FAILED\n${templateGalleryResult.errors.map((error) => `- ${error}`).join('\n')}`);
+  process.exit(1);
+}
 
 if (!isProduction) {
   console.log('CONTENT_MODE=preview: five unapproved, empty case-study slots are allowed.');
