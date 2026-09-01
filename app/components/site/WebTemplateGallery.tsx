@@ -229,7 +229,7 @@ export default function WebTemplateGallery({ config = webTemplateGallery }: { co
     const onWheel = (event: WheelEvent) => {
       // This listener is intentionally passive: the page keeps its native
       // vertical scroll while deltaX/deltaY steer the field camera.
-      fieldRef.current.targetX += event.deltaX * 0.0014;
+      fieldRef.current.targetX -= event.deltaX * 0.0014;
       fieldRef.current.targetY += event.deltaY * 0.00075;
     };
     stage.addEventListener('wheel', onWheel, { passive: true });

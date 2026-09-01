@@ -148,6 +148,8 @@ test('gallery source preserves passive wheel/native scroll, touch behavior, redu
   assert.match(gallerySource, /passive: true/);
   const wheelSource = gallerySource.slice(gallerySource.indexOf('const onWheel'), gallerySource.indexOf('stage.addEventListener(\'wheel\''));
   assert.doesNotMatch(wheelSource, /preventDefault/);
+  assert.match(wheelSource, /targetX\s*-=\s*event\.deltaX\s*\*\s*0\.0014/);
+  assert.match(wheelSource, /targetY\s*\+=\s*event\.deltaY\s*\*\s*0\.00075/);
   assert.match(galleryStyles, /touch-action: pan-y/);
   assert.match(gallerySource, /IntersectionObserver/);
   assert.match(gallerySource, /visibilitychange/);
