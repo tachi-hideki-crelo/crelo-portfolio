@@ -5,7 +5,7 @@ import {
   isAllowedContentAssetExtension,
   type ContentAssetKind,
 } from '../app/lib/content-assets.ts';
-import type { CaseStudy, SiteContent } from '../app/lib/types.ts';
+import type { CaseStudy, SelfBuiltTool, SiteContent } from '../app/lib/types.ts';
 
 export type PublicAssetValidationResult = {
   ok: boolean;
@@ -16,7 +16,7 @@ type AssetCheck = {
   label: string;
   src: string;
   kind: ContentAssetKind;
-  directory: 'assets/cases' | 'assets/profile';
+  directory: 'assets/cases' | 'assets/lab' | 'assets/profile';
 };
 
 function isWithinDirectory(candidate: string, directory: string): boolean {
@@ -117,6 +117,20 @@ export function validatePublicContentAssets(
     });
   });
 
+  const errors = checks.flatMap((check) => validateAssetFile(check, publicRoot));
+  return { ok: errors.length === 0, errors };
+}
+
+export function validateSelfBuiltToolAssets(
+  tools: readonly SelfBuiltTool[],
+  publicRoot: string,
+): PublicAssetValidationResult {
+  const checks = tools.flatMap((tool): AssetCheck[] => tool.thumbnailSrc ? [{
+    label: `selfBuiltTools[${tool.id}].thumbnailSrc`,
+    src: tool.thumbnailSrc,
+    kind: 'image',
+    directory: 'assets/lab',
+  }] : []);
   const errors = checks.flatMap((check) => validateAssetFile(check, publicRoot));
   return { ok: errors.length === 0, errors };
 }

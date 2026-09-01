@@ -1,0 +1,230 @@
+.labSection {
+  --lab-title-reveal: 0;
+  --lab-body-reveal: 0;
+  --lab-title-blur: 14px;
+  --lab-body-blur: 9px;
+  --lab-title-echo-opacity: 0;
+  --lab-title-echo-secondary-opacity: 0;
+  --lab-title-lift: 0vh;
+  --lab-title-scale: 1;
+  --lab-title-opacity: 0;
+  --lab-rail-progress: 0;
+  --lab-atmosphere: 0;
+  --lab-outro: 0;
+  --lab-intro-cue-opacity: .75;
+  --lab-outro-cue-opacity: 0;
+  border-top: 1px solid rgb(166 255 219 / 10%);
+  min-height: 460vh;
+  position: relative;
+}
+
+.stickyStage {
+  background:
+    radial-gradient(circle at 50% 58%, rgb(121 220 255 / 6%), transparent 29rem),
+    linear-gradient(180deg, rgb(3 7 10 / 94%), rgb(5 9 13 / 89%));
+  height: 100svh;
+  isolation: isolate;
+  min-height: 38rem;
+  overflow: hidden;
+  position: sticky;
+  top: 0;
+}
+
+.stickyStage::after {
+  background: linear-gradient(180deg, rgb(3 7 9 / 72%), transparent 20%, transparent 80%, rgb(3 7 9 / 82%));
+  content: '';
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 8;
+}
+
+.marker {
+  left: clamp(1.25rem, 4.7vw, 4.75rem);
+  margin: 0;
+  position: absolute;
+  top: 6.4rem;
+  z-index: 10;
+}
+
+.atmosphere { inset: 0; opacity: var(--lab-atmosphere); pointer-events: none; position: absolute; transition: opacity 120ms linear; z-index: 0; }
+.gridPlane { background-image: linear-gradient(rgb(121 220 255 / 11%) 1px, transparent 1px), linear-gradient(90deg, rgb(121 220 255 / 11%) 1px, transparent 1px); background-size: 62px 62px; bottom: -35%; height: 80%; left: -10%; mask-image: linear-gradient(to top, #000 5%, transparent 86%); opacity: .45; position: absolute; transform: perspective(620px) rotateX(67deg); width: 120%; }
+.signalBeam { background: linear-gradient(180deg, transparent, rgb(166 255 219 / 22%), transparent); filter: blur(14px); height: 135%; left: 50%; opacity: .65; position: absolute; top: -18%; transform: rotate(12deg); width: 8rem; }
+.horizonGlow { background: radial-gradient(ellipse at center, rgb(121 220 255 / 25%), transparent 68%); filter: blur(20px); height: 20rem; left: 50%; position: absolute; top: 55%; transform: translate(-50%, -50%); width: 75%; }
+.scanPlane { background: linear-gradient(90deg, transparent, rgb(166 255 219 / 18%), transparent); box-shadow: 0 0 2rem rgb(121 220 255 / 18%); height: 1px; left: -10%; position: absolute; top: 58%; transform: rotate(-4deg); width: 120%; animation: lab-scan 5.8s ease-in-out infinite; }
+
+.particle { background: var(--cyan); border-radius: 50%; box-shadow: 0 0 .7rem currentcolor; height: var(--particle-size); left: var(--particle-x); opacity: var(--particle-opacity); position: absolute; top: var(--particle-y); width: var(--particle-size); animation: lab-particle var(--particle-duration) ease-in-out infinite alternate; }
+
+.intro { left: 50%; max-width: min(72rem, calc(100vw - 3rem)); opacity: var(--lab-title-opacity); pointer-events: none; position: absolute; text-align: center; top: 49%; transform: translate3d(-50%, calc(-50% + var(--lab-title-lift)), 0) scale(var(--lab-title-scale)); transform-origin: center top; width: 100%; z-index: 1; }
+.eyebrow { color: var(--cyan); font-family: var(--font-mono); font-size: .56rem; letter-spacing: .18em; margin: 0 0 1.25rem; text-transform: uppercase; }
+.intro h2 { color: var(--ink); filter: blur(var(--lab-title-blur)); font-size: clamp(5.5rem, 13vw, 13rem); letter-spacing: -.1em; line-height: .78; margin: 0; position: relative; text-shadow: 0 0 3rem rgb(121 220 255 / 13%); white-space: nowrap; }
+.intro h2::before, .intro h2::after { content: attr(data-echo); inset: 0; pointer-events: none; position: absolute; }
+.intro h2::before { color: var(--cyan); mix-blend-mode: screen; opacity: var(--lab-title-echo-opacity); transform: translateX(-.035em); }
+.intro h2::after { color: var(--violet); clip-path: inset(49% 0 42% 0); opacity: var(--lab-title-echo-secondary-opacity); transform: translateX(.028em); }
+.lead { color: var(--muted); filter: blur(var(--lab-body-blur)); font-size: clamp(.86rem, 1.2vw, 1rem); line-height: 1.9; margin: 1.7rem auto 0; max-width: 43rem; opacity: var(--lab-body-reveal); }
+
+.signalRail { bottom: 8%; left: 50%; pointer-events: none; position: absolute; top: 22%; transform: translateX(-50%); width: 1px; z-index: 2; }
+.signalRailTrack, .signalRailFill { inset: 0; position: absolute; }
+.signalRailTrack { background: linear-gradient(transparent, rgb(166 255 219 / 13%) 9%, rgb(121 220 255 / 20%) 88%, transparent); }
+.signalRailFill { background: linear-gradient(transparent, var(--mint), var(--cyan), transparent); box-shadow: 0 0 1.2rem rgb(121 220 255 / 50%); transform: scaleY(var(--lab-rail-progress)); transform-origin: top; }
+.signalNode { background: var(--bg); border: 1px solid rgb(166 255 219 / 28%); border-radius: 50%; height: .55rem; left: 50%; position: absolute; top: var(--node-top); transform: translate(-50%, -50%); transition: background 240ms ease, border-color 240ms ease, box-shadow 240ms ease, transform 240ms ease; width: .55rem; }
+.signalNode[data-active='true'] { background: var(--mint); border-color: var(--mint); box-shadow: 0 0 0 .45rem rgb(166 255 219 / 8%), 0 0 1.3rem rgb(166 255 219 / 70%); transform: translate(-50%, -50%) scale(1.25); }
+
+.toolStage { inset: 0; pointer-events: none; position: absolute; z-index: 4; }
+.toolRow {
+  --lab-accent: var(--mint);
+  --lab-accent-rgb: 166 255 219;
+  --lab-x: 0vw;
+  --lab-y: 86vh;
+  --lab-scale: .78;
+  --lab-opacity: 0;
+  --lab-blur: 18px;
+  --lab-rotate: 0deg;
+  --lab-card-reveal: 0;
+  --lab-card-scan-y: 9%;
+  --lab-copy-opacity: 0;
+  --lab-copy-y: 34px;
+  --lab-copy-blur: 12px;
+  --lab-copy-clip: 100%;
+  --lab-portal: 0;
+  --lab-portal-scale: .6;
+  --lab-afterimage: 0;
+  --lab-afterimage-opacity: 0;
+  --lab-bleed-opacity: 0;
+  --lab-tilt-x: 0deg;
+  --lab-tilt-y: 0deg;
+  --lab-glint-x: 50%;
+  --lab-glint-y: 44%;
+  align-items: center;
+  display: grid;
+  filter: blur(var(--lab-blur));
+  gap: clamp(2.8rem, 8vw, 8rem);
+  grid-template-columns: minmax(17rem, 1fr) minmax(16rem, .78fr);
+  left: 50%;
+  max-width: 1180px;
+  opacity: var(--lab-opacity);
+  pointer-events: none;
+  position: absolute;
+  top: 56%;
+  transform: translate3d(calc(-50% + var(--lab-x)), calc(-50% + var(--lab-y)), 0) rotate(var(--lab-rotate)) scale(var(--lab-scale));
+  transform-origin: center;
+  width: min(82vw, 1180px);
+  will-change: filter, opacity, transform;
+}
+.toolRow[data-active='true'] { pointer-events: auto; }
+.toolRow[data-side='right'] .visualColumn { order: 2; }
+.toolRow[data-side='right'] .toolCopy { order: 1; text-align: right; }
+
+.toolRow::before { background: radial-gradient(circle, rgb(var(--lab-accent-rgb) / 20%), transparent 68%); content: ''; filter: blur(34px); height: 130%; left: 50%; opacity: var(--lab-bleed-opacity); pointer-events: none; position: absolute; top: 50%; transform: translate(-50%, -50%); width: 115%; z-index: -2; }
+.portal { height: min(34vw, 30rem); left: 50%; opacity: var(--lab-portal); pointer-events: none; position: absolute; top: 50%; transform: translate(-50%, -50%) scale(var(--lab-portal-scale)); width: min(34vw, 30rem); z-index: -1; }
+.portal::before, .portal::after, .portal i { border: 1px solid rgb(var(--lab-accent-rgb) / 62%); border-radius: 50%; content: ''; inset: 0; position: absolute; }
+.portal::before { box-shadow: inset 0 0 2rem rgb(var(--lab-accent-rgb) / 14%), 0 0 2rem rgb(var(--lab-accent-rgb) / 18%); animation: lab-orbit 7s linear infinite; }
+.portal::after { inset: 12%; opacity: .55; transform: rotateX(64deg); }
+.portal i:first-child { inset: 24%; opacity: .32; }
+.portal i:last-child { border-style: dashed; inset: 36%; opacity: .75; animation: lab-orbit 4.6s linear infinite reverse; }
+
+.visualColumn { min-width: 0; perspective: 1000px; }
+.cardLink, .cardSurface { color: inherit; display: block; text-decoration: none; }
+.cardLink { min-height: 44px; }
+.cardFrame { aspect-ratio: 1.42; background: linear-gradient(145deg, rgb(var(--lab-accent-rgb) / 13%), rgb(5 11 15 / 95%) 44%, rgb(8 15 19 / 98%)); border: 1px solid rgb(var(--lab-accent-rgb) / 48%); box-shadow: 0 1.8rem 4rem rgb(0 0 0 / 42%), inset 0 0 2.8rem rgb(var(--lab-accent-rgb) / 5%); clip-path: polygon(0 0, 94% 0, 100% 9%, 100% 100%, 6% 100%, 0 91%); overflow: hidden; padding: 1rem; position: relative; transform: rotateX(var(--lab-tilt-x)) rotateY(var(--lab-tilt-y)) translateZ(0); transition: border-color 220ms ease, box-shadow 220ms ease, transform 160ms ease-out; }
+.cardFrame::after { background: radial-gradient(circle at var(--lab-glint-x) var(--lab-glint-y), rgb(255 255 255 / 18%), transparent 20rem); content: ''; inset: 0; mix-blend-mode: screen; opacity: .45; pointer-events: none; position: absolute; }
+.cardSurface:hover .cardFrame, .cardLink:hover .cardFrame, .cardLink:focus-visible .cardFrame { border-color: var(--lab-accent); box-shadow: 0 2rem 5rem rgb(var(--lab-accent-rgb) / 16%), inset 0 0 3.4rem rgb(var(--lab-accent-rgb) / 8%); }
+.cardAfterimage { border: 1px solid rgb(var(--lab-accent-rgb) / 26%); inset: .55rem -.55rem -.55rem .55rem; opacity: var(--lab-afterimage-opacity); position: absolute; transform: translate3d(-.7rem, .6rem, -1px); }
+.cardScan { background: linear-gradient(90deg, transparent, rgb(var(--lab-accent-rgb) / 76%), transparent); box-shadow: 0 0 1.3rem rgb(var(--lab-accent-rgb) / 48%); height: 1px; left: -15%; opacity: var(--lab-card-reveal); position: absolute; top: var(--lab-card-scan-y); width: 130%; z-index: 5; }
+.cardTopline, .cardBottomline { align-items: center; display: flex; font-family: var(--font-mono); font-size: .48rem; justify-content: space-between; letter-spacing: .12em; position: relative; text-transform: uppercase; z-index: 2; }
+.cardTopline { color: var(--lab-accent); }
+.cardTopline span:last-child, .cardBottomline span { color: var(--dim); }
+.cardBottomline { bottom: 1rem; left: 1rem; position: absolute; right: 1rem; }
+.cardBottomline strong { color: var(--lab-accent); font-weight: 400; }
+.cardViewport { bottom: 2.65rem; left: 1rem; overflow: hidden; position: absolute; right: 1rem; top: 2.45rem; }
+.thumbnail { height: 100%; object-fit: cover; width: 100%; }
+.schematic { background: linear-gradient(135deg, rgb(var(--lab-accent-rgb) / 5%), transparent 52%), #060d11; height: 100%; overflow: hidden; position: relative; }
+.schematicGrid { background-image: linear-gradient(rgb(var(--lab-accent-rgb) / 11%) 1px, transparent 1px), linear-gradient(90deg, rgb(var(--lab-accent-rgb) / 11%) 1px, transparent 1px); background-size: 34px 34px; inset: 0; mask-image: radial-gradient(circle, #000 5%, transparent 76%); position: absolute; }
+.schematicOrbit { border: 1px solid rgb(var(--lab-accent-rgb) / 52%); border-radius: 50%; height: 62%; left: 50%; position: absolute; top: 50%; transform: translate(-50%, -50%) rotateX(62deg) rotateZ(-18deg); width: 62%; }
+.schematicOrbit::before, .schematicOrbit::after { border: 1px dashed rgb(var(--lab-accent-rgb) / 28%); border-radius: 50%; content: ''; inset: 12%; position: absolute; }
+.schematicOrbit::after { inset: 28%; transform: rotate(52deg); }
+.schematicCore { align-items: center; background: radial-gradient(circle, rgb(var(--lab-accent-rgb) / 23%), rgb(5 11 14 / 94%) 67%); border: 1px solid rgb(var(--lab-accent-rgb) / 64%); border-radius: 50%; color: var(--lab-accent); display: flex; font-family: var(--font-mono); font-size: clamp(.55rem, .9vw, .75rem); height: clamp(4.3rem, 9vw, 7rem); justify-content: center; left: 50%; letter-spacing: .1em; position: absolute; top: 50%; transform: translate(-50%, -50%); width: clamp(4.3rem, 9vw, 7rem); }
+.schematicNode { background: var(--lab-accent); border-radius: 50%; box-shadow: 0 0 1rem var(--lab-accent); height: .45rem; position: absolute; width: .45rem; animation: lab-node 2.7s ease-in-out infinite alternate; }
+.schematicNodeOne { left: 19%; top: 28%; }
+.schematicNodeTwo { right: 22%; top: 19%; animation-delay: -.9s; }
+.schematicNodeThree { bottom: 19%; right: 16%; animation-delay: -1.7s; }
+.schematicWave { border-top: 1px solid rgb(var(--lab-accent-rgb) / 55%); bottom: 18%; height: 1.5rem; left: 9%; opacity: .7; position: absolute; transform: skewY(-8deg); width: 29%; }
+.corner { border-color: var(--lab-accent); border-style: solid; height: .58rem; opacity: .85; position: absolute; width: .58rem; z-index: 6; }
+.cornerTl { border-width: 1px 0 0 1px; left: .45rem; top: .45rem; }
+.cornerTr { border-width: 1px 1px 0 0; right: .45rem; top: .45rem; }
+.cornerBl { border-width: 0 0 1px 1px; bottom: .45rem; left: .45rem; }
+.cornerBr { border-width: 0 1px 1px 0; bottom: .45rem; right: .45rem; }
+
+.toolCopy { clip-path: inset(0 var(--lab-copy-clip) 0 0); filter: blur(var(--lab-copy-blur)); opacity: var(--lab-copy-opacity); transform: translateY(var(--lab-copy-y)); transition: color 220ms ease; }
+.toolRow[data-side='right'] .toolCopy { clip-path: inset(0 0 0 var(--lab-copy-clip)); }
+.toolCategory { color: var(--lab-accent); font-family: var(--font-mono); font-size: .55rem; letter-spacing: .15em; margin: 0 0 1rem; text-transform: uppercase; }
+.toolCopy h3 { font-size: clamp(2.8rem, 5.4vw, 6.2rem); letter-spacing: -.08em; line-height: .88; margin: 0; white-space: nowrap; }
+.toolSummary { color: var(--muted); font-size: clamp(.88rem, 1.1vw, 1rem); line-height: 1.9; margin: 1.35rem 0 0; max-width: 29rem; }
+.toolRow[data-side='right'] .toolSummary { margin-left: auto; }
+.toolMeta { border-top: 1px solid rgb(var(--lab-accent-rgb) / 22%); margin: 2rem 0 0; max-width: 29rem; }
+.toolRow[data-side='right'] .toolMeta { margin-left: auto; }
+.toolMeta div { align-items: center; border-bottom: 1px solid rgb(var(--lab-accent-rgb) / 11%); display: flex; gap: 1rem; justify-content: space-between; min-height: 2.65rem; }
+.toolMeta dt, .toolMeta dd { font-family: var(--font-mono); font-size: .48rem; letter-spacing: .09em; margin: 0; text-transform: uppercase; }
+.toolMeta dt { color: var(--dim); }
+.toolMeta dd { color: var(--lab-accent); }
+
+.cues { bottom: 2rem; color: var(--dim); display: flex; font-family: var(--font-mono); font-size: .48rem; justify-content: space-between; left: clamp(1.25rem, 4.7vw, 4.75rem); letter-spacing: .12em; pointer-events: none; position: absolute; right: clamp(1.25rem, 4.7vw, 4.75rem); text-transform: uppercase; z-index: 10; }
+.cues span:first-child { color: var(--mint); opacity: var(--lab-intro-cue-opacity); }
+.cues span:last-child { color: var(--cyan); opacity: var(--lab-outro-cue-opacity); }
+
+@media (max-width: 900px) {
+  .toolRow { gap: clamp(2rem, 5vw, 4rem); width: min(88vw, 780px); }
+  .toolCopy h3 { font-size: clamp(2.5rem, 7vw, 4.5rem); }
+}
+
+@media (max-width: 720px) {
+  .stickyStage { min-height: 42rem; }
+  .marker { top: 5.35rem; }
+  .intro { max-width: calc(100vw - 2.5rem); top: 49%; }
+  .eyebrow { font-size: .46rem; margin-bottom: .8rem; }
+  .intro h2 { font-size: clamp(4rem, 23vw, 6.2rem); }
+  .lead { font-size: .76rem; line-height: 1.75; margin-top: 1.05rem; max-width: 22rem; }
+  .signalRail { left: 1.45rem; opacity: .58; top: 18%; }
+  .toolRow { gap: .9rem; grid-template-columns: 1fr; max-width: none; top: 56%; width: calc(100vw - 2.5rem); }
+  .toolRow[data-side='right'] .visualColumn, .toolRow[data-side='right'] .toolCopy { order: initial; }
+  .toolRow[data-side='right'] .toolCopy { text-align: left; }
+  .toolRow[data-side='right'] .toolSummary, .toolRow[data-side='right'] .toolMeta { margin-left: 0; }
+  .toolRow[data-side='right'] .toolCopy, .toolCopy { clip-path: inset(0 0 var(--lab-copy-clip) 0); }
+  .visualColumn { margin-left: 0; width: 94%; }
+  .toolRow[data-side='right'] .visualColumn { margin-left: 6%; }
+  .cardFrame { aspect-ratio: 1.58; padding: .82rem; }
+  .cardTopline, .cardBottomline { font-size: .4rem; }
+  .cardBottomline { bottom: .75rem; left: .82rem; right: .82rem; }
+  .cardViewport { bottom: 2.2rem; left: .82rem; right: .82rem; top: 2rem; }
+  .toolCategory { font-size: .45rem; margin-bottom: .6rem; }
+  .toolCopy h3 { font-size: clamp(1.75rem, 8.7vw, 2.5rem); }
+  .toolSummary { font-size: .76rem; line-height: 1.65; margin-top: .65rem; }
+  .toolMeta { margin-top: .85rem; }
+  .toolMeta div { min-height: 2.1rem; }
+  .toolMeta dt, .toolMeta dd { font-size: .4rem; }
+  .portal { height: 80vw; width: 80vw; }
+  .cues { bottom: 1.35rem; font-size: .4rem; }
+}
+
+.labSection[data-reduced-motion='true'] { min-height: auto; }
+.labSection[data-reduced-motion='true'] .stickyStage { height: auto; min-height: 100svh; overflow: visible; padding: 9rem clamp(1.25rem, 8.5vw, 9rem) 6rem; position: relative; }
+.labSection[data-reduced-motion='true'] .marker { left: 0; position: relative; top: auto; }
+.labSection[data-reduced-motion='true'] .intro { margin: 3rem auto 4rem; max-width: 58rem; opacity: 1; position: relative; top: auto; transform: none; }
+.labSection[data-reduced-motion='true'] .intro h2, .labSection[data-reduced-motion='true'] .lead { filter: none; opacity: 1; }
+.labSection[data-reduced-motion='true'] .toolStage { display: grid; gap: 4rem; inset: auto; position: relative; }
+.labSection[data-reduced-motion='true'] .toolRow { filter: none; opacity: 1; pointer-events: auto; position: relative; top: auto; transform: none; width: 100%; }
+.labSection[data-reduced-motion='true'] .toolCopy { clip-path: none; filter: none; opacity: 1; transform: none; }
+.labSection[data-reduced-motion='true'] .signalRail, .labSection[data-reduced-motion='true'] .portal, .labSection[data-reduced-motion='true'] .cardAfterimage, .labSection[data-reduced-motion='true'] .cardScan, .labSection[data-reduced-motion='true'] .cues { display: none; }
+
+@media (max-width: 720px) and (prefers-reduced-motion: reduce) {
+  .labSection[data-reduced-motion='true'] .stickyStage { padding-left: 1.25rem; padding-right: 1.25rem; }
+  .labSection[data-reduced-motion='true'] .toolRow { grid-template-columns: 1fr; }
+}
+
+.labSection[data-viewport-active='false'] .scanPlane, .labSection[data-viewport-active='false'] .particle, .labSection[data-viewport-active='false'] .schematicNode, .labSection[data-viewport-active='false'] .portal::before, .labSection[data-viewport-active='false'] .portal i { animation-play-state: paused; }
+.labSection[data-document-visible='false'] .scanPlane, .labSection[data-document-visible='false'] .particle, .labSection[data-document-visible='false'] .schematicNode, .labSection[data-document-visible='false'] .portal::before, .labSection[data-document-visible='false'] .portal i { animation-play-state: paused; }
+
+@keyframes lab-scan { 0%, 100% { opacity: 0; transform: translateY(-16vh) rotate(-4deg); } 28% { opacity: .7; } 68% { opacity: .2; transform: translateY(22vh) rotate(-4deg); } }
+@keyframes lab-particle { from { transform: translate3d(-.4rem, .6rem, 0); } to { transform: translate3d(.6rem, -1.2rem, 0); } }
+@keyframes lab-orbit { to { transform: rotate(360deg); } }
+@keyframes lab-node { from { opacity: .36; transform: scale(.72); } to { opacity: 1; transform: scale(1.3); } }

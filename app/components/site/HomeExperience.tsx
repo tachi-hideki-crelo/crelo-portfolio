@@ -8,6 +8,7 @@ import type { SiteContent } from '../../lib/types';
 import ContactForm from './ContactForm';
 import FdeMethod from './FdeMethod';
 import HeroExperience from './HeroExperience';
+import SelfDevelopmentLab from './SelfDevelopmentLab';
 import SiteChrome from './SiteChrome';
 import { getSiteModeCopy } from './site-mode';
 import WebTemplateGallery from './WebTemplateGallery';
@@ -54,8 +55,10 @@ export default function HomeExperience({ publicBuild, profile, workCases, footer
 
         <WebTemplateGallery />
 
+        <SelfDevelopmentLab />
+
         <section id="profile" className="profile-section" aria-labelledby="profile-title">
-          <div className="section-marker"><span>05</span><span>{profileReady ? modeCopy.profileMarker : getSiteModeCopy(false).profileMarker}</span></div>
+          <div className="section-marker"><span>06</span><span>{profileReady ? modeCopy.profileMarker : getSiteModeCopy(false).profileMarker}</span></div>
           <div className="profile-section__grid">
             {profileReady ? (
               <div className="profile-orbit profile-orbit--approved">
@@ -87,7 +90,7 @@ export default function HomeExperience({ publicBuild, profile, workCases, footer
         </section>
 
         <section id="contact" className="contact-section" aria-labelledby="contact-title">
-          <div className="section-marker"><span>06</span><span>CONTACT / START A FIELD LOOP</span></div>
+          <div className="section-marker"><span>07</span><span>CONTACT / START A FIELD LOOP</span></div>
           <div className="contact-section__grid"><div className="contact-copy"><p className="eyebrow eyebrow--mint">Let&apos;s work from the field</p><h2 id="contact-title"><span className="contact-heading-line">まず、課題の</span><br /><span className="contact-heading-line"><em>輪郭</em>を</span><br /><span className="contact-heading-line">聞かせてください。</span></h2><p>まだ要件になっていなくても大丈夫です。現場で起きていること、変えたいこと、制約を教えてください。</p><div className="contact-copy__meta"><span>{modeCopy.contactPolicy}</span><span>{modeCopy.contactSecurity}</span></div></div><ContactForm publicBuild={publicBuild} /></div>
         </section>
       </main>

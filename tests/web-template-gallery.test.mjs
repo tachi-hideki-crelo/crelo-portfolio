@@ -188,7 +188,8 @@ test('responsive title and all fifteen action hit areas stay within their contra
   assert.match(galleryStyles, /flex-shrink: 0/);
 });
 
-test('primary navigation includes the five requested anchors', () => {
-  ['Selected Work', 'Method', 'Templates', 'Profile', 'Contact'].forEach((label) => assert.match(navSource, new RegExp(`label: '${label}'`)));
+test('primary navigation includes the requested anchors including Personal Lab', () => {
+  ['Selected Work', 'Method', 'Templates', 'Lab', 'Profile', 'Contact'].forEach((label) => assert.match(navSource, new RegExp(`label: '${label}'`)));
   assert.match(navSource, /href: '#templates'/);
+  assert.match(navSource, /href: '#lab'/);
 });

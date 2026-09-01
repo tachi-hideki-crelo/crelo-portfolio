@@ -10,6 +10,7 @@ const navItems = [
   { href: '#selected-work', label: 'Selected Work' },
   { href: '#method', label: 'Method' },
   { href: '#templates', label: 'Templates' },
+  { href: '#lab', label: 'Lab' },
   { href: '#profile', label: 'Profile' },
   { href: '#contact', label: 'Contact' },
 ];

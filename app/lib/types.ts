@@ -120,3 +120,28 @@ export type SiteContent = {
   privacy: PrivacyContent;
   contactEmail: string | null;
 };
+
+export type SelfBuiltToolAccent = 'mint' | 'cyan' | 'amber' | 'violet';
+
+export type SelfBuiltToolDetail = {
+  overview: string;
+  problem: string;
+  approach: string;
+  features: readonly string[];
+  technologies: readonly string[];
+};
+
+export type SelfBuiltTool = {
+  id: string;
+  order: number;
+  title: string;
+  category: string;
+  summary: string;
+  tags: readonly string[];
+  accent: SelfBuiltToolAccent;
+  status: 'placeholder' | 'published';
+  slug: string | null;
+  thumbnailSrc: string | null;
+  thumbnailAlt: string | null;
+  detail: SelfBuiltToolDetail | null;
+};
