@@ -263,7 +263,11 @@ export default function SelfDevelopmentLab({ tools = selfBuiltTools }: { tools?:
                 <div className={styles.toolCopy}>
                   <p className={styles.toolCategory}>{tool.category} / {number}</p>
                   <h3 id={`lab-tool-${number}`}>{tool.title}</h3>
-                  <p className={styles.toolSummary}>{tool.summary}</p>
+                  <p className={styles.toolSummary}>
+                    {tool.status === 'placeholder' ? (
+                      <>ツールの目的、解決したい課題、<span className={styles.keepPhrase}>主な機能をここに掲載します。</span></>
+                    ) : tool.summary}
+                  </p>
                   <dl className={styles.toolMeta}>
                     <div><dt>STATUS</dt><dd>{published ? 'PUBLISHED' : 'DETAIL PREPARING'}</dd></div>
                     <div><dt>STACK</dt><dd>{tool.tags.length ? tool.tags.join(' / ') : 'DETAILS PENDING'}</dd></div>

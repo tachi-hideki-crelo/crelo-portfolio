@@ -160,6 +160,7 @@
 .toolCategory { color: var(--lab-accent); font-family: var(--font-mono); font-size: .55rem; letter-spacing: .15em; margin: 0 0 1rem; text-transform: uppercase; }
 .toolCopy h3 { font-size: clamp(2.8rem, 5.4vw, 6.2rem); letter-spacing: -.08em; line-height: .88; margin: 0; white-space: nowrap; }
 .toolSummary { color: var(--muted); font-size: clamp(.88rem, 1.1vw, 1rem); line-height: 1.9; margin: 1.35rem 0 0; max-width: 29rem; }
+.keepPhrase { white-space: nowrap; }
 .toolRow[data-side='right'] .toolSummary { margin-left: auto; }
 .toolMeta { border-top: 1px solid rgb(var(--lab-accent-rgb) / 22%); margin: 2rem 0 0; max-width: 29rem; }
 .toolRow[data-side='right'] .toolMeta { margin-left: auto; }

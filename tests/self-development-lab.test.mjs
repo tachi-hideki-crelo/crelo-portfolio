@@ -110,6 +110,8 @@ test('lab source keeps semantic placeholders, offscreen pausing, and future deta
   assert.match(componentSource, /PERSONAL LAB \/ BUILT FROM CURIOSITY/);
   assert.match(componentSource, /<article/);
   assert.match(componentSource, /tool\.status === 'published' && tool\.slug/);
+  assert.match(componentSource, /styles\.keepPhrase/);
+  assert.match(styles, /\.keepPhrase \{ white-space: nowrap; \}/);
   assert.doesNotMatch(componentSource, /<button/);
   assert.match(componentSource, /IntersectionObserver/);
   assert.match(componentSource, /visibilitychange/);
