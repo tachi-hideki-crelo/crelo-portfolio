@@ -18,7 +18,7 @@ test('profile and contact headings keep Japanese meaning phrases together', () =
   assert.match(styles, /\.legal-page__back \{[^}]*display: inline-flex;[^}]*min-height: 44px/);
 });
 
-test('approved profile renders the supplied identity as a static portrait', () => {
+test('approved profile keeps the portrait static with an intermittent light scan', () => {
   const contentSource = readFileSync(new URL('../app/lib/content.ts', import.meta.url), 'utf8');
   assert.match(contentSource, /name: '舘 秀樹'/);
   assert.match(contentSource, /portraitSrc: '\/assets\/profile\/hideki-tachi\.png'/);
@@ -30,7 +30,10 @@ test('approved profile renders the supplied identity as a static portrait', () =
   assert.match(homeSource, /profile\.approved && Boolean/);
   assert.match(styles, /\.profile-photo-frame \{[^}]*transform: translate\(-50%, -50%\)/);
   assert.match(styles, /\.profile-photo \{[^}]*transform: scale\(1\.025\)/);
-  assert.doesNotMatch(styles, /profile-photo-coin|profile-photo-orbit|profile-photo-scan/);
+  assert.match(styles, /\.profile-photo-frame::before \{[^}]*animation: profile-photo-scan 7s ease-in-out infinite/);
+  assert.match(styles, /@keyframes profile-photo-scan \{[\s\S]*translateX\(45%\)/);
+  assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.profile-photo-frame::before, \.profile-orbit--approved \.profile-orbit__ring \{ animation: none/);
+  assert.doesNotMatch(styles, /profile-photo-coin|profile-photo-orbit/);
 });
 
 test('Personal Lab title and tool titles do not break in the middle', () => {
