@@ -296,10 +296,13 @@ button { color: inherit; }
 .profile-orbit__core { align-items: center; background: radial-gradient(circle at 30% 28%, rgb(166 255 219 / 35%), rgb(11 31 30 / 80%) 50%, rgb(6 12 15 / 95%)); border: 1px solid var(--mint-strong); border-radius: 50%; box-shadow: 0 0 0 1.1rem rgb(103 245 186 / 4%), 0 0 4rem rgb(103 245 186 / 17%); display: flex; font-family: var(--font-mono); font-size: clamp(2.2rem, 7vw, 6rem); justify-content: center; left: 50%; letter-spacing: -.1em; position: absolute; top: 50%; transform: translate(-50%, -50%); width: 34%; }
 .profile-orbit__core::after { content: ''; display: block; padding-bottom: 100%; }
 .profile-orbit__core span { position: absolute; }
-.profile-photo-frame { animation: profile-photo-orbit 28s linear infinite; aspect-ratio: 1; background: rgb(5 12 14 / 76%); border: 1px solid var(--mint-strong); border-radius: 50%; box-shadow: 0 0 0 1.1rem rgb(103 245 186 / 4%), 0 0 4rem rgb(103 245 186 / 20%), inset 0 0 2.4rem rgb(121 220 255 / 12%); height: 68%; left: 50%; overflow: hidden; position: absolute; top: 50%; transform: translate(-50%, -50%); width: 68%; z-index: 1; }
-.profile-photo-frame::before { animation: profile-photo-scan 7s ease-in-out infinite; background: linear-gradient(112deg, transparent 31%, rgb(166 255 219 / 18%) 47%, rgb(121 220 255 / 28%) 50%, transparent 66%); content: ''; inset: -30%; mix-blend-mode: screen; pointer-events: none; position: absolute; transform: translateX(-45%); z-index: 2; }
-.profile-photo-frame::after { border: 1px solid rgb(255 255 255 / 13%); border-radius: inherit; content: ''; inset: .55rem; pointer-events: none; position: absolute; z-index: 3; }
-.profile-photo { border-radius: 50%; display: block; filter: saturate(.84) contrast(1.04); height: 100%; object-fit: cover; object-position: 50% 50%; transform: scale(1.025); width: 100%; }
+.profile-photo-frame { aspect-ratio: 1; height: 68%; left: 50%; perspective: 900px; position: absolute; top: 50%; transform: translate(-50%, -50%); width: 68%; z-index: 1; }
+.profile-photo-coin { animation: profile-photo-coin-spin 24s linear infinite; background: rgb(5 12 14 / 92%); border: 1px solid var(--mint-strong); border-radius: 50%; box-shadow: 0 0 0 1.1rem rgb(103 245 186 / 4%), 0 0 4rem rgb(103 245 186 / 22%), inset 0 0 2.4rem rgb(121 220 255 / 12%); height: 100%; position: relative; transform-style: preserve-3d; width: 100%; will-change: transform; }
+.profile-photo { backface-visibility: hidden; border-radius: 50%; display: block; filter: saturate(.84) contrast(1.04); height: 100%; inset: 0; object-fit: cover; object-position: 50% 50%; position: absolute; width: 100%; -webkit-backface-visibility: hidden; }
+.profile-photo--front { transform: rotateY(0deg) translateZ(.24rem) scale(1.025); }
+.profile-photo--back { filter: saturate(.74) contrast(1.08) brightness(.78); transform: rotateY(180deg) translateZ(.24rem) scale(1.025); }
+.profile-photo-coin__edge { background: linear-gradient(180deg, var(--cyan), #0b2427 16%, var(--mint-strong) 48%, #0b2427 82%, var(--cyan)); border: 1px solid rgb(166 255 219 / 66%); border-radius: 999px; box-shadow: 0 0 1.3rem rgb(121 220 255 / 58%); height: 96%; left: 50%; position: absolute; top: 2%; transform: translateX(-50%) rotateY(90deg); width: .58rem; }
+.profile-photo-coin__glint { backface-visibility: hidden; background: linear-gradient(112deg, transparent 31%, rgb(166 255 219 / 5%) 43%, rgb(121 220 255 / 25%) 50%, transparent 66%); border: 1px solid rgb(255 255 255 / 13%); border-radius: 50%; inset: .55rem; mix-blend-mode: screen; pointer-events: none; position: absolute; transform: translateZ(.3rem); -webkit-backface-visibility: hidden; }
 .profile-orbit--approved .profile-orbit__ring { z-index: 2; }
 .profile-orbit--approved .profile-orbit__ring--one { animation: profile-ring-one-spin 22s linear infinite; }
 .profile-orbit--approved .profile-orbit__ring--two { animation: profile-ring-two-spin 31s linear infinite; }
@@ -319,15 +322,9 @@ button { color: inherit; }
 .profile-facts span { color: var(--dim); font-family: var(--font-mono); font-size: .51rem; letter-spacing: .1em; }
 .profile-facts strong { color: var(--muted); font-size: .78rem; font-weight: 400; text-align: right; }
 
-@keyframes profile-photo-orbit {
-  from { transform: translate(-50%, -50%) rotate(0deg) translateX(.5rem) rotate(0deg); }
-  to { transform: translate(-50%, -50%) rotate(360deg) translateX(.5rem) rotate(-360deg); }
-}
-
-@keyframes profile-photo-scan {
-  0%, 18% { opacity: 0; transform: translateX(-45%); }
-  45%, 58% { opacity: .85; }
-  82%, 100% { opacity: 0; transform: translateX(45%); }
+@keyframes profile-photo-coin-spin {
+  from { transform: rotateY(0deg); }
+  to { transform: rotateY(360deg); }
 }
 
 @keyframes profile-ring-one-spin {
@@ -501,8 +498,8 @@ button { color: inherit; }
   .hero-story { min-height: 100svh; }
   .hero-story__sticky { min-height: 100svh; position: relative; top: auto; }
   .hero-story__statement-line { opacity: 1 !important; transform: none !important; }
-  .profile-photo-frame { animation: none; transform: translate(-50%, -50%); }
-  .profile-photo-frame::before, .profile-orbit--approved .profile-orbit__ring { animation: none; }
+  .profile-photo-coin { animation: none; transform: rotateY(0deg); }
+  .profile-orbit--approved .profile-orbit__ring { animation: none; }
 }
 
 :focus-visible { outline: 2px solid var(--mint); outline-offset: 4px; }

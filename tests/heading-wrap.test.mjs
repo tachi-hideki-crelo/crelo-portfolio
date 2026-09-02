@@ -18,17 +18,22 @@ test('profile and contact headings keep Japanese meaning phrases together', () =
   assert.match(styles, /\.legal-page__back \{[^}]*display: inline-flex;[^}]*min-height: 44px/);
 });
 
-test('approved profile renders the supplied identity and slowly orbiting portrait', () => {
+test('approved profile renders the supplied identity as a slow 3D coin', () => {
   const contentSource = readFileSync(new URL('../app/lib/content.ts', import.meta.url), 'utf8');
   assert.match(contentSource, /name: '舘 秀樹'/);
   assert.match(contentSource, /portraitSrc: '\/assets\/profile\/hideki-tachi\.png'/);
   assert.match(contentSource, /portraitAlt: '舘 秀樹のプロフィール写真'/);
   assert.match(contentSource, /approved: true/);
   assert.match(homeSource, /className="profile-photo-frame"/);
+  assert.match(homeSource, /className="profile-photo-coin"/);
+  assert.match(homeSource, /profile-photo profile-photo--front/);
+  assert.match(homeSource, /profile-photo profile-photo--back/);
   assert.match(homeSource, /profile\.approved && Boolean/);
-  assert.match(styles, /\.profile-photo-frame \{[^}]*animation: profile-photo-orbit 28s linear infinite/);
-  assert.match(styles, /@keyframes profile-photo-orbit/);
-  assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.profile-photo-frame \{ animation: none/);
+  assert.match(styles, /\.profile-photo-frame \{[^}]*perspective: 900px/);
+  assert.match(styles, /\.profile-photo-coin \{[^}]*animation: profile-photo-coin-spin 24s linear infinite/);
+  assert.match(styles, /\.profile-photo \{[^}]*backface-visibility: hidden/);
+  assert.match(styles, /@keyframes profile-photo-coin-spin \{[\s\S]*rotateY\(360deg\)/);
+  assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.profile-photo-coin \{ animation: none; transform: rotateY\(0deg\)/);
 });
 
 test('Personal Lab title and tool titles do not break in the middle', () => {
