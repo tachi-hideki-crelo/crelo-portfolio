@@ -63,12 +63,7 @@ export default function HomeExperience({ publicBuild, profile, workCases, footer
             {profileReady ? (
               <div className="profile-orbit profile-orbit--approved">
                 <div className="profile-photo-frame">
-                  <div className="profile-photo-coin">
-                    <Image className="profile-photo profile-photo--front" src={profile.portraitSrc!} alt={profile.portraitAlt!} width={960} height={960} sizes="(max-width: 720px) 56vw, 27vw" />
-                    <Image className="profile-photo profile-photo--back" src={profile.portraitSrc!} alt="" aria-hidden="true" width={960} height={960} sizes="(max-width: 720px) 56vw, 27vw" />
-                    <span className="profile-photo-coin__edge" aria-hidden="true" />
-                    <span className="profile-photo-coin__glint" aria-hidden="true" />
-                  </div>
+                  <Image className="profile-photo" src={profile.portraitSrc!} alt={profile.portraitAlt!} width={960} height={960} sizes="(max-width: 720px) 56vw, 27vw" />
                 </div>
                 <span className="profile-orbit__ring profile-orbit__ring--one" aria-hidden="true" />
                 <span className="profile-orbit__ring profile-orbit__ring--two" aria-hidden="true" />
