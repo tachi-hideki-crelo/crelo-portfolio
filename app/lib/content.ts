@@ -39,12 +39,12 @@ export const caseStudies: readonly CaseStudy[] = CASE_STUDY_SLUGS.map(
 
 export const siteContent: SiteContent = {
   profile: {
-    name: null,
-    portraitSrc: null,
-    portraitAlt: null,
-    career: null,
-    approved: false,
-    approvedAt: null,
+    name: '舘 秀樹',
+    portraitSrc: '/assets/profile/hideki-tachi.png',
+    portraitAlt: '舘 秀樹のプロフィール写真',
+    career: 'ただ創造するだけでなく、「なぜそうするのか」\n論理、根拠、設計思想をもって形にします。',
+    approved: true,
+    approvedAt: '2026-09-03',
   },
   privacy: {
     operator: null,

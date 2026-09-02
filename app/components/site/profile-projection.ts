@@ -11,11 +11,11 @@ const EMPTY_PROFILE: ProfileContent = {
 
 /**
  * Keep unpublished identity drafts out of the RSC payload as well as the UI.
- * A preview build must never serialize a future profile merely because the
- * component would hide it after hydration.
+ * Explicitly approved identity content may be reviewed in an owner-only
+ * preview before the rest of the site is ready for public indexing.
  */
-export function projectProfileForClient(profile: ProfileContent, publicBuild: boolean): ProfileContent {
-  if (!publicBuild || !profile.approved) return { ...EMPTY_PROFILE };
+export function projectProfileForClient(profile: ProfileContent): ProfileContent {
+  if (!profile.approved) return { ...EMPTY_PROFILE };
   return {
     name: profile.name,
     portraitSrc: profile.portraitSrc,

@@ -6,7 +6,7 @@ import { isPublicBuild } from './seo-config.ts';
 
 export default function HomePage() {
   const publicBuild = isPublicBuild();
-  const profile = projectProfileForClient(siteContent.profile, publicBuild);
+  const profile = projectProfileForClient(siteContent.profile);
   const workCases = projectPublicCaseStudies(caseStudies, publicBuild);
   return <HomeExperience publicBuild={publicBuild} profile={profile} workCases={workCases} footerYear={new Date().getFullYear()} />;
 }

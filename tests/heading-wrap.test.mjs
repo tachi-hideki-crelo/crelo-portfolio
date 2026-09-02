@@ -7,7 +7,8 @@ const styles = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf
 const labStyles = readFileSync(new URL('../app/components/site/self-development-lab.module.css', import.meta.url), 'utf8');
 
 test('profile and contact headings keep Japanese meaning phrases together', () => {
-  assert.match(homeSource, /className="profile-heading-line">知るところから、<\/span><br \/><em>つくる。/);
+  assert.match(homeSource, /className="profile-heading-line">創造は論理を持って<\/span><br \/><em className="profile-heading-line">かたちにする。/);
+  assert.match(homeSource, /ただ創造するだけでなく、「なぜそうするのか」\\n論理、根拠、設計思想をもって形にします。/);
   assert.match(homeSource, /className="contact-heading-line">まず、課題の<\/span><br \/><span className="contact-heading-line"><em>輪郭<\/em>を<\/span><br \/><span className="contact-heading-line">聞かせてください。/);
   assert.match(styles, /\.profile-heading-line, \.contact-heading-line \{[^}]*white-space: nowrap/);
   assert.match(styles, /\.profile-copy h2, \.contact-copy h2 \{ font-size: clamp\(2\.25rem, 10vw, 3\.4rem\); \}/);
@@ -15,6 +16,19 @@ test('profile and contact headings keep Japanese meaning phrases together', () =
   assert.match(styles, /\.contact-form__consent \{[^}]*min-height: 44px/);
   assert.match(styles, /\.contact-form__consent a \{[^}]*display: inline-flex;[^}]*min-height: 44px/);
   assert.match(styles, /\.legal-page__back \{[^}]*display: inline-flex;[^}]*min-height: 44px/);
+});
+
+test('approved profile renders the supplied identity and slowly orbiting portrait', () => {
+  const contentSource = readFileSync(new URL('../app/lib/content.ts', import.meta.url), 'utf8');
+  assert.match(contentSource, /name: '舘 秀樹'/);
+  assert.match(contentSource, /portraitSrc: '\/assets\/profile\/hideki-tachi\.png'/);
+  assert.match(contentSource, /portraitAlt: '舘 秀樹のプロフィール写真'/);
+  assert.match(contentSource, /approved: true/);
+  assert.match(homeSource, /className="profile-photo-frame"/);
+  assert.match(homeSource, /profile\.approved && Boolean/);
+  assert.match(styles, /\.profile-photo-frame \{[^}]*animation: profile-photo-orbit 28s linear infinite/);
+  assert.match(styles, /@keyframes profile-photo-orbit/);
+  assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.profile-photo-frame \{ animation: none/);
 });
 
 test('Personal Lab title and tool titles do not break in the middle', () => {

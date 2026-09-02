@@ -37,7 +37,7 @@ export default function HomeExperience({ publicBuild, profile, workCases, footer
   const handleIntroComplete = useCallback(() => {
     setHeroEntrance((current) => ({ ready: true, sequence: current.sequence + 1 }));
   }, []);
-  const profileReady = publicBuild && profile.approved && Boolean(profile.name && profile.portraitSrc && profile.portraitAlt && profile.career);
+  const profileReady = profile.approved && Boolean(profile.name && profile.portraitSrc && profile.portraitAlt && profile.career);
   const modeCopy = getSiteModeCopy(publicBuild);
 
   return (
@@ -58,11 +58,13 @@ export default function HomeExperience({ publicBuild, profile, workCases, footer
         <SelfDevelopmentLab />
 
         <section id="profile" className="profile-section" aria-labelledby="profile-title">
-          <div className="section-marker"><span>06</span><span>{profileReady ? modeCopy.profileMarker : getSiteModeCopy(false).profileMarker}</span></div>
+          <div className="section-marker"><span>06</span><span>{profileReady ? getSiteModeCopy(true).profileMarker : getSiteModeCopy(false).profileMarker}</span></div>
           <div className="profile-section__grid">
             {profileReady ? (
               <div className="profile-orbit profile-orbit--approved">
-                <Image className="profile-photo" src={profile.portraitSrc!} alt={profile.portraitAlt!} width={640} height={640} />
+                <div className="profile-photo-frame">
+                  <Image className="profile-photo" src={profile.portraitSrc!} alt={profile.portraitAlt!} width={960} height={960} sizes="(max-width: 720px) 56vw, 27vw" />
+                </div>
                 <span className="profile-orbit__ring profile-orbit__ring--one" aria-hidden="true" />
                 <span className="profile-orbit__ring profile-orbit__ring--two" aria-hidden="true" />
                 <span className="profile-orbit__signal" aria-hidden="true">ID / PUBLIC</span>
@@ -71,20 +73,11 @@ export default function HomeExperience({ publicBuild, profile, workCases, footer
               <div className="profile-orbit" aria-hidden="true"><div className="profile-orbit__core"><span>CR</span></div><span className="profile-orbit__ring profile-orbit__ring--one" /><span className="profile-orbit__ring profile-orbit__ring--two" /><span className="profile-orbit__signal">ID / 00</span></div>
             )}
             <div className="profile-copy">
-              <p className="eyebrow eyebrow--cyan">The person behind Crelo</p>
-              {profileReady ? (
-                <>
-                  <h2 id="profile-title">{profile.name}</h2>
-                  <p>{profile.career}</p>
-                  <div className="profile-facts"><div><span>ROLE</span><strong>Forward Deployed Engineer</strong></div><div><span>MODE</span><strong>Business × AI × Software</strong></div><div><span>STATUS</span><strong>Public profile / approved</strong></div></div>
-                </>
-              ) : (
-                <>
-                  <h2 id="profile-title"><span className="profile-heading-line">知るところから、</span><br /><em>つくる。</em></h2>
-                  <p>Creloの実名・顔写真・経歴は、公開承認後にこの場所へ反映します。いまは屋号としての考え方と、現場に向き合う姿勢を公開しています。</p>
-                  <div className="profile-facts"><div><span>ROLE</span><strong>Forward Deployed Engineer</strong></div><div><span>MODE</span><strong>Business × AI × Software</strong></div><div><span>STATUS</span><strong>Identity content pending approval</strong></div></div>
-                </>
-              )}
+              <p className="eyebrow eyebrow--cyan">Person / Forward Deployed Engineer</p>
+              {profileReady ? <p className="profile-person-name"><span>NAME / 01</span><strong>{profile.name}</strong></p> : null}
+              <h2 id="profile-title"><span className="profile-heading-line">創造は論理を持って</span><br /><em className="profile-heading-line">かたちにする。</em></h2>
+              <p className="profile-description">{profileReady ? profile.career : 'ただ創造するだけでなく、「なぜそうするのか」\n論理、根拠、設計思想をもって形にします。'}</p>
+              <div className="profile-facts"><div><span>ROLE</span><strong>Forward Deployed Engineer</strong></div><div><span>MODE</span><strong>Business × AI × Software</strong></div><div><span>STATUS</span><strong>{profileReady ? 'Identity / approved' : 'Identity content pending approval'}</strong></div></div>
             </div>
           </div>
         </section>

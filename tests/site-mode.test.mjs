@@ -25,7 +25,7 @@ test('preview profile projection strips unapproved identity drafts before serial
     approved: false,
     approvedAt: null,
   };
-  const projected = projectProfileForClient(draft, false);
+  const projected = projectProfileForClient(draft);
   assert.deepEqual(projected, {
     name: null,
     portraitSrc: null,
@@ -37,7 +37,7 @@ test('preview profile projection strips unapproved identity drafts before serial
   assert.doesNotMatch(JSON.stringify(projected), /UNAPPROVED|draft\.jpg/);
 });
 
-test('public profile projection preserves only approved identity content', () => {
+test('approved profile projection is available to the owner-only preview', () => {
   const approved = {
     name: 'Approved identity',
     portraitSrc: '/profile/approved.webp',
@@ -46,5 +46,5 @@ test('public profile projection preserves only approved identity content', () =>
     approved: true,
     approvedAt: '2026-08-25',
   };
-  assert.deepEqual(projectProfileForClient(approved, true), approved);
+  assert.deepEqual(projectProfileForClient(approved), approved);
 });
