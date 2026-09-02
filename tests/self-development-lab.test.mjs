@@ -69,10 +69,13 @@ test('four overlapping scroll windows rise from below, center, and exit above', 
   ]);
   SELF_DEVELOPMENT_WINDOWS.forEach((window, index) => {
     const before = getSelfDevelopmentItemTimeline(window.start - 0.01, index);
+    const gradualEntry = getSelfDevelopmentItemTimeline(window.start + ((window.end - window.start) * 0.20), index);
     const centered = getSelfDevelopmentItemTimeline((window.start + window.end) / 2, index);
     const after = getSelfDevelopmentItemTimeline(window.end, index);
     assert.equal(before.opacity, 0);
     assert.ok(before.yVh > 80);
+    assert.ok(gradualEntry.opacity > 0.55 && gradualEntry.opacity < 0.75);
+    assert.ok(gradualEntry.yVh > 25);
     assert.ok(centered.opacity > 0.99);
     assert.ok(Math.abs(centered.yVh) < 0.01);
     assert.ok(centered.copyReveal > 0.9);
@@ -87,8 +90,8 @@ test('four overlapping scroll windows rise from below, center, and exit above', 
   for (const checkpoint of [0.36, 0.54, 0.72]) {
     const visible = selfBuiltTools.map((_, index) => getSelfDevelopmentItemTimeline(checkpoint, index));
     assert.ok(
-      visible.some((item) => item.opacity > 0.9 && Math.abs(item.yVh) < 8 && item.copyReveal > 0.85),
-      `a readable tool should bridge the ${checkpoint} handoff`,
+      visible.some((item) => item.opacity > 0.75 && Math.abs(item.yVh) < 24 && item.copyReveal > 0.5),
+      `a gradually reconstructing tool should bridge the ${checkpoint} handoff`,
     );
   }
 });
@@ -117,7 +120,7 @@ test('lab source keeps semantic placeholders, offscreen pausing, and future deta
   assert.match(componentSource, /visibilitychange/);
   assert.match(componentSource, /item\.inert/);
   assert.match(componentSource, /pointerType === 'touch'/);
-  assert.match(styles, /min-height: 460vh/);
+  assert.match(styles, /min-height: 500vh/);
   assert.match(styles, /position: sticky/);
   assert.match(styles, /data-side='right'/);
   assert.match(styles, /data-reduced-motion='true'/);

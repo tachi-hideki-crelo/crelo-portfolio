@@ -14,7 +14,7 @@
   --lab-intro-cue-opacity: .75;
   --lab-outro-cue-opacity: 0;
   border-top: 1px solid rgb(166 255 219 / 10%);
-  min-height: 460vh;
+  min-height: 500vh;
   position: relative;
 }
 

@@ -94,14 +94,13 @@ export function getSelfDevelopmentItemTimeline(progress: number, index: number, 
   }
 
   const localProgress = clamp01((clamp01(progress) - window.start) / (window.end - window.start));
-  // Finish each reconstruction early enough that the next tool is already
-  // readable when the previous one begins to leave. This bridges the
-  // overlapping windows without a visually empty scroll interval.
-  const enter = segment(localProgress, 0, 0.27);
-  const exit = segment(localProgress, 0.80, 1);
+  // Let each handoff breathe: the next tool reconstructs while the previous
+  // one is still leaving, so the slower movement never creates an empty gap.
+  const enter = segment(localProgress, 0, 0.33);
+  const exit = segment(localProgress, 0.76, 1);
   const side = safeIndex % 2 === 0 ? -1 : 1;
-  const portalRise = segment(localProgress, 0.01, 0.18);
-  const portalFall = segment(localProgress, 0.24, 0.48);
+  const portalRise = segment(localProgress, 0.01, 0.22);
+  const portalFall = segment(localProgress, 0.28, 0.56);
   const portal = portalRise * (1 - portalFall);
 
   return {
@@ -112,10 +111,10 @@ export function getSelfDevelopmentItemTimeline(progress: number, index: number, 
     opacity: enter * (1 - (0.9 * exit)),
     blurPx: lerp(18, 0, enter) + (5 * exit),
     rotateDeg: side * (lerp(6, 0, enter) + lerp(0, -1.5, exit)),
-    cardReveal: segment(localProgress, 0.03, 0.24) * (1 - (0.35 * exit)),
-    copyReveal: segment(localProgress, 0.10, 0.24) * (1 - (0.55 * exit)),
+    cardReveal: segment(localProgress, 0.04, 0.30) * (1 - (0.35 * exit)),
+    copyReveal: segment(localProgress, 0.13, 0.32) * (1 - (0.55 * exit)),
     portal,
     afterimage: enter * (1 - exit),
-    interactive: localProgress > 0.18 && localProgress < 0.84,
+    interactive: localProgress > 0.22 && localProgress < 0.82,
   };
 }
