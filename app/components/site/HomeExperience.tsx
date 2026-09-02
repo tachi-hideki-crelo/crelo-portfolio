@@ -74,10 +74,14 @@ export default function HomeExperience({ publicBuild, profile, workCases, footer
             )}
             <div className="profile-copy">
               <p className="eyebrow eyebrow--cyan">Person / Forward Deployed Engineer</p>
-              {profileReady ? <p className="profile-person-name"><span>NAME / 01</span><strong>{profile.name}</strong></p> : null}
               <h2 id="profile-title"><span className="profile-heading-line">創造は論理を持って</span><br /><em className="profile-heading-line">かたちにする。</em></h2>
               <p className="profile-description">{profileReady ? profile.career : 'ただ創造するだけでなく、「なぜそうするのか」\n論理、根拠、設計思想をもって形にします。'}</p>
-              <div className="profile-facts"><div><span>ROLE</span><strong>Forward Deployed Engineer</strong></div><div><span>MODE</span><strong>Business × AI × Software</strong></div><div><span>STATUS</span><strong>{profileReady ? 'Identity / approved' : 'Identity content pending approval'}</strong></div></div>
+              <div className="profile-facts">
+                {profileReady ? <div><span>NAME</span><strong>{profile.name}</strong></div> : null}
+                <div><span>ROLE</span><strong>Forward Deployed Engineer</strong></div>
+                <div><span>MODE</span><strong>Business × AI × Software</strong></div>
+                <div><span>STATUS</span><strong>{profileReady ? 'Identity / approved' : 'Identity content pending approval'}</strong></div>
+              </div>
             </div>
           </div>
         </section>

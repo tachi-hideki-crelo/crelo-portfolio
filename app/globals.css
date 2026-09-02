@@ -310,9 +310,6 @@ button { color: inherit; }
 .profile-copy h2 { margin-top: .3rem; }
 .profile-copy h2 { font-size: clamp(2.8rem, 5vw, 6rem); }
 .profile-heading-line, .contact-heading-line { display: inline-block; white-space: nowrap; }
-.profile-person-name { align-items: baseline; display: flex; gap: 1rem; margin: 1.15rem 0 2rem; }
-.profile-person-name span { color: var(--mint-strong); font-family: var(--font-mono); font-size: .52rem; letter-spacing: .12em; }
-.profile-person-name strong { font-size: clamp(1.05rem, 1.6vw, 1.35rem); font-weight: 500; letter-spacing: .08em; }
 .profile-description { white-space: pre-line; }
 .profile-facts { border-top: 1px solid var(--line); margin-top: 2.7rem; max-width: 35rem; }
 .profile-facts div { border-bottom: 1px solid rgb(166 255 219 / 11%); display: flex; gap: 1rem; justify-content: space-between; padding: .95rem 0; }
@@ -464,7 +461,6 @@ button { color: inherit; }
   .profile-orbit { margin: 0 auto; max-width: 17rem; width: 82%; }
   .profile-photo-frame { height: 72%; width: 72%; }
   .profile-copy h2, .contact-copy h2 { font-size: clamp(2.25rem, 10vw, 3.4rem); }
-  .profile-person-name { margin-bottom: 1.6rem; }
   .profile-facts div { align-items: flex-start; flex-direction: column; gap: .35rem; }
   .profile-facts strong { text-align: left; }
   .contact-form__grid { grid-template-columns: 1fr; }

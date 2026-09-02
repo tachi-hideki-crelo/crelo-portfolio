@@ -27,6 +27,8 @@ test('approved profile keeps the portrait static with an intermittent light scan
   assert.match(homeSource, /className="profile-photo-frame"/);
   assert.match(homeSource, /className="profile-photo"/);
   assert.doesNotMatch(homeSource, /profile-photo-coin/);
+  assert.doesNotMatch(homeSource, /profile-person-name|NAME \/ 01/);
+  assert.match(homeSource, /className="profile-facts">[\s\S]*?<span>NAME<\/span><strong>\{profile\.name\}<\/strong>[\s\S]*?<span>ROLE<\/span><strong>Forward Deployed Engineer<\/strong>/);
   assert.match(homeSource, /profile\.approved && Boolean/);
   assert.match(styles, /\.profile-photo-frame \{[^}]*transform: translate\(-50%, -50%\)/);
   assert.match(styles, /\.profile-photo \{[^}]*transform: scale\(1\.025\)/);
