@@ -38,6 +38,15 @@ const SATELLITE_PALETTE = [
   0xfff7db,
 ] as const;
 
+const STATIC_CRYSTAL_FACETS = [
+  { points: [[-0.92, -0.08], [-0.28, -0.92], [-0.12, -0.06]], fill: 'rgba(91, 224, 255, 0.16)', stroke: 'rgba(172, 246, 255, 0.46)' },
+  { points: [[-0.28, -0.92], [0.46, -0.76], [-0.12, -0.06]], fill: 'rgba(198, 116, 255, 0.13)', stroke: 'rgba(230, 192, 255, 0.42)' },
+  { points: [[0.46, -0.76], [0.92, -0.08], [-0.12, -0.06]], fill: 'rgba(255, 222, 126, 0.15)', stroke: 'rgba(255, 240, 188, 0.5)' },
+  { points: [[-0.92, -0.08], [-0.12, -0.06], [-0.68, 0.62]], fill: 'rgba(82, 166, 255, 0.13)', stroke: 'rgba(118, 217, 255, 0.38)' },
+  { points: [[-0.12, -0.06], [0.92, -0.08], [0.54, 0.7]], fill: 'rgba(255, 151, 226, 0.12)', stroke: 'rgba(255, 196, 238, 0.4)' },
+  { points: [[-0.68, 0.62], [-0.12, -0.06], [0.54, 0.7]], fill: 'rgba(104, 255, 218, 0.12)', stroke: 'rgba(180, 255, 234, 0.42)' },
+] as const;
+
 type HeroCosmosCanvasProps = {
   progress: MotionValue<number>;
   formationProgress: MotionValue<number>;
@@ -156,6 +165,32 @@ function drawStaticCosmos(context: CanvasRenderingContext2D, width: number, heig
   context.beginPath();
   context.arc(0, 0, radius, 0, Math.PI * 2);
   context.fill();
+
+  context.save();
+  context.beginPath();
+  context.arc(0, 0, radius * 0.99, 0, Math.PI * 2);
+  context.clip();
+  STATIC_CRYSTAL_FACETS.forEach(({ points: facetPoints, fill, stroke }) => {
+    context.beginPath();
+    context.moveTo(facetPoints[0][0] * radius, facetPoints[0][1] * radius);
+    for (let pointIndex = 1; pointIndex < facetPoints.length; pointIndex += 1) {
+      context.lineTo(facetPoints[pointIndex][0] * radius, facetPoints[pointIndex][1] * radius);
+    }
+    context.closePath();
+    context.fillStyle = fill;
+    context.fill();
+    context.strokeStyle = stroke;
+    context.lineWidth = 0.72;
+    context.stroke();
+  });
+  const crystalSweep = context.createLinearGradient(-radius, -radius, radius, radius);
+  crystalSweep.addColorStop(0.28, 'rgba(255, 255, 255, 0)');
+  crystalSweep.addColorStop(0.48, 'rgba(212, 249, 255, 0.28)');
+  crystalSweep.addColorStop(0.54, 'rgba(255, 224, 142, 0.16)');
+  crystalSweep.addColorStop(0.7, 'rgba(255, 255, 255, 0)');
+  context.fillStyle = crystalSweep;
+  context.fillRect(-radius, -radius, radius * 2, radius * 2);
+  context.restore();
 
   context.strokeStyle = 'rgba(166, 255, 219, 0.48)';
   context.lineWidth = 1;
@@ -281,9 +316,17 @@ function CosmosScene({ config, progress, formationProgress }: { config: TierConf
   const cameraLookAt = useMemo(() => new THREE.Vector3(0, 0, 0), []);
   const orbitGroup = useMemo(() => createOrbitGroup(config.orbits), [config.orbits]);
   const orbitGroupRef = useRef(orbitGroup);
+  const crystalShellRef = useRef<THREE.Group>(null);
   // `detail` is an explicit product budget: do not silently lower the
   // requested PC/tablet/mobile geometry tier.
   const geometry = useMemo(() => new THREE.IcosahedronGeometry(1, config.detail), [config.detail]);
+  const crystalGeometry = useMemo(() => {
+    const baseGeometry = new THREE.IcosahedronGeometry(1.012, config.detail >= 4 ? 2 : 1);
+    const facetedGeometry = baseGeometry.index ? baseGeometry.toNonIndexed() : baseGeometry;
+    if (facetedGeometry !== baseGeometry) baseGeometry.dispose();
+    facetedGeometry.computeVertexNormals();
+    return facetedGeometry;
+  }, [config.detail]);
   const orbMaterial = useMemo(() => new THREE.ShaderMaterial({
     transparent: true,
     depthWrite: false,
@@ -438,6 +481,90 @@ function CosmosScene({ config, progress, formationProgress }: { config: TierConf
       }
     `,
   }), []);
+  const crystalMaterial = useMemo(() => new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    depthTest: true,
+    side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending,
+    toneMapped: false,
+    uniforms: { uTime: { value: 0 }, uDissolve: { value: 0 }, uReveal: { value: 0 }, uFormation: { value: 0 } },
+    vertexShader: `
+      uniform float uTime;
+      uniform float uDissolve;
+      uniform float uReveal;
+      uniform float uFormation;
+      varying vec3 vNormal;
+      varying vec3 vViewPosition;
+      varying vec3 vObjectPosition;
+      void main() {
+        float crystalPulse = sin(position.y * 7.0 + position.x * 5.0 - uTime * 0.22) * 0.008;
+        float assembling = (1.0 - uReveal) * sin(position.x * 17.0 + position.z * 13.0 + uTime) * 0.14;
+        vec3 displaced = position + normal * (crystalPulse + assembling + uFormation * 0.012);
+        displaced += normal * uDissolve * sin(position.y * 12.0 + uTime) * 0.12;
+        vNormal = normalize(normalMatrix * normal);
+        vObjectPosition = displaced;
+        vec4 viewPosition = modelViewMatrix * vec4(displaced, 1.0);
+        vViewPosition = viewPosition.xyz;
+        gl_Position = projectionMatrix * viewPosition;
+      }
+    `,
+    fragmentShader: `
+      uniform float uTime;
+      uniform float uDissolve;
+      uniform float uReveal;
+      uniform float uFormation;
+      varying vec3 vNormal;
+      varying vec3 vViewPosition;
+      varying vec3 vObjectPosition;
+      void main() {
+        vec3 normal = normalize(vNormal);
+        vec3 viewDirection = normalize(-vViewPosition);
+        vec3 keyLight = normalize(vec3(-0.44, 0.72, 0.58));
+        vec3 rimLight = normalize(vec3(0.62, -0.2, 0.76));
+        float fresnel = pow(1.0 - abs(dot(normal, viewDirection)), 1.62);
+        float facetLight = pow(max(dot(normal, keyLight), 0.0), 2.0);
+        float reverseFacet = pow(max(dot(normal, rimLight), 0.0), 3.0);
+        float prismShift = 0.5 + 0.5 * sin(
+          dot(normal, vec3(8.0, 11.0, 6.0)) +
+          dot(vObjectPosition, vec3(7.0, -5.0, 9.0)) -
+          uTime * 0.32
+        );
+        float internalRay = pow(
+          0.5 + 0.5 * sin(dot(vObjectPosition, vec3(15.0, 9.0, -12.0)) - uTime * 0.55),
+          15.0
+        );
+        float caustic = pow(
+          0.5 + 0.5 * cos(vObjectPosition.y * 18.0 + normal.x * 8.0 + uTime * 0.38),
+          10.0
+        );
+        vec3 ice = vec3(0.18, 0.86, 1.0);
+        vec3 violet = vec3(0.58, 0.22, 1.0);
+        vec3 rose = vec3(1.0, 0.28, 0.72);
+        vec3 gold = vec3(1.0, 0.72, 0.2);
+        vec3 crystalColor = mix(ice, violet, prismShift);
+        crystalColor = mix(crystalColor, rose, smoothstep(0.7, 1.0, prismShift) * 0.34);
+        crystalColor = mix(crystalColor, gold, reverseFacet * 0.62 + internalRay * 0.18);
+        crystalColor += vec3(0.82, 0.97, 1.0) * facetLight * 0.52;
+        crystalColor += mix(ice, gold, prismShift) * fresnel * (0.72 + uFormation * 0.3);
+        crystalColor += vec3(1.0, 0.92, 0.72) * (internalRay * 0.26 + caustic * 0.12);
+        float alpha = (
+          0.045 + facetLight * 0.12 + reverseFacet * 0.08 +
+          fresnel * 0.62 + internalRay * 0.12 + caustic * 0.06
+        ) * uReveal * (1.0 - uDissolve * 0.96);
+        gl_FragColor = vec4(crystalColor, alpha);
+      }
+    `,
+  }), []);
+  const crystalWireMaterial = useMemo(() => new THREE.MeshBasicMaterial({
+    color: 0xc9f7ff,
+    transparent: true,
+    opacity: 0,
+    wireframe: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    toneMapped: false,
+  }), []);
   const wireMaterial = useMemo(() => new THREE.MeshBasicMaterial({ color: 0x70e7ff, transparent: true, opacity: 0, wireframe: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }), []);
   const goldWireMaterial = useMemo(() => new THREE.MeshBasicMaterial({ color: 0xffc84a, transparent: true, opacity: 0, wireframe: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }), []);
   const pointData = useMemo(() => {
@@ -545,6 +672,8 @@ function CosmosScene({ config, progress, formationProgress }: { config: TierConf
   const orbMaterialRef = useRef(orbMaterial);
   const coreMaterialRef = useRef(coreMaterial);
   const auraMaterialRef = useRef(auraMaterial);
+  const crystalMaterialRef = useRef(crystalMaterial);
+  const crystalWireMaterialRef = useRef(crystalWireMaterial);
   const pointMaterialRef = useRef(pointData.material);
   const wireMaterialRef = useRef(wireMaterial);
   const goldWireMaterialRef = useRef(goldWireMaterial);
@@ -572,9 +701,12 @@ function CosmosScene({ config, progress, formationProgress }: { config: TierConf
 
   useEffect(() => () => {
     geometry.dispose();
+    crystalGeometry.dispose();
     orbMaterial.dispose();
     coreMaterial.dispose();
     auraMaterial.dispose();
+    crystalMaterial.dispose();
+    crystalWireMaterial.dispose();
     wireMaterial.dispose();
     goldWireMaterial.dispose();
     pointData.geometry.dispose();
@@ -591,7 +723,7 @@ function CosmosScene({ config, progress, formationProgress }: { config: TierConf
         materials.forEach((material) => material.dispose());
       }
     });
-  }, [auraMaterial, coreMaterial, coreStarData, geometry, goldWireMaterial, orbMaterial, orbitGroup, pointData, satelliteGeometry, satelliteGlowMaterial, satelliteMaterial, wireMaterial]);
+  }, [auraMaterial, coreMaterial, coreStarData, crystalGeometry, crystalMaterial, crystalWireMaterial, geometry, goldWireMaterial, orbMaterial, orbitGroup, pointData, satelliteGeometry, satelliteGlowMaterial, satelliteMaterial, wireMaterial]);
 
   useFrame(({ clock, camera }, delta) => {
     const root = rootRef.current;
@@ -626,6 +758,10 @@ function CosmosScene({ config, progress, formationProgress }: { config: TierConf
     auraMaterialRef.current.uniforms.uDissolve.value = state.dissolve;
     auraMaterialRef.current.uniforms.uReveal.value = formation.sphereReveal;
     auraMaterialRef.current.uniforms.uFormation.value = formation.formationGlow;
+    crystalMaterialRef.current.uniforms.uTime.value = time;
+    crystalMaterialRef.current.uniforms.uDissolve.value = state.dissolve;
+    crystalMaterialRef.current.uniforms.uReveal.value = formation.sphereReveal;
+    crystalMaterialRef.current.uniforms.uFormation.value = formation.formationGlow;
     pointMaterialRef.current.uniforms.uTime.value = time;
     pointMaterialRef.current.uniforms.uDissolve.value = state.dissolve;
     pointMaterialRef.current.uniforms.uReveal.value = formation.particleReveal;
@@ -634,8 +770,9 @@ function CosmosScene({ config, progress, formationProgress }: { config: TierConf
     coreStarMaterialRef.current.uniforms.uDissolve.value = state.dissolve;
     coreStarMaterialRef.current.uniforms.uReveal.value = formation.sphereReveal;
     coreStarMaterialRef.current.uniforms.uFormation.value = formation.formationGlow;
-    wireMaterialRef.current.opacity = 0.15 * formation.orbitReveal * (1 - state.dissolve * 0.94);
-    goldWireMaterialRef.current.opacity = 0.075 * formation.orbitReveal * (1 - state.dissolve * 0.94);
+    crystalWireMaterialRef.current.opacity = 0.22 * formation.sphereReveal * (1 - state.dissolve * 0.96);
+    wireMaterialRef.current.opacity = 0.09 * formation.orbitReveal * (1 - state.dissolve * 0.94);
+    goldWireMaterialRef.current.opacity = 0.05 * formation.orbitReveal * (1 - state.dissolve * 0.94);
     satelliteMaterialRef.current.opacity = 0.92 * formation.satelliteReveal * (1 - state.dissolve * 0.94);
     satelliteGlowMaterialRef.current.opacity = 0.055 * formation.satelliteReveal * (1 - state.dissolve * 0.96);
     orbitGroupRef.current.visible = formation.orbitReveal > 0.001;
@@ -655,6 +792,11 @@ function CosmosScene({ config, progress, formationProgress }: { config: TierConf
       goldWireRef.current.rotation.x = time * 0.065;
       goldWireRef.current.rotation.y = -time * 0.085;
       goldWireRef.current.rotation.z = time * 0.042;
+    }
+    if (crystalShellRef.current) {
+      crystalShellRef.current.rotation.x = time * 0.028 - state.cameraPitch * 0.12;
+      crystalShellRef.current.rotation.y = -time * 0.042 + state.cameraYaw * 0.16;
+      crystalShellRef.current.rotation.z = time * 0.018;
     }
     if (coreStarsRef.current) {
       coreStarsRef.current.rotation.y = time * 0.052;
@@ -710,6 +852,10 @@ function CosmosScene({ config, progress, formationProgress }: { config: TierConf
         <mesh geometry={geometry} material={coreMaterial} scale={0.9} />
         <points ref={coreStarsRef} geometry={coreStarData.geometry} material={coreStarData.material} scale={0.96} />
         <mesh geometry={geometry} material={orbMaterial} />
+        <group ref={crystalShellRef}>
+          <mesh geometry={crystalGeometry} material={crystalMaterial} scale={1.028} />
+          <mesh geometry={crystalGeometry} material={crystalWireMaterial} scale={1.036} />
+        </group>
         <mesh geometry={geometry} material={auraMaterial} scale={1.105} />
         <mesh geometry={geometry} material={wireMaterial} scale={1.018} />
         <mesh ref={goldWireRef} geometry={geometry} material={goldWireMaterial} scale={1.044} />

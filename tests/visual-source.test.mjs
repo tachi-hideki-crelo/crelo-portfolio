@@ -65,6 +65,20 @@ test('HeroCosmosCanvas renders a layered galactic core and varied warm satellite
   assert.match(cosmos, /for \(let index = 0; index < 16; index \+= 1\)/);
 });
 
+test('HeroCosmosCanvas wraps the galactic core in a faceted cyber-crystal shell', () => {
+  assert.match(cosmos, /const crystalGeometry = useMemo/);
+  assert.match(cosmos, /new THREE\.IcosahedronGeometry\(1\.012, config\.detail >= 4 \? 2 : 1\)/);
+  assert.match(cosmos, /facetedGeometry\.computeVertexNormals\(\)/);
+  assert.match(cosmos, /const crystalMaterial = useMemo/);
+  assert.match(cosmos, /float prismShift/);
+  assert.match(cosmos, /float internalRay/);
+  assert.match(cosmos, /float caustic/);
+  assert.match(cosmos, /<group ref=\{crystalShellRef\}>/);
+  assert.match(cosmos, /material=\{crystalWireMaterial\}/);
+  assert.match(cosmos, /STATIC_CRYSTAL_FACETS/);
+  assert.match(cosmos, /crystalGeometry\.dispose\(\)/);
+});
+
 test('Hero cosmos forms from an empty first frame after the intro handoff', () => {
   assert.match(hero, /const formationProgress = useMotionValue\(0\)/);
   assert.match(hero, /animate\(formationProgress, 1/);
