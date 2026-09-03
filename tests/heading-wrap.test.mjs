@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import test from 'node:test';
 
 const homeSource = readFileSync(new URL('../app/components/site/HomeExperience.tsx', import.meta.url), 'utf8');
@@ -23,11 +23,14 @@ test('profile and contact headings keep Japanese meaning phrases together', () =
 test('approved profile keeps the portrait static with an intermittent light scan', () => {
   const contentSource = readFileSync(new URL('../app/lib/content.ts', import.meta.url), 'utf8');
   assert.match(contentSource, /name: '舘 秀樹'/);
-  assert.match(contentSource, /portraitSrc: '\/assets\/profile\/hideki-tachi\.png'/);
+  assert.match(contentSource, /portraitSrc: '\/assets\/profile\/hideki-tachi\.webp'/);
+  assert.ok(statSync(new URL('../public/assets/profile/hideki-tachi.webp', import.meta.url)).size <= 120_000);
   assert.match(contentSource, /portraitAlt: '舘 秀樹のプロフィール写真'/);
   assert.match(contentSource, /approved: true/);
   assert.match(homeSource, /className="profile-photo-frame"/);
   assert.match(homeSource, /className="profile-photo"/);
+  assert.match(homeSource, /className="profile-photo"[\s\S]*?preload[\s\S]*?unoptimized[\s\S]*?placeholder="blur"[\s\S]*?blurDataURL=\{PROFILE_PORTRAIT_BLUR_DATA_URL\}/);
+  assert.match(homeSource, /const PROFILE_PORTRAIT_BLUR_DATA_URL = 'data:image\/jpeg;base64,/);
   assert.doesNotMatch(homeSource, /profile-photo-coin/);
   assert.doesNotMatch(homeSource, /profile-person-name|NAME \/ 01/);
   assert.match(homeSource, /className="profile-identity-plate">[\s\S]*?<span>NAME \/ IDENTITY<\/span>[\s\S]*?<strong>\{profile\.name\}<\/strong>/);

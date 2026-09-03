@@ -21,6 +21,8 @@ const NeuralBackdrop = dynamic(() => import('../visual/NeuralBackdrop'), {
   loading: () => <div className="neural-backdrop neural-backdrop--loading" aria-hidden="true" />,
 });
 
+const PROFILE_PORTRAIT_BLUR_DATA_URL = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD/4QBMRXhpZgAATU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAGKADAAQAAAABAAAAGAAAAAD/7QA4UGhvdG9zaG9wIDMuMAA4QklNBAQAAAAAAAA4QklNBCUAAAAAABDUHYzZjwCyBOmACZjs+EJ+/8AAEQgAGAAYAwEiAAIRAQMRAf/EAB8AAAEFAQEBAQEBAAAAAAAAAAABAgMEBQYHCAkKC//EALUQAAIBAwMCBAMFBQQEAAABfQECAwAEEQUSITFBBhNRYQcicRQygZGhCCNCscEVUtHwJDNicoIJChYXGBkaJSYnKCkqNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6g4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2drh4uPk5ebn6Onq8fLz9PX29/j5+v/EAB8BAAMBAQEBAQEBAQEAAAAAAAABAgMEBQYHCAkKC//EALURAAIBAgQEAwQHBQQEAAECdwABAgMRBAUhMQYSQVEHYXETIjKBCBRCkaGxwQkjM1LwFWJy0QoWJDThJfEXGBkaJicoKSo1Njc4OTpDREVGR0hJSlNUVVZXWFlaY2RlZmdoaWpzdHV2d3h5eoKDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uLj5OXm5+jp6vLz9PX29/j5+v/bAEMABwcHBwcHDAcHDBEMDAwRFxEREREXHhcXFxcXHiQeHh4eHh4kJCQkJCQkJCsrKysrKzIyMjIyODg4ODg4ODg4OP/bAEMBCQkJDg0OGQ0NGTsoISg7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7O//dAAQAAv/aAAwDAQACEQMRAD8A8du5BGm8jPoKyxMhOHH3uhFXJ38xSK6yx0HS7m3E0lwBuTcAOduD6/Ss5z5dzanT5tjgpQFbGc+9Q5FdFr/h+70eVNxSSKYbo2UjJHuvUEfTHpXP+RP/AHDVp3V0ZyVnZn//0PCHlyMVPY3ZtplmC+YBklCSFJx3x6daoN0p0P8A8V/Kla+407aomvtQnu5nuJ2yzfkB2A9qzvtB96WTpVantohPXVn/2Q==';
+
 type HomeExperienceProps = {
   publicBuild: boolean;
   profile: SiteContent['profile'];
@@ -63,7 +65,18 @@ export default function HomeExperience({ publicBuild, profile, workCases, footer
             {profileReady ? (
               <div className="profile-orbit profile-orbit--approved">
                 <div className="profile-photo-frame">
-                  <Image className="profile-photo" src={profile.portraitSrc!} alt={profile.portraitAlt!} width={960} height={960} sizes="(max-width: 720px) 56vw, 27vw" />
+                  <Image
+                    className="profile-photo"
+                    src={profile.portraitSrc!}
+                    alt={profile.portraitAlt!}
+                    width={960}
+                    height={960}
+                    sizes="(max-width: 720px) 56vw, 27vw"
+                    preload
+                    unoptimized
+                    placeholder="blur"
+                    blurDataURL={PROFILE_PORTRAIT_BLUR_DATA_URL}
+                  />
                 </div>
                 <span className="profile-orbit__ring profile-orbit__ring--one" aria-hidden="true" />
                 <span className="profile-orbit__ring profile-orbit__ring--two" aria-hidden="true" />
