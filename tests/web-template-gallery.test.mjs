@@ -141,7 +141,7 @@ test('template section replaces the old capability section and keeps CTA/link sa
   assert.doesNotMatch(gallerySource, /<button[^>]+className=\{styles\.cta\}/);
 });
 
-test('gallery source preserves passive wheel/native scroll, touch behavior, reduced-motion, focus camera, and live cue contracts', () => {
+test('gallery keeps native scroll while trackpad input moves cards with the gesture on both axes', () => {
   assert.match(gallerySource, /requestAnimationFrame/);
   assert.match(gallerySource, /event\.deltaX/);
   assert.match(gallerySource, /event\.deltaY/);
@@ -149,7 +149,8 @@ test('gallery source preserves passive wheel/native scroll, touch behavior, redu
   const wheelSource = gallerySource.slice(gallerySource.indexOf('const onWheel'), gallerySource.indexOf('stage.addEventListener(\'wheel\''));
   assert.doesNotMatch(wheelSource, /preventDefault/);
   assert.match(wheelSource, /targetX\s*-=\s*event\.deltaX\s*\*\s*0\.0014/);
-  assert.match(wheelSource, /targetY\s*\+=\s*event\.deltaY\s*\*\s*0\.00075/);
+  assert.match(wheelSource, /targetY\s*-=\s*event\.deltaY\s*\*\s*0\.00075/);
+  assert.doesNotMatch(wheelSource, /targetY\s*\+=\s*event\.deltaY/);
   assert.match(galleryStyles, /touch-action: pan-y/);
   assert.match(gallerySource, /IntersectionObserver/);
   assert.match(gallerySource, /visibilitychange/);
