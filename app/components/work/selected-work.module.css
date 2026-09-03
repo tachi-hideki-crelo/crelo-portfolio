@@ -298,6 +298,34 @@
   width: 100%;
 }
 
+.cardMedia,
+.mobileMedia {
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  position: absolute;
+  z-index: 0;
+}
+
+.cardMedia::after,
+.mobileMedia::after {
+  background:
+    linear-gradient(180deg, rgb(4 8 10 / 70%) 0%, rgb(4 8 10 / 45%) 32%, rgb(4 8 10 / 94%) 100%),
+    linear-gradient(90deg, rgb(4 8 10 / 48%), transparent 58%);
+  content: '';
+  inset: 0;
+  position: absolute;
+}
+
+.cardMediaVideo,
+.mobileMediaVideo {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.72;
+  width: 100%;
+}
+
 .cardButton::before,
 .cardButton::after {
   content: '';
@@ -633,7 +661,10 @@
 }
 
 .expandedVisual {
+  align-items: center;
   border-bottom: 1px solid rgb(var(--case-accent-rgb) / 20%);
+  display: flex;
+  justify-content: center;
   min-height: 0;
   overflow: hidden;
   padding: 0.75rem 1.25rem;
@@ -644,6 +675,18 @@
 .expandedVisual > div {
   height: 100%;
   min-height: 0;
+  width: 100%;
+}
+
+.featureVideo {
+  aspect-ratio: 16 / 9;
+  background: #020506;
+  border: 1px solid rgb(var(--case-accent-rgb) / 24%);
+  display: block;
+  height: auto;
+  max-height: 100%;
+  min-height: 0;
+  object-fit: contain;
   width: 100%;
 }
 
@@ -892,7 +935,9 @@
     display: flex;
     gap: 1rem;
     min-height: 4.25rem;
+    overflow: hidden;
     padding: 0.8rem 1rem;
+    position: relative;
     text-align: left;
     width: 100%;
   }
@@ -902,12 +947,16 @@
     font-family: var(--font-mono, monospace);
     font-size: 0.72rem;
     min-width: 1.3rem;
+    position: relative;
+    z-index: 1;
   }
 
   .mobileButtonCopy {
     display: grid;
     gap: 0.3rem;
     min-width: 0;
+    position: relative;
+    z-index: 1;
   }
 
   .mobileStatus {
@@ -931,6 +980,8 @@
     font-size: 1.35rem;
     line-height: 1;
     margin-left: auto;
+    position: relative;
+    z-index: 1;
   }
 
   .detailOverlay {

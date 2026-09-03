@@ -61,11 +61,19 @@ function approvedRecords() {
   }));
 }
 
-test('provides exactly five stable private preview slots without invented facts', () => {
+test('provides one explicitly approved video case and four stable private preview slots', () => {
   assert.equal(caseStudies.length, 5);
   assert.equal(new Set(caseStudies.map((item) => item.slug)).size, 5);
   assert.deepEqual(caseStudies.map((item) => item.displayOrder), [1, 2, 3, 4, 5]);
-  for (const item of caseStudies) {
+  assert.equal(caseStudies[0].approved, true);
+  assert.equal(caseStudies[0].title, '宣伝動画の制作');
+  assert.equal(caseStudies[0].role, 'AIを用いた動画の作成');
+  assert.deepEqual(caseStudies[0].media.map((item) => item.kind === 'video' ? item.role : null), ['preview', 'full']);
+  assert.deepEqual(caseStudies[0].media.map((item) => item.src), [
+    '/assets/cases/ai-promo-preview.mp4',
+    '/assets/cases/ai-promo-feature.mp4',
+  ]);
+  for (const item of caseStudies.slice(1)) {
     assert.equal(item.approved, false);
     assert.equal(item.title, null);
     assert.deepEqual(item.media, []);
@@ -271,6 +279,7 @@ test('production gate requires safe approved media metadata and local asset path
     src: '/assets/cases/demo.mp4',
     alt: '公開ケース動画',
     kind: 'video',
+    role: 'full',
     approved: true,
     approvedAt: '2026-08-25',
     poster: '/assets/cases/demo-poster.png',
@@ -285,6 +294,7 @@ test('production gate requires safe approved media metadata and local asset path
     src: '/assets/cases/demo.mp4',
     alt: '公開ケース動画',
     kind: 'video',
+    role: 'full',
     approved: true,
     approvedAt: '2026-08-25',
     poster: '/assets/cases/demo-poster.png',
@@ -299,6 +309,7 @@ test('production gate requires safe approved media metadata and local asset path
     src: '/assets/cases/demo.png',
     alt: '公開ケース動画',
     kind: 'video',
+    role: 'full',
     approved: true,
     approvedAt: '2026-08-25',
     poster: '/assets/cases/demo.mp4',

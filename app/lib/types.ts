@@ -18,10 +18,13 @@ export type CaseStudyImageMedia = {
   height: number;
 };
 
+export type CaseStudyVideoRole = 'preview' | 'full';
+
 export type CaseStudyVideoMedia = {
   src: string;
   alt: string;
   kind: 'video';
+  role: CaseStudyVideoRole;
   approved: boolean;
   approvedAt: string;
   poster: string | null;

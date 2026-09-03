@@ -48,13 +48,13 @@
 - 案件全体の公開承認フラグ（`approved: true`）と承認日（`approvedAt: YYYY-MM-DD`）を `app/lib/content.ts` の各case recordへ記入します。承認日は内部の公開根拠として保持し、サイト本文へは投影しません。
 - 公開可能な画像・動画、各媒体の正確なalt、承認日
 - 画像は `/assets/cases/` 配下のローカルasset、正の整数の `width`／`height` を必須とします。使用できる拡張子は `.avif`、`.gif`、`.jpeg`、`.jpg`、`.png`、`.webp` です。
-- 動画は `/assets/cases/` 配下の `.mp4`、`.ogv`、`.webm` と `poster`（画像拡張子）を登録し、音声あり（`hasAudio: true`）なら同じ配下の `.vtt` 字幕 `captionsSrc` を必須とします。字幕も外部URLやパストラバーサルを許可しません。
+- 動画は `/assets/cases/` 配下の `.mp4`、`.ogv`、`.webm` と `poster`（画像拡張子）を登録し、一覧用は `role: 'preview'`、本編は `role: 'full'` とします。音声あり（`hasAudio: true`）なら同じ配下の `.vtt` 字幕 `captionsSrc` を必須とします。字幕も外部URLやパストラバーサルを許可しません。
 - 匿名化と媒体公開の承認者・承認日（承認済みの証跡は手元で管理）
 - NDA資料、未承認画像、原資料、個人情報はリポジトリへ置きません。
 
 ## Production gate
 
-`npm run build` とローカル開発は、承認待ち5枠のpreviewを許可します。
+`npm run build` とローカル開発は、未承認4枠をredactionしたowner-only previewを許可し、承認済みcaseの媒体assetだけを検証します。
 `npm run build:production` は、5件すべてが `approved: true` と有効な案件承認日を持つこと、必須項目・承認済み媒体の安全なasset metadata・実名Profile（顔写真の公開承認日を含む）・実運用Privacy（取得項目、目的、保存期間、委託先、国外移転、権利請求窓口を含む）・本番環境変数が揃うことを検証します。さらに `public/` 配下へ安全に解決できる通常ファイルの存在、画像／動画／字幕の拡張子をbuild前に検証し、揃わない場合は理由を列挙して失敗します。
 
 本番 `SITE_ORIGIN` は `https://` のURLに限定し、`localhost`／`127.0.0.1`／`[::1]` のみローカル検証用に `http://` を許可します。問い合わせの任意 `requestId` はResendの `Idempotency-Key` とD1の再試行識別に使うためUUID形式で指定します。省略時はサーバーがUUIDを生成します。Turnstile Siteverify は毎回新しいtokenを検証し、Resend用のrequestIdをSiteverifyのidempotency keyへ流用しません。

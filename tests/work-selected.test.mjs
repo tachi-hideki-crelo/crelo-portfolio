@@ -22,7 +22,7 @@ const homeSource = await readFile(new URL('../app/components/site/HomeExperience
 const publicProjectionSource = await readFile(new URL('../app/components/work/work-public.ts', import.meta.url), 'utf8');
 const sitemapSource = await readFile(new URL('../app/sitemap.ts', import.meta.url), 'utf8');
 
-test('selected work exposes all five approved-safe slots without inventing case facts', () => {
+test('selected work exposes one approved video case and redacts the remaining slots', () => {
   assert.deepEqual(caseStudies.map(({ slug }) => slug), [
     'field-signal',
     'workflow-atlas',
@@ -31,7 +31,24 @@ test('selected work exposes all five approved-safe slots without inventing case 
     'delivery-orbit',
   ]);
   assert.equal(new Set(caseStudies.map(({ slug }) => slug)).size, 5);
-  assert.ok(caseStudies.every(({ approved, title, media }) => !approved && title === null && media.length === 0));
+  assert.equal(caseStudies[0].approved, true);
+  assert.equal(caseStudies[0].title, '宣伝動画の制作');
+  assert.equal(caseStudies[0].role, 'AIを用いた動画の作成');
+  assert.deepEqual(caseStudies[0].media.map(({ src, role, poster, hasAudio }) => ({ src, role, poster, hasAudio })), [
+    {
+      src: '/assets/cases/ai-promo-preview.mp4',
+      role: 'preview',
+      poster: '/assets/cases/ai-promo-poster.jpg',
+      hasAudio: false,
+    },
+    {
+      src: '/assets/cases/ai-promo-feature.mp4',
+      role: 'full',
+      poster: '/assets/cases/ai-promo-poster.jpg',
+      hasAudio: false,
+    },
+  ]);
+  assert.ok(caseStudies.slice(1).every(({ approved, title, media }) => !approved && title === null && media.length === 0));
 });
 
 test('selected work keyboard contract opens accessible inline details instead of separate pages', () => {
@@ -64,7 +81,7 @@ test('selected work keyboard contract opens accessible inline details instead of
   assert.match(selectedWorkSource, /TAP TO EXPAND/);
 });
 
-test('client SelectedWork receives only a server-redacted projection', () => {
+test('client SelectedWork receives a safe projection with approved media only', () => {
   assert.doesNotMatch(selectedWorkSource, /from ['"]\.\.\/\.\.\/lib\/content/);
   assert.match(selectedWorkSource, /cases: readonly PublicCaseStudy\[\]/);
   assert.match(pageSource, /projectPublicCaseStudies\(caseStudies, publicBuild\)/);
@@ -72,10 +89,13 @@ test('client SelectedWork receives only a server-redacted projection', () => {
   assert.match(homeSource, /workCases: readonly PublicCaseStudy\[\]/);
   assert.match(homeSource, /<SelectedWork cases=\{workCases\} \/>/);
   assert.doesNotMatch(publicProjectionSource, /from ['"]\.\.\/\.\.\/lib\/content/);
-  assert.doesNotMatch(publicProjectionSource, /CaseStudyMedia|media:/);
+  assert.match(publicProjectionSource, /projectApprovedMedia/);
+  assert.match(publicProjectionSource, /if \(!item\.approved\) return \[\]/);
+  assert.match(publicProjectionSource, /media: projectApprovedMedia\(caseStudy\.media\)/);
 
   const draft = {
     ...caseStudies[0],
+    approved: false,
     title: 'UNAPPROVED TITLE',
     industry: 'UNAPPROVED INDUSTRY',
     challenge: 'UNAPPROVED CHALLENGE',
@@ -86,6 +106,7 @@ test('client SelectedWork receives only a server-redacted projection', () => {
       src: '/assets/cases/private.mp4',
       alt: 'UNAPPROVED MEDIA',
       kind: 'video',
+      role: 'preview',
       approved: true,
       approvedAt: '2026-08-25',
       poster: '/assets/cases/private-poster.png',
@@ -95,11 +116,13 @@ test('client SelectedWork receives only a server-redacted projection', () => {
   };
   const redacted = projectPublicCaseStudies([draft], true)[0];
   assert.equal(redacted.approved, false);
+  assert.equal(Array.isArray(redacted.media), true);
+  assert.deepEqual(redacted.media, []);
   assert.equal(redacted.title, null);
   assert.equal(redacted.challenge, null);
   assert.equal('constraints' in redacted, false);
   assert.equal('technologies' in redacted, false);
-  assert.equal('media' in redacted, false);
+  assert.equal('media' in redacted, true);
   assert.doesNotMatch(JSON.stringify(redacted), /UNAPPROVED|private\.mp4/i);
 
   const approved = projectPublicCaseStudies([{
@@ -110,20 +133,53 @@ test('client SelectedWork receives only a server-redacted projection', () => {
     media: draft.media,
   }], true)[0];
   assert.equal(approved.approved, true);
+  assert.equal(Array.isArray(approved.media), true);
   assert.equal(approved.title, 'Approved case');
   assert.equal('constraints' in approved, false);
-  assert.equal('media' in approved, false);
-  assert.doesNotMatch(JSON.stringify(approved), /private\.mp4|UNAPPROVED MEDIA/i);
+  assert.equal(approved.media.length, 1);
+  assert.deepEqual(approved.media[0], {
+    src: '/assets/cases/private.mp4',
+    alt: 'UNAPPROVED MEDIA',
+    kind: 'video',
+    role: 'preview',
+    poster: '/assets/cases/private-poster.png',
+    hasAudio: false,
+    captionsSrc: null,
+  });
 
   const approvedPreview = projectPublicCaseStudies([{
     ...draft,
     approved: true,
     title: 'Approved case',
     challenge: 'Approved challenge',
+    media: [],
   }], false)[0];
-  assert.equal(approvedPreview.approved, false);
-  assert.equal(approvedPreview.title, null);
-  assert.equal('media' in approvedPreview, false);
+  assert.equal(approvedPreview.approved, true);
+  assert.equal(Array.isArray(approvedPreview.media), true);
+  assert.equal(approvedPreview.title, 'Approved case');
+  assert.deepEqual(approvedPreview.media, []);
+
+  const mixedMedia = projectPublicCaseStudies([{
+    ...draft,
+    approved: true,
+    title: 'Approved case',
+    media: [
+      ...draft.media,
+      {
+        src: '/assets/cases/secret.mp4',
+        alt: 'PRIVATE MEDIA',
+        kind: 'video',
+        role: 'full',
+        approved: false,
+        approvedAt: '2026-08-25',
+        poster: '/assets/cases/secret-poster.png',
+        hasAudio: false,
+        captionsSrc: null,
+      },
+    ],
+  }], true)[0];
+  assert.equal(mixedMedia.media.length, 1);
+  assert.doesNotMatch(JSON.stringify(mixedMedia), /secret\.mp4|PRIVATE MEDIA/i);
 });
 
 test('selected work keeps motion browser-safe and has a static reduced-motion path', () => {
@@ -197,6 +253,30 @@ test('selected work keeps motion browser-safe and has a static reduced-motion pa
   assert.match(selectedWorkStyles, /min-width: 769px\) and \(max-height: 688px\)[\s\S]*?\.desktopStage,[\s\S]*?\.stageShell[\s\S]*?min-height: 100vh/);
   assert.doesNotMatch(selectedWorkStyles, /calc\([^)]*\*/);
   assert.match(selectedWorkStyles, /prefers-reduced-motion: reduce\)[\s\S]*\.expandedScan[\s\S]*animation: none/);
+});
+
+test('selected work video roles attach only at the right interaction boundary', () => {
+  assert.match(selectedWorkSource, /function getVideoMedia/);
+  assert.match(selectedWorkSource, /role: PublicCaseStudyVideoMedia\['role'\]/);
+  assert.match(selectedWorkSource, /function CasePreviewVideo/);
+  assert.match(selectedWorkSource, /IntersectionObserver/);
+  assert.match(selectedWorkSource, /element\.src = video\.src/);
+  assert.match(selectedWorkSource, /element\.load\(\)/);
+  assert.match(selectedWorkSource, /if \(entry\?\.isIntersecting\) attachAndPlay\(\)/);
+  assert.match(selectedWorkSource, /else element\.pause\(\)/);
+  assert.match(selectedWorkSource, /autoPlay=\{!reduceMotion\}/);
+  assert.match(selectedWorkSource, /muted/);
+  assert.match(selectedWorkSource, /loop/);
+  assert.match(selectedWorkSource, /playsInline/);
+  assert.match(selectedWorkSource, /function CaseFeatureVideo/);
+  assert.match(selectedWorkSource, /data-work-feature-video/);
+  assert.match(selectedWorkSource, /controls/);
+  assert.match(selectedWorkSource, /releaseLoadedVideo\(featureVideoRef\.current\)/);
+  assert.match(selectedWorkSource, /video\.removeAttribute\('src'\)/);
+  assert.match(selectedWorkSource, /className=\{styles\.featureVideo\}/);
+  assert.match(selectedWorkStyles, /\.cardMediaVideo[\s\S]*object-fit: cover/);
+  assert.match(selectedWorkStyles, /\.featureVideo[\s\S]*object-fit: contain/);
+  assert.match(selectedWorkStyles, /\.mobileMediaVideo/);
 });
 
 test('selected work bleeds the active case theme into its black background without replacing card accents', () => {

@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
 import { caseStudies, siteContent } from '../app/lib/content.ts';
 import { validatePublicContentAssets } from '../scripts/validate-public-assets.ts';
+
+const contentValidationSource = await readFile(new URL('../scripts/validate-content.ts', import.meta.url), 'utf8');
 
 function approvedRecords() {
   return caseStudies.map((caseStudy, index) => ({
@@ -68,6 +70,7 @@ test('build asset gate accepts regular local image/video/caption files', async (
         src: '/assets/cases/demo.webm',
         alt: '公開ケース動画',
         kind: 'video',
+        role: 'full',
         approved: true,
         approvedAt: '2026-08-25',
         poster: '/assets/cases/demo-poster.jpg',
@@ -79,6 +82,13 @@ test('build asset gate accepts regular local image/video/caption files', async (
   } finally {
     await rm(publicRoot, { recursive: true, force: true });
   }
+});
+
+test('preview builds validate approved assets without requiring all five cases', () => {
+  assert.match(contentValidationSource, /const approvedPreviewCases = caseStudies\.filter\(\(caseStudy\) => caseStudy\.approved\)/);
+  assert.match(contentValidationSource, /validatePublicContentAssets\(approvedPreviewCases, siteContent/);
+  assert.match(contentValidationSource, /PREVIEW_ASSET_GATE_FAILED/);
+  assert.match(contentValidationSource, /unapproved case-study slots remain redacted/);
 });
 
 test('build asset gate rejects missing files and directories masquerading as files', async () => {

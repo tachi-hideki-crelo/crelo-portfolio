@@ -184,6 +184,9 @@ function inspectCaseStudy(caseStudy: CaseStudy, index: number): string[] {
       if (!isPositiveInteger(media.width)) errors.push(`${mediaPrefix}.width must be a positive integer`);
       if (!isPositiveInteger(media.height)) errors.push(`${mediaPrefix}.height must be a positive integer`);
     } else if (media.kind === 'video') {
+      if (media.role !== 'preview' && media.role !== 'full') {
+        errors.push(`${mediaPrefix}.role must be preview or full`);
+      }
       if (isNonEmpty(media.src)) {
         const extensionError = validateAssetExtension(media.src, 'video', `${mediaPrefix}.src`);
         if (extensionError) errors.push(extensionError);

@@ -14,7 +14,7 @@ import {
   getPointerCardMotion,
   getScatterEntryProgress,
 } from './work-motion';
-import type { PublicCaseStudy } from './work-public';
+import type { PublicCaseStudy, PublicCaseStudyVideoMedia } from './work-public';
 import styles from './selected-work.module.css';
 
 type CSSVars = CSSProperties & Record<`--${string}`, string | number>;
@@ -67,6 +67,117 @@ function approvedHighlights(caseStudy: PublicCaseStudy): Array<{ label: string; 
 
 function getTheme(caseStudy: PublicCaseStudy): CaseTheme {
   return THEMES[caseStudy.theme] ?? THEMES.mint;
+}
+
+function getVideoMedia(
+  caseStudy: PublicCaseStudy,
+  role: PublicCaseStudyVideoMedia['role'],
+): PublicCaseStudyVideoMedia | null {
+  if (!caseStudy.approved) return null;
+  const media = caseStudy.media.find((item) => item.kind === 'video' && item.role === role);
+  return media?.kind === 'video' ? media : null;
+}
+
+function releaseLoadedVideo(video: HTMLVideoElement | null) {
+  if (!video) return;
+  video.pause();
+  video.removeAttribute('src');
+  video.load();
+}
+
+function CasePreviewVideo({
+  video,
+  reduceMotion,
+  className,
+}: {
+  video: PublicCaseStudyVideoMedia;
+  reduceMotion: boolean;
+  className: string;
+}) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const attachedRef = useRef(false);
+
+  useEffect(() => {
+    const element = videoRef.current;
+    if (!element) return;
+    if (reduceMotion) {
+      element.pause();
+      return;
+    }
+
+    const attachAndPlay = () => {
+      if (!attachedRef.current) {
+        element.src = video.src;
+        element.load();
+        attachedRef.current = true;
+      }
+      void element.play().catch(() => undefined);
+    };
+    const observer = typeof IntersectionObserver === 'undefined'
+      ? null
+      : new IntersectionObserver(([entry]) => {
+        if (entry?.isIntersecting) attachAndPlay();
+        else element.pause();
+      }, { threshold: 0.2 });
+
+    observer?.observe(element);
+    return () => {
+      observer?.disconnect();
+      element.pause();
+      attachedRef.current = false;
+    };
+  }, [reduceMotion, video]);
+
+  useEffect(() => () => releaseLoadedVideo(videoRef.current), []);
+
+  return (
+    <video
+      ref={videoRef}
+      className={className}
+      poster={video.poster ?? undefined}
+      preload="none"
+      autoPlay={!reduceMotion}
+      muted
+      loop
+      playsInline
+      aria-hidden="true"
+      data-work-video-role="preview"
+    />
+  );
+}
+
+function CaseFeatureVideo({
+  video,
+  videoRef,
+}: {
+  video: PublicCaseStudyVideoMedia;
+  videoRef: { current: HTMLVideoElement | null };
+}) {
+  useEffect(() => {
+    const element = videoRef.current;
+    if (!element) return;
+    element.src = video.src;
+    element.load();
+    return () => {
+      releaseLoadedVideo(element);
+      if (videoRef.current === element) videoRef.current = null;
+    };
+  }, [video, videoRef]);
+
+  return (
+    <video
+      ref={videoRef}
+      className={styles.featureVideo}
+      poster={video.poster ?? undefined}
+      preload="none"
+      controls
+      playsInline
+      aria-label={video.alt}
+      data-work-feature-video
+    >
+      {video.captionsSrc ? <track kind="captions" src={video.captionsSrc} /> : null}
+    </video>
+  );
 }
 
 function clampIndex(index: number, caseCount: number): number {
@@ -160,6 +271,7 @@ function CaseCard({
   index,
   active,
   expanded,
+  reduceMotion,
   onSelect,
   onOpen,
   onPointerEnter,
@@ -168,6 +280,7 @@ function CaseCard({
   index: number;
   active: boolean;
   expanded: boolean;
+  reduceMotion: boolean;
   onSelect: (index: number) => void;
   onOpen: (index: number, trigger: HTMLButtonElement) => void;
   onPointerEnter: (event: ReactPointerEvent<HTMLElement>, index: number) => void;
@@ -175,6 +288,7 @@ function CaseCard({
   const theme = getTheme(caseStudy);
   const layout = CARD_LAYOUT[index] ?? CARD_LAYOUT[0];
   const title = statusCopy(caseStudy);
+  const previewVideo = getVideoMedia(caseStudy, 'preview');
   const cardStyle: CSSVars = {
     '--card-x': layout.x,
     '--card-y': layout.y,
@@ -221,6 +335,11 @@ function CaseCard({
         onClick={(event) => onOpen(index, event.currentTarget)}
         onFocus={() => onSelect(index)}
       >
+        {previewVideo ? (
+          <span className={styles.cardMedia} aria-hidden="true">
+            <CasePreviewVideo video={previewVideo} reduceMotion={reduceMotion} className={styles.cardMediaVideo} />
+          </span>
+        ) : null}
         <span className={styles.cardTopline}>
           <span>CASE {String(caseStudy.displayOrder).padStart(2, '0')}</span>
           <span>{caseStudy.approved ? 'PUBLISHED' : 'PRIVATE PREVIEW'}</span>
@@ -248,6 +367,7 @@ function MobileCaseItem({
   index,
   active,
   expanded,
+  reduceMotion,
   onSelect,
   onOpen,
 }: {
@@ -255,11 +375,13 @@ function MobileCaseItem({
   index: number;
   active: boolean;
   expanded: boolean;
+  reduceMotion: boolean;
   onSelect: (index: number) => void;
   onOpen: (index: number, trigger: HTMLButtonElement) => void;
 }) {
   const theme = getTheme(caseStudy);
   const title = statusCopy(caseStudy);
+  const previewVideo = getVideoMedia(caseStudy, 'preview');
   const style: CSSVars = {
     '--case-accent': theme.accent,
     '--case-accent-rgb': theme.accentSoft,
@@ -285,6 +407,11 @@ function MobileCaseItem({
         }}
         onFocus={() => onSelect(index)}
       >
+        {previewVideo ? (
+          <span className={styles.mobileMedia} aria-hidden="true">
+            <CasePreviewVideo video={previewVideo} reduceMotion={reduceMotion} className={styles.mobileMediaVideo} />
+          </span>
+        ) : null}
         <span className={styles.mobileIndex}>{String(caseStudy.displayOrder).padStart(2, '0')}</span>
         <span className={styles.mobileButtonCopy}>
           <span className={styles.mobileStatus}>{caseStudy.approved ? 'PUBLISHED' : 'PRIVATE PREVIEW'}</span>
@@ -301,12 +428,14 @@ function ExpandedCaseDialog({
   index,
   origin,
   reduceMotion,
+  featureVideoRef,
   onClose,
 }: {
   caseStudy: PublicCaseStudy;
   index: number;
   origin: ExpansionOrigin;
   reduceMotion: boolean;
+  featureVideoRef: { current: HTMLVideoElement | null };
   onClose: () => void;
 }) {
   const dialogRef = useRef<HTMLElement | null>(null);
@@ -315,6 +444,7 @@ function ExpandedCaseDialog({
   const title = statusCopy(caseStudy);
   const industry = approvedIndustry(caseStudy);
   const highlights = approvedHighlights(caseStudy);
+  const featureVideo = getVideoMedia(caseStudy, 'full');
   const dialogTitleId = `work-detail-title-${caseStudy.slug}`;
   const dialogDescriptionId = `work-detail-description-${caseStudy.slug}`;
   const style = {
@@ -410,8 +540,14 @@ function ExpandedCaseDialog({
           </button>
         </header>
 
-        <div className={styles.expandedVisual} aria-hidden="true">
-          <WorkVisual accent={theme.accent} compact label={`CASE ${String(caseStudy.displayOrder).padStart(2, '0')} / FDE SIGNAL`} />
+        <div className={styles.expandedVisual}>
+          {featureVideo ? (
+            <CaseFeatureVideo video={featureVideo} videoRef={featureVideoRef} />
+          ) : (
+            <div aria-hidden="true">
+              <WorkVisual accent={theme.accent} compact label={`CASE ${String(caseStudy.displayOrder).padStart(2, '0')} / FDE SIGNAL`} />
+            </div>
+          )}
         </div>
 
         <div className={styles.expandedBody}>
@@ -420,7 +556,7 @@ function ExpandedCaseDialog({
           <h3 id={dialogTitleId}>{title}</h3>
           <p id={dialogDescriptionId} className={styles.expandedDescription}>
             {caseStudy.approved
-              ? '選択した実績の課題・担当範囲・成果を簡潔に表示しています。'
+              ? '公開承認済みの実績内容を簡潔に表示しています。'
               : 'このケースの業界・課題・担当範囲・定性成果は、公開承認後にここへ反映します。'}
           </p>
           {caseStudy.approved ? (
@@ -493,6 +629,7 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
     hoveredIndex: number | null;
   } | null>(null);
   const expansionTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const featureVideoRef = useRef<HTMLVideoElement | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const [expansionOrigin, setExpansionOrigin] = useState<ExpansionOrigin>({ x: 0, y: 0, scale: 0.5 });
@@ -523,6 +660,8 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
   }, [caseCount]);
 
   const handleClose = useCallback(() => {
+    releaseLoadedVideo(featureVideoRef.current);
+    featureVideoRef.current = null;
     setExpandedIndex(null);
   }, []);
 
@@ -728,6 +867,7 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
                 index={index}
                 active={index === activeIndex}
                 expanded={index === expandedIndex}
+                reduceMotion={reduceMotion}
                 onSelect={handleSelect}
                 onOpen={handleOpen}
                 onPointerEnter={handleCardPointerEnter}
@@ -756,6 +896,7 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
                 index={index}
                 active={index === activeIndex}
                 expanded={index === expandedIndex}
+                reduceMotion={reduceMotion}
                 onSelect={handleSelect}
                 onOpen={handleOpen}
                 key={caseStudy.slug}
@@ -774,6 +915,7 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
                 index={expandedIndex ?? 0}
                 origin={expansionOrigin}
                 reduceMotion={reduceMotion}
+                featureVideoRef={featureVideoRef}
                 onClose={handleClose}
               />
             ) : null}

@@ -27,7 +27,15 @@ if (!selfBuiltToolAssets.ok) {
 }
 
 if (!isProduction) {
-  console.log('CONTENT_MODE=preview: five unapproved, empty case-study slots are allowed.');
+  const approvedPreviewCases = caseStudies.filter((caseStudy) => caseStudy.approved);
+  if (approvedPreviewCases.length > 0) {
+    const assets = validatePublicContentAssets(approvedPreviewCases, siteContent, resolve(process.cwd(), 'public'));
+    if (!assets.ok) {
+      console.error(`PREVIEW_ASSET_GATE_FAILED\n${assets.errors.map((error) => `- ${error}`).join('\n')}`);
+      process.exit(1);
+    }
+  }
+  console.log('CONTENT_MODE=preview: unapproved case-study slots remain redacted; approved preview assets validated.');
   process.exit(0);
 }
 
