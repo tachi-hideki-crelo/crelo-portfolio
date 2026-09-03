@@ -101,8 +101,6 @@
 .scrollLabel,
 .cardTopline,
 .cardHint,
-.summaryIndex,
-.summaryStatus,
 .mobileStatus {
   color: color-mix(in srgb, var(--theme-accent) 82%, white);
   font-family: var(--font-mono, monospace);
@@ -258,8 +256,7 @@
   transition: opacity 420ms ease, filter 420ms ease, transform 300ms cubic-bezier(0.16, 1, 0.3, 1), z-index 0ms linear 0ms;
   width: min(31vw, 27rem);
   will-change: filter, opacity, transform;
-  /* Cards retain their own depth within the tab-list stacking context, while
-     the summary panel remains the readable top layer when areas overlap. */
+  /* Cards retain their own depth within the tab-list stacking context. */
   z-index: calc(3 - var(--card-order));
 }
 
@@ -412,7 +409,7 @@
   top: 1rem;
 }
 
-.cardArrow {
+.cardExpandIcon {
   align-items: center;
   background: transparent;
   border-radius: 50%;
@@ -423,6 +420,7 @@
   font-size: 1.1rem;
   height: 2.8rem;
   justify-content: center;
+  pointer-events: none;
   position: absolute;
   right: -0.65rem;
   text-decoration: none;
@@ -430,7 +428,7 @@
   z-index: 2;
 }
 
-.cardArrow::before {
+.cardExpandIcon::before {
   background: var(--case-accent);
   border-radius: inherit;
   box-shadow: 0 0 1.5rem var(--case-accent);
@@ -442,133 +440,327 @@
   transition: transform 220ms ease;
 }
 
-.cardArrow > span {
+.cardExpandIcon > span {
   position: relative;
   transform: scale(0.55) rotate(-14deg);
   transition: transform 220ms ease;
   z-index: 1;
 }
 
-.card:hover .cardArrow,
-.card:focus-within .cardArrow,
-.card[data-active='true'] .cardArrow {
+.card:hover .cardExpandIcon,
+.card:focus-within .cardExpandIcon,
+.card[data-active='true'] .cardExpandIcon {
   transform: none;
 }
 
-.card:hover .cardArrow::before,
-.card:focus-within .cardArrow::before,
-.card[data-active='true'] .cardArrow::before,
-.card:hover .cardArrow > span,
-.card:focus-within .cardArrow > span,
-.card[data-active='true'] .cardArrow > span {
+.card:hover .cardExpandIcon::before,
+.card:focus-within .cardExpandIcon::before,
+.card[data-active='true'] .cardExpandIcon::before,
+.card:hover .cardExpandIcon > span,
+.card:focus-within .cardExpandIcon > span,
+.card[data-active='true'] .cardExpandIcon > span {
   transform: scale(1) rotate(0deg);
 }
 
-.cardArrow:focus-visible,
-.summaryLink:focus-visible,
-.detailLink:focus-visible,
-.mobileButton:focus-visible {
+.mobileButton:focus-visible,
+.expandedClose:focus-visible {
   outline: 2px solid var(--case-accent, var(--theme-accent));
   outline-offset: 4px;
 }
 
-.summaryPanel {
-  background: linear-gradient(160deg, rgb(5 12 14 / 98%), rgb(9 17 18 / 96%));
-  border-left: 1px solid rgb(var(--theme-accent-rgb) / 48%);
-  bottom: 7%;
+.detailOverlay {
+  --case-accent: #a6ffdb;
+  --case-accent-rgb: 166 255 219;
+  align-items: center;
+  background:
+    radial-gradient(circle at 50% 46%, rgb(var(--case-accent-rgb) / 13%), transparent 34%),
+    rgb(1 4 6 / 86%);
+  backdrop-filter: blur(15px) saturate(0.82);
   display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-  max-width: 18rem;
-  padding: 1.2rem 1.3rem;
+  inset: 0;
+  justify-content: center;
+  overflow: hidden;
+  padding: clamp(0.8rem, 2.5vw, 2rem);
+  position: fixed;
+  z-index: 10000;
+}
+
+.detailOverlay::before {
+  background-image:
+    linear-gradient(rgb(var(--case-accent-rgb) / 6%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--case-accent-rgb) / 6%) 1px, transparent 1px);
+  background-size: 4rem 4rem;
+  content: '';
+  inset: -12%;
+  mask-image: radial-gradient(circle at center, #000 0 35%, transparent 76%);
+  opacity: 0.55;
+  pointer-events: none;
   position: absolute;
-  right: 0;
-  transition: border-color 400ms ease;
-  width: 27%;
-  z-index: 10;
+  transform: perspective(48rem) rotateX(63deg) translateY(24%);
+  transform-origin: center;
 }
 
-.summaryStatus {
-  color: rgb(220 232 227 / 52%);
-  font-size: 0.48rem;
+.expandedCard {
+  background:
+    linear-gradient(150deg, rgb(var(--case-accent-rgb) / 10%), transparent 32%),
+    linear-gradient(180deg, rgb(11 19 21 / 98%), rgb(3 8 10 / 99%));
+  border: 1px solid rgb(var(--case-accent-rgb) / 78%);
+  box-shadow:
+    0 2.2rem 7rem rgb(0 0 0 / 72%),
+    0 0 4rem rgb(var(--case-accent-rgb) / 18%),
+    inset 0 0 0 1px rgb(255 255 255 / 4%);
+  color: #edf4f1;
+  display: grid;
+  grid-template-rows: auto minmax(10.5rem, 0.72fr) minmax(0, 1.25fr) auto;
+  height: min(86svh, 47rem);
+  isolation: isolate;
+  max-height: calc(100svh - 1.6rem);
+  max-width: 34rem;
+  min-height: min(32rem, calc(100svh - 1.6rem));
+  overflow: hidden;
+  position: relative;
+  transform-origin: center;
+  width: min(92vw, 34rem);
+  will-change: opacity, transform;
+  z-index: 1;
 }
 
-.summaryPanel h3 {
-  color: var(--theme-accent);
-  font-size: clamp(1.05rem, 2vw, 1.55rem);
-  letter-spacing: -0.05em;
-  line-height: 1.05;
-  margin: 0.45rem 0 0;
+.expandedCard::before,
+.expandedCard::after {
+  content: '';
+  pointer-events: none;
+  position: absolute;
+  z-index: -1;
+}
+
+.expandedCard::before {
+  background:
+    repeating-linear-gradient(0deg, transparent 0 4px, rgb(var(--case-accent-rgb) / 2%) 4px 5px),
+    radial-gradient(circle at 88% 10%, rgb(var(--case-accent-rgb) / 16%), transparent 28%);
+  inset: 0;
+}
+
+.expandedCard::after {
+  border: 1px solid rgb(var(--case-accent-rgb) / 18%);
+  inset: 0.5rem;
+}
+
+.expandedScan {
+  animation: expandedCardScan 4.8s cubic-bezier(0.33, 0, 0.2, 1) infinite;
+  background: linear-gradient(180deg, transparent, rgb(var(--case-accent-rgb) / 18%), transparent);
+  height: 22%;
+  inset-inline: 0;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  top: -22%;
+  z-index: 4;
+}
+
+.expandedCorner {
+  border-right: 2px solid var(--case-accent);
+  border-top: 2px solid var(--case-accent);
+  height: 1.5rem;
+  pointer-events: none;
+  position: absolute;
+  right: -1px;
+  top: -1px;
+  width: 1.5rem;
+  z-index: 5;
+}
+
+.expandedHeader,
+.expandedFooter {
+  align-items: center;
+  display: flex;
+  font-family: var(--font-mono, monospace);
+  justify-content: space-between;
+  letter-spacing: 0.12em;
+  position: relative;
+  text-transform: uppercase;
+  z-index: 2;
+}
+
+.expandedHeader {
+  border-bottom: 1px solid rgb(var(--case-accent-rgb) / 23%);
+  min-height: 4.6rem;
+  padding: 0.8rem 1rem 0.8rem 1.25rem;
+}
+
+.expandedHeader > div {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.expandedEyebrow {
+  color: var(--case-accent);
+  font-size: 0.56rem;
+}
+
+.expandedStatus {
+  color: rgb(219 232 227 / 48%);
+  font-size: 0.46rem;
+}
+
+.expandedClose {
+  align-items: center;
+  appearance: none;
+  background: rgb(var(--case-accent-rgb) / 7%);
+  border: 1px solid rgb(var(--case-accent-rgb) / 34%);
+  color: #eaf4f0;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 0.5rem;
+  gap: 0.75rem;
+  justify-content: center;
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+  padding: 0.45rem 0.7rem;
+  transition: background 180ms ease, border-color 180ms ease, color 180ms ease;
+}
+
+.expandedClose > span:last-child {
+  color: var(--case-accent);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.expandedClose:hover {
+  background: rgb(var(--case-accent-rgb) / 14%);
+  border-color: var(--case-accent);
+  color: white;
+}
+
+.expandedVisual {
+  border-bottom: 1px solid rgb(var(--case-accent-rgb) / 20%);
+  min-height: 0;
+  overflow: hidden;
+  padding: 0.75rem 1.25rem;
+  position: relative;
+  z-index: 1;
+}
+
+.expandedVisual > div {
+  height: 100%;
+  min-height: 0;
+  width: 100%;
+}
+
+.expandedBody {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: clamp(1.15rem, 3.5vh, 2rem) 1.5rem 1.25rem;
+  position: relative;
+  scrollbar-color: rgb(var(--case-accent-rgb) / 35%) transparent;
+  z-index: 1;
+}
+
+.expandedIndex {
+  color: rgb(var(--case-accent-rgb) / 8%);
+  font-family: var(--font-mono, monospace);
+  font-size: clamp(5rem, 16vh, 8rem);
+  line-height: 0.8;
+  pointer-events: none;
+  position: absolute;
+  right: 0.8rem;
+  top: 1rem;
+}
+
+.expandedIndustry {
+  color: var(--case-accent);
+  display: block;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.56rem;
+  letter-spacing: 0.12em;
+  margin-bottom: 0.75rem;
+  position: relative;
+  text-transform: uppercase;
+}
+
+.expandedBody h3 {
+  color: #f1f7f4;
+  font-size: clamp(1.75rem, 5vw, 3rem);
+  letter-spacing: -0.065em;
+  line-height: 0.98;
+  margin: 0;
+  max-width: 10ch;
   overflow-wrap: normal;
+  position: relative;
+  text-wrap: balance;
   word-break: keep-all;
 }
 
-.summaryPanel p,
-.mobileSummary {
-  color: #8b9998;
-  font-size: 0.78rem;
-  line-height: 1.7;
-  margin: 0.35rem 0 0;
+.expandedDescription {
+  color: #93a19f;
+  font-size: 0.82rem;
+  line-height: 1.75;
+  margin: 1rem 0 0;
+  max-width: 36rem;
+  position: relative;
 }
 
-.summaryFacts {
+.expandedFacts {
   display: grid;
-  gap: 0.28rem;
-  margin-top: 0.25rem;
+  margin: 1.2rem 0 0;
+  position: relative;
 }
 
-.summaryIndustry {
-  color: color-mix(in srgb, var(--theme-accent) 72%, white);
+.expandedFacts > div {
+  border-top: 1px solid rgb(var(--case-accent-rgb) / 18%);
+  display: grid;
+  gap: 0.3rem;
+  grid-template-columns: 4.25rem 1fr;
+  padding: 0.75rem 0;
+}
+
+.expandedFacts dt {
+  color: var(--case-accent);
   font-family: var(--font-mono, monospace);
   font-size: 0.54rem;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
-.summaryFacts p {
+.expandedFacts dd {
+  color: #c7d2ce;
+  font-size: 0.78rem;
+  line-height: 1.65;
   margin: 0;
 }
 
-.summaryFacts strong,
-.mobileApprovedSummary strong {
-  color: color-mix(in srgb, var(--theme-accent) 68%, white);
-  display: block;
-  font-family: var(--font-mono, monospace);
-  font-size: 0.48rem;
-  font-weight: 500;
-  letter-spacing: 0.1em;
-  margin-bottom: 0.12rem;
-  text-transform: uppercase;
+.expandedFactsPending dd {
+  color: rgb(199 210 206 / 48%);
 }
 
-.summaryLink,
-.detailLink {
-  align-items: center;
-  border-bottom: 1px solid rgb(var(--theme-accent-rgb) / 45%);
-  color: var(--theme-accent);
-  display: flex;
-  font-family: var(--font-mono, monospace);
-  font-size: 0.59rem;
-  gap: 0.75rem;
-  justify-content: space-between;
-  letter-spacing: 0.1em;
-  margin-top: 0.9rem;
-  min-height: 2.75rem;
-  padding: 0.3rem 0;
-  text-decoration: none;
-  text-transform: uppercase;
-  transition: color 180ms ease, border-color 180ms ease;
+.expandedFooter {
+  border-top: 1px solid rgb(var(--case-accent-rgb) / 20%);
+  color: rgb(219 232 227 / 44%);
+  font-size: 0.47rem;
+  min-height: 2.5rem;
+  padding: 0.65rem 1.25rem;
 }
 
-.summaryLink > span:first-child,
-.detailLink > span:first-child {
-  white-space: nowrap;
-}
+@keyframes expandedCardScan {
+  0%, 58% {
+    opacity: 0;
+    transform: translateY(0);
+  }
 
-.summaryLink:hover,
-.detailLink:hover {
-  border-color: var(--theme-accent);
-  color: white;
+  64% {
+    opacity: 0.78;
+  }
+
+  88% {
+    opacity: 0;
+    transform: translateY(550%);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(550%);
+  }
 }
 
 .stageVisual {
@@ -601,11 +793,6 @@
 @media (max-width: 1000px) and (min-width: 769px) {
   .card {
     width: min(34vw, 24rem);
-  }
-
-  .summaryPanel {
-    max-width: 15rem;
-    width: 29%;
   }
 
   .stageVisual {
@@ -746,56 +933,59 @@
     margin-left: auto;
   }
 
-  .mobilePanel {
-    animation: panelIn 320ms cubic-bezier(0.2, 0.75, 0.22, 1) both;
-    border-top: 1px solid rgb(var(--case-accent-rgb) / 22%);
-    padding: 1rem;
+  .detailOverlay {
+    padding: 0.55rem;
   }
 
-  .mobilePanelVisual > div {
-    min-height: 13rem;
-    width: 100%;
+  .expandedCard {
+    grid-template-rows: auto minmax(8.5rem, 0.55fr) minmax(0, 1.35fr) auto;
+    height: min(89svh, 44rem);
+    max-height: calc(100svh - 1.1rem);
+    min-height: min(30rem, calc(100svh - 1.1rem));
+    width: calc(100vw - 1.1rem);
   }
 
-  .mobileSummary {
-    margin-top: 1rem;
+  .expandedHeader {
+    min-height: 4.25rem;
+    padding: 0.6rem 0.7rem 0.6rem 1rem;
   }
 
-  .mobileApprovedSummary {
-    color: #8b9998;
-    display: grid;
-    gap: 0.65rem;
-    margin-top: 1rem;
+  .expandedClose > span:first-child {
+    position: absolute;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    height: 1px;
+    overflow: hidden;
+    white-space: nowrap;
+    width: 1px;
   }
 
-  .mobileIndustry {
-    color: var(--case-accent);
-    font-family: var(--font-mono, monospace);
-    font-size: 0.55rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+  .expandedVisual {
+    padding: 0.6rem 1rem;
   }
 
-  .mobileApprovedSummary p {
+  .expandedBody {
+    padding: 1.2rem 1rem 1rem;
+  }
+
+  .expandedBody h3 {
+    font-size: clamp(1.65rem, 8vw, 2.4rem);
+  }
+
+  .expandedDescription {
     font-size: 0.78rem;
-    line-height: 1.7;
-    margin: 0;
   }
 
-  .detailLink {
-    margin-top: 0.75rem;
-  }
-}
-
-@keyframes panelIn {
-  from {
-    opacity: 0;
-    transform: translateY(-0.4rem);
+  .expandedFacts > div {
+    grid-template-columns: 3.5rem 1fr;
   }
 
-  to {
-    opacity: 1;
-    transform: translateY(0);
+  .expandedFooter {
+    padding-inline: 1rem;
+  }
+
+  .expandedFooter > span:last-child {
+    display: none;
   }
 }
 
@@ -805,8 +995,6 @@
   .tabList,
   .card,
   .cardButton,
-  .summaryLink,
-  .detailLink,
   .mobileItem {
     transition: none;
   }
@@ -817,8 +1005,12 @@
     transform: none;
   }
 
-  .mobilePanel {
+  .expandedScan {
     animation: none;
+  }
+
+  .detailOverlay {
+    backdrop-filter: none;
   }
 }
 

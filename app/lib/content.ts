@@ -59,7 +59,3 @@ export const siteContent: SiteContent = {
   },
   contactEmail: null,
 };
-
-export function getCaseStudy(slug: string): CaseStudy | undefined {
-  return caseStudies.find((caseStudy) => caseStudy.slug === slug);
-}

@@ -2,6 +2,7 @@
 
 import type { CSSProperties, FocusEvent, KeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 
 import { WorkVisual } from './work-visual';
@@ -17,6 +18,12 @@ import type { PublicCaseStudy } from './work-public';
 import styles from './selected-work.module.css';
 
 type CSSVars = CSSProperties & Record<`--${string}`, string | number>;
+
+type ExpansionOrigin = {
+  x: number;
+  y: number;
+  scale: number;
+};
 
 type CaseTheme = {
   accent: string;
@@ -48,9 +55,9 @@ function approvedIndustry(caseStudy: PublicCaseStudy): string | null {
 function approvedHighlights(caseStudy: PublicCaseStudy): Array<{ label: string; value: string }> {
   if (!caseStudy.approved) return [];
   const summaryRows: Array<{ label: string; value: string | null }> = [
-    { label: 'Challenge', value: caseStudy.challenge },
-    { label: 'Role', value: caseStudy.role },
-    { label: 'Outcome', value: caseStudy.qualitativeOutcome },
+    { label: '課題', value: caseStudy.challenge },
+    { label: '担当', value: caseStudy.role },
+    { label: '成果', value: caseStudy.qualitativeOutcome },
   ];
   return summaryRows.flatMap(({ label, value }) => {
     const text = approvedText(value);
@@ -79,22 +86,17 @@ function resolveViewportOffset(value: string): number {
   return numeric;
 }
 
-function setDesktopTabListReady(tabList: HTMLElement, ready: boolean) {
-  tabList.toggleAttribute('inert', !ready);
-  if (ready) tabList.removeAttribute('aria-hidden');
-  else tabList.setAttribute('aria-hidden', 'true');
+function setDesktopCardListReady(cardList: HTMLElement, ready: boolean) {
+  cardList.toggleAttribute('inert', !ready);
+  if (ready) cardList.removeAttribute('aria-hidden');
+  else cardList.setAttribute('aria-hidden', 'true');
 
-  tabList.querySelectorAll<HTMLElement>('button, a[href]').forEach((control) => {
+  cardList.querySelectorAll<HTMLElement>('button').forEach((control) => {
     if (!ready) {
       control.tabIndex = -1;
       return;
     }
-
-    if (control.getAttribute('role') === 'tab') {
-      control.tabIndex = control.getAttribute('aria-selected') === 'true' ? 0 : -1;
-    } else {
-      control.removeAttribute('tabindex');
-    }
+    control.removeAttribute('tabindex');
   });
 }
 
@@ -125,9 +127,9 @@ function updateScatterFromScroll(
   section.style.setProperty('--work-entry-scale', entryVisuals.scale.toFixed(4));
   section.style.setProperty('--work-entry-blur', `${entryVisuals.blur.toFixed(3)}px`);
   const orbitReady = entryProgress > 0.3 || reduceMotion;
-  const desktopTabList = stage.querySelector<HTMLElement>('[role="tablist"]');
+  const desktopCardList = stage.querySelector<HTMLElement>('[data-work-card-list]');
   section.dataset.orbitReady = orbitReady ? 'true' : 'false';
-  if (desktopTabList) setDesktopTabListReady(desktopTabList, orbitReady);
+  if (desktopCardList) setDesktopCardListReady(desktopCardList, orbitReady);
 
   section.querySelectorAll<HTMLElement>('[data-case-index]').forEach((card) => {
     const index = Number(card.dataset.caseIndex);
@@ -157,13 +159,17 @@ function CaseCard({
   caseStudy,
   index,
   active,
+  expanded,
   onSelect,
+  onOpen,
   onPointerEnter,
 }: {
   caseStudy: PublicCaseStudy;
   index: number;
   active: boolean;
+  expanded: boolean;
   onSelect: (index: number) => void;
+  onOpen: (index: number, trigger: HTMLButtonElement) => void;
   onPointerEnter: (event: ReactPointerEvent<HTMLElement>, index: number) => void;
 }) {
   const theme = getTheme(caseStudy);
@@ -195,6 +201,8 @@ function CaseCard({
       className={`${styles.card} ${active ? styles.cardActive : ''}`}
       data-case-index={index}
       data-active={active}
+      data-expanded={expanded}
+      role="listitem"
       style={cardStyle}
       onPointerEnter={(event) => onPointerEnter(event, index)}
     >
@@ -202,14 +210,15 @@ function CaseCard({
         className={styles.cardButton}
         id={`work-tab-${caseStudy.slug}`}
         type="button"
-        role="tab"
         data-index={index}
         data-tab-index={index}
         data-tab-group="desktop"
-        aria-selected={active}
-        aria-controls="work-summary-panel"
-        tabIndex={active ? 0 : -1}
-        onClick={() => onSelect(index)}
+        data-work-trigger="true"
+        aria-haspopup="dialog"
+        aria-expanded={expanded}
+        aria-controls={expanded ? `work-detail-dialog-${caseStudy.slug}` : undefined}
+        aria-label={`${title}の詳細を開く`}
+        onClick={(event) => onOpen(index, event.currentTarget)}
         onFocus={() => onSelect(index)}
       >
         <span className={styles.cardTopline}>
@@ -221,15 +230,15 @@ function CaseCard({
           <span className={styles.cardMeta}>{approvedIndustry(caseStudy)}</span>
         ) : null}
         <span className={styles.cardRule} aria-hidden="true" />
-        <span className={styles.cardHint}>{active ? 'SELECTED / OPEN SUMMARY' : 'SELECT CASE'}</span>
+        <span className={styles.cardHint}>{active ? 'CLICK / OPEN DETAILS' : 'SELECT CASE'}</span>
         <span className={styles.cardCorner} aria-hidden="true" />
       </button>
       <span className={styles.cardNumber} aria-hidden="true">
         {String(caseStudy.displayOrder).padStart(2, '0')}
       </span>
-      <a className={styles.cardArrow} href={`/work/${caseStudy.slug}`} aria-label={`${title} details`}>
+      <span className={styles.cardExpandIcon} aria-hidden="true">
         <span aria-hidden="true">↗</span>
-      </a>
+      </span>
     </article>
   );
 }
@@ -238,19 +247,19 @@ function MobileCaseItem({
   caseStudy,
   index,
   active,
+  expanded,
   onSelect,
-  reduceMotion,
+  onOpen,
 }: {
   caseStudy: PublicCaseStudy;
   index: number;
   active: boolean;
+  expanded: boolean;
   onSelect: (index: number) => void;
-  reduceMotion: boolean;
+  onOpen: (index: number, trigger: HTMLButtonElement) => void;
 }) {
   const theme = getTheme(caseStudy);
   const title = statusCopy(caseStudy);
-  const industry = approvedIndustry(caseStudy);
-  const highlights = approvedHighlights(caseStudy);
   const style: CSSVars = {
     '--case-accent': theme.accent,
     '--case-accent-rgb': theme.accentSoft,
@@ -261,55 +270,180 @@ function MobileCaseItem({
       <button
         className={styles.mobileButton}
         type="button"
-        role="tab"
         data-index={index}
         data-tab-index={index}
         data-tab-group="mobile"
-        aria-selected={active}
-        aria-controls="mobile-work-summary-panel"
+        data-work-trigger="true"
+        aria-haspopup="dialog"
+        aria-expanded={expanded}
+        aria-controls={expanded ? `work-detail-dialog-${caseStudy.slug}` : undefined}
+        aria-label={`${title}の詳細を開く`}
         id={`mobile-work-tab-${caseStudy.slug}`}
-        tabIndex={active ? 0 : -1}
-        onClick={() => onSelect(index)}
+        onClick={(event) => {
+          onSelect(index);
+          onOpen(index, event.currentTarget);
+        }}
+        onFocus={() => onSelect(index)}
       >
         <span className={styles.mobileIndex}>{String(caseStudy.displayOrder).padStart(2, '0')}</span>
         <span className={styles.mobileButtonCopy}>
           <span className={styles.mobileStatus}>{caseStudy.approved ? 'PUBLISHED' : 'PRIVATE PREVIEW'}</span>
           <span className={styles.mobileTitle}>{title}</span>
         </span>
-        <span className={styles.mobilePlus} aria-hidden="true">{active ? '−' : '+'}</span>
+        <span className={styles.mobilePlus} aria-hidden="true">↗</span>
       </button>
-      {active ? (
-        <motion.div
-          className={styles.mobilePanel}
-          id="mobile-work-summary-panel"
-          role="tabpanel"
-          aria-labelledby={`mobile-work-tab-${caseStudy.slug}`}
-          initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={reduceMotion ? { duration: 0 } : { duration: 0.28, ease: 'easeOut' }}
-        >
-          <div className={styles.mobilePanelVisual}>
-            <WorkVisual accent={theme.accent} compact label={`CASE ${String(caseStudy.displayOrder).padStart(2, '0')} / ROUTE`} />
-          </div>
-          {caseStudy.approved ? (
-            <div className={styles.mobileApprovedSummary}>
-              {industry ? <span className={styles.mobileIndustry}>{industry}</span> : null}
-              {highlights.map(({ label, value }) => (
-                <p key={label}><strong>{label}</strong>{value}</p>
-              ))}
-            </div>
-          ) : (
-            <p className={styles.mobileSummary}>
-              このスロットの業界・課題・担当範囲・定性成果は、公開承認後に反映します。
-            </p>
-          )}
-          <a className={styles.detailLink} href={`/work/${caseStudy.slug}`}>
-            <span>Open case study</span>
-            <span aria-hidden="true">↗</span>
-          </a>
-        </motion.div>
-      ) : null}
     </li>
+  );
+}
+
+function ExpandedCaseDialog({
+  caseStudy,
+  index,
+  origin,
+  reduceMotion,
+  onClose,
+}: {
+  caseStudy: PublicCaseStudy;
+  index: number;
+  origin: ExpansionOrigin;
+  reduceMotion: boolean;
+  onClose: () => void;
+}) {
+  const dialogRef = useRef<HTMLElement | null>(null);
+  const closeRef = useRef<HTMLButtonElement | null>(null);
+  const theme = getTheme(caseStudy);
+  const title = statusCopy(caseStudy);
+  const industry = approvedIndustry(caseStudy);
+  const highlights = approvedHighlights(caseStudy);
+  const dialogTitleId = `work-detail-title-${caseStudy.slug}`;
+  const dialogDescriptionId = `work-detail-description-${caseStudy.slug}`;
+  const style = {
+    '--case-accent': theme.accent,
+    '--case-accent-rgb': theme.accentSoft,
+  } as CSSVars;
+
+  useEffect(() => {
+    closeRef.current?.focus({ preventScroll: true });
+  }, []);
+
+  const handleDialogKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      onClose();
+      return;
+    }
+    if (event.key !== 'Tab') return;
+
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])',
+    ));
+    if (focusable.length === 0) {
+      event.preventDefault();
+      dialog.focus({ preventScroll: true });
+      return;
+    }
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus({ preventScroll: true });
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus({ preventScroll: true });
+    }
+  };
+
+  return (
+    <motion.div
+      className={styles.detailOverlay}
+      data-work-detail-overlay
+      style={style}
+      initial={reduceMotion ? false : { opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={reduceMotion ? { duration: 0 } : { duration: 0.34, ease: 'easeOut' }}
+      onPointerDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <motion.article
+        ref={dialogRef}
+        className={styles.expandedCard}
+        id={`work-detail-dialog-${caseStudy.slug}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={dialogTitleId}
+        aria-describedby={dialogDescriptionId}
+        tabIndex={-1}
+        data-expanded-case={caseStudy.slug}
+        style={style}
+        initial={reduceMotion ? false : {
+          opacity: 0.72,
+          x: origin.x,
+          y: origin.y,
+          scale: origin.scale,
+          rotateZ: (index - 2) * 2.4,
+        }}
+        animate={{ opacity: 1, x: 0, y: 0, scale: 1, rotateZ: 0 }}
+        exit={reduceMotion ? { opacity: 0 } : {
+          opacity: 0,
+          x: origin.x * 0.35,
+          y: origin.y * 0.35,
+          scale: Math.max(origin.scale, 0.72),
+          rotateZ: (index - 2) * 1.2,
+        }}
+        transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 165, damping: 24, mass: 0.9 }}
+        onKeyDown={handleDialogKeyDown}
+      >
+        <span className={styles.expandedScan} aria-hidden="true" />
+        <span className={styles.expandedCorner} aria-hidden="true" />
+        <header className={styles.expandedHeader}>
+          <div>
+            <span className={styles.expandedEyebrow}>CASE {String(caseStudy.displayOrder).padStart(2, '0')} / INLINE DETAIL</span>
+            <span className={styles.expandedStatus}>{caseStudy.approved ? 'APPROVED CASE' : 'PRIVATE PREVIEW SLOT'}</span>
+          </div>
+          <button ref={closeRef} className={styles.expandedClose} type="button" onClick={onClose}>
+            <span>CLOSE</span><span aria-hidden="true">×</span>
+          </button>
+        </header>
+
+        <div className={styles.expandedVisual} aria-hidden="true">
+          <WorkVisual accent={theme.accent} compact label={`CASE ${String(caseStudy.displayOrder).padStart(2, '0')} / FDE SIGNAL`} />
+        </div>
+
+        <div className={styles.expandedBody}>
+          <span className={styles.expandedIndex} aria-hidden="true">{String(caseStudy.displayOrder).padStart(2, '0')}</span>
+          {industry ? <span className={styles.expandedIndustry}>{industry}</span> : null}
+          <h3 id={dialogTitleId}>{title}</h3>
+          <p id={dialogDescriptionId} className={styles.expandedDescription}>
+            {caseStudy.approved
+              ? '選択した実績の課題・担当範囲・成果を簡潔に表示しています。'
+              : 'このケースの業界・課題・担当範囲・定性成果は、公開承認後にここへ反映します。'}
+          </p>
+          {caseStudy.approved ? (
+            <dl className={styles.expandedFacts}>
+              {highlights.map(({ label, value }) => (
+                <div key={label}><dt>{label}</dt><dd>{value}</dd></div>
+              ))}
+            </dl>
+          ) : (
+            <dl className={`${styles.expandedFacts} ${styles.expandedFactsPending}`}>
+              {['課題', '担当', '成果'].map((label) => (
+                <div key={label}><dt>{label}</dt><dd>公開承認後に反映</dd></div>
+              ))}
+            </dl>
+          )}
+        </div>
+
+        <footer className={styles.expandedFooter}>
+          <span>SELECTED WORK / {String(caseStudy.displayOrder).padStart(2, '0')} OF 05</span>
+          <span>CLOSE TO RETURN</span>
+        </footer>
+      </motion.article>
+    </motion.div>
   );
 }
 
@@ -358,31 +492,52 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
     clientY: number;
     hoveredIndex: number | null;
   } | null>(null);
+  const expansionTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+  const [expansionOrigin, setExpansionOrigin] = useState<ExpansionOrigin>({ x: 0, y: 0, scale: 0.5 });
   const reduceMotion = useReducedMotion() ?? false;
   const caseStudies = cases;
   const caseCount = caseStudies.length;
 
   const activeCase = caseStudies[activeIndex] ?? caseStudies[0];
   const activeTheme = activeCase ? getTheme(activeCase) : THEMES.mint;
-  const activeIndustry = activeCase ? approvedIndustry(activeCase) : null;
-  const activeHighlights = activeCase ? approvedHighlights(activeCase) : [];
+  const expandedCase = expandedIndex === null ? null : caseStudies[expandedIndex] ?? null;
 
   const handleSelect = useCallback((index: number) => {
     setActiveIndex(clampIndex(index, caseCount));
   }, [caseCount]);
 
+  const handleOpen = useCallback((index: number, trigger: HTMLButtonElement) => {
+    const selectedIndex = clampIndex(index, caseCount);
+    const rect = trigger.getBoundingClientRect();
+    const finalWidth = Math.min(window.innerWidth * 0.92, 608);
+    setActiveIndex(selectedIndex);
+    setExpansionOrigin({
+      x: rect.left + rect.width / 2 - window.innerWidth / 2,
+      y: rect.top + rect.height / 2 - window.innerHeight / 2,
+      scale: Math.min(Math.max(rect.width / Math.max(finalWidth, 1), 0.34), 0.76),
+    });
+    expansionTriggerRef.current = trigger;
+    setExpandedIndex(selectedIndex);
+  }, [caseCount]);
+
+  const handleClose = useCallback(() => {
+    setExpandedIndex(null);
+  }, []);
+
   const handleCardPointerEnter = useCallback(
     (event: ReactPointerEvent<HTMLElement>, index: number) => {
-      if (event.pointerType === 'mouse' || isFinePointer()) handleSelect(index);
+      if (expandedIndex === null && (event.pointerType === 'mouse' || isFinePointer())) handleSelect(index);
     },
-    [handleSelect],
+    [expandedIndex, handleSelect],
   );
 
   const handleKeyboard = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
+      if (expandedIndex !== null) return;
       const target = event.target as HTMLElement;
-      if (target.getAttribute('role') !== 'tab') return;
+      if (target.dataset.workTrigger !== 'true') return;
 
       const current = Number(target.getAttribute('data-tab-index') ?? activeIndex);
       let next: number | null = null;
@@ -399,8 +554,18 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
       const tab = document.querySelector<HTMLButtonElement>(`button[data-tab-group="${tabGroup}"][data-tab-index="${selectedIndex}"]`);
       tab?.focus({ preventScroll: true });
     },
-    [activeIndex, caseCount, handleSelect],
+    [activeIndex, caseCount, expandedIndex, handleSelect],
   );
+
+  useEffect(() => {
+    if (expandedIndex === null) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.requestAnimationFrame(() => expansionTriggerRef.current?.focus({ preventScroll: true }));
+    };
+  }, [expandedIndex]);
 
   useEffect(() => {
     const section = sectionRef.current;
@@ -521,6 +686,7 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
       id="selected-work"
       aria-labelledby="selected-work-title"
       data-active-theme={activeCase.theme}
+      data-detail-open={expandedCase ? 'true' : 'false'}
       style={sectionStyle}
       onKeyDown={handleKeyboard}
     >
@@ -533,8 +699,8 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
           <span className={styles.introCopyChunk}>様々な企業の悩みに合った</span><span className={styles.introCopyChunk}>技術を用いて</span><span className={styles.introCopyChunk}>解決を目指します。</span>
         </p>
         <span className={styles.scrollLabel}>
-          <span className={styles.desktopInstruction}>HOVER TO SELECT</span>
-          <span className={styles.mobileInstruction}>TAP TO SELECT</span>
+          <span className={styles.desktopInstruction}>HOVER TO SELECT / CLICK TO EXPAND</span>
+          <span className={styles.mobileInstruction}>TAP TO EXPAND</span>
           {' / '}{String(activeIndex + 1).padStart(2, '0')}
         </span>
       </div>
@@ -555,47 +721,20 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
           onPointerLeave={handleStagePointerLeave}
           onFocusCapture={handleStageFocusCapture}
         >
-          <div className={styles.tabList} role="tablist" aria-label="Selected work cases" aria-orientation="horizontal">
+          <div className={styles.tabList} role="list" aria-label="Selected work cases" data-work-card-list>
             {caseStudies.map((caseStudy, index) => (
               <CaseCard
                 caseStudy={caseStudy}
                 index={index}
                 active={index === activeIndex}
+                expanded={index === expandedIndex}
                 onSelect={handleSelect}
+                onOpen={handleOpen}
                 onPointerEnter={handleCardPointerEnter}
                 key={caseStudy.slug}
               />
             ))}
           </div>
-          <motion.div
-            className={styles.summaryPanel}
-            id="work-summary-panel"
-            role="tabpanel"
-            aria-live="polite"
-            aria-label={`${statusCopy(activeCase)} summary`}
-            key={activeCase.slug}
-            initial={reduceMotion ? false : { opacity: 0, x: 18 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={reduceMotion ? { duration: 0 } : { duration: 0.42, ease: 'easeOut' }}
-          >
-            <span className={styles.summaryIndex}>{String(activeCase.displayOrder).padStart(2, '0')} / 05</span>
-            <span className={styles.summaryStatus}>{activeCase.approved ? 'APPROVED CASE' : 'PRIVATE PREVIEW SLOT'}</span>
-            <h3>{statusCopy(activeCase)}</h3>
-            {activeCase.approved ? (
-              <div className={styles.summaryFacts}>
-                {activeIndustry ? <span className={styles.summaryIndustry}>{activeIndustry}</span> : null}
-                {activeHighlights.map(({ label, value }) => (
-                  <p key={label}><strong>{label}</strong>{value}</p>
-                ))}
-              </div>
-            ) : (
-              <p>業界・課題・担当範囲・成果は、公開承認後に反映します。</p>
-            )}
-            <a className={styles.summaryLink} href={`/work/${activeCase.slug}`}>
-              <span>Open case study</span>
-              <span aria-hidden="true">↗</span>
-            </a>
-          </motion.div>
           <div className={styles.stageVisual}>
             <WorkVisual accent={activeTheme.accent} compact label="FDE / CASE ROUTE" />
           </div>
@@ -609,21 +748,39 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
           reduceMotion={reduceMotion}
           className={styles.mobileThemeBleed}
         />
-        <div className={styles.mobileTabList} role="tablist" aria-label="Selected work cases" aria-orientation="vertical">
-          <ul>
+        <div className={styles.mobileTabList}>
+          <ul aria-label="Selected work cases">
             {caseStudies.map((caseStudy, index) => (
               <MobileCaseItem
                 caseStudy={caseStudy}
                 index={index}
                 active={index === activeIndex}
+                expanded={index === expandedIndex}
                 onSelect={handleSelect}
-                reduceMotion={reduceMotion}
+                onOpen={handleOpen}
                 key={caseStudy.slug}
               />
             ))}
           </ul>
         </div>
       </div>
+      {typeof document !== 'undefined'
+        ? createPortal(
+          <AnimatePresence>
+            {expandedCase ? (
+              <ExpandedCaseDialog
+                key={expandedCase.slug}
+                caseStudy={expandedCase}
+                index={expandedIndex ?? 0}
+                origin={expansionOrigin}
+                reduceMotion={reduceMotion}
+                onClose={handleClose}
+              />
+            ) : null}
+          </AnimatePresence>,
+          document.body,
+        )
+        : null}
     </section>
   );
 }
