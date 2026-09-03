@@ -15,6 +15,9 @@
   --amber: #ffc779;
   --violet: #c5a8ff;
   --rose: #ff9fcb;
+  --hero-statement-primary: #f8fffd;
+  --hero-statement-accent: #ffe8a6;
+  --hero-statement-shield: rgb(2 7 12 / 90%);
   --font-sans: var(--font-geist-sans), 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif;
   --font-mono: var(--font-geist-mono), 'SFMono-Regular', Consolas, monospace;
 }
@@ -229,10 +232,11 @@ button { color: inherit; }
 .hero-story__initial--engineer { color: #ffd460; }
 .hero-story__line--accent { color: var(--mint); display: block; font-family: var(--font-mono); font-size: clamp(1rem, 2vw, 1.72rem); letter-spacing: -.035em; line-height: 1.2; margin-top: 1.6rem; white-space: nowrap; }
 
-.hero-story__statement { border-right: 1px solid var(--mint-strong); color: #e4f8f0; font-size: clamp(2.35rem, 2.75vw, 4rem); left: auto; line-height: .98; padding-right: clamp(1rem, 2.5vw, 2.5rem); right: clamp(1.25rem, 8.5vw, 9rem); text-align: right; top: 43%; transform-origin: right center; will-change: clip-path, filter, letter-spacing, opacity, transform; }
+.hero-story__statement { border-right: 1px solid var(--mint-strong); color: var(--hero-statement-primary); font-size: clamp(2.35rem, 2.75vw, 4rem); isolation: isolate; left: auto; line-height: .98; padding-block: .72rem; padding-right: clamp(1rem, 2.5vw, 2.5rem); right: clamp(1.25rem, 8.5vw, 9rem); text-align: right; text-shadow: 0 1px 0 rgb(0 0 0 / 96%), 0 0 .16em rgb(0 0 0 / 96%), 0 0 .48em rgb(1 6 12 / 98%), 0 0 .82em rgb(121 220 255 / 42%); top: 43%; transform-origin: right center; will-change: clip-path, filter, letter-spacing, opacity, transform; }
+.hero-story__statement::before { -webkit-backdrop-filter: blur(10px) saturate(.72); -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 27%, #000 100%); backdrop-filter: blur(10px) saturate(.72); background: linear-gradient(90deg, transparent 0%, rgb(2 7 12 / 62%) 24%, var(--hero-statement-shield) 58%, rgb(2 7 12 / 96%) 100%); border-radius: 3rem 0 0 3rem; box-shadow: inset -1px 0 rgb(166 255 219 / 26%), 0 0 2.4rem rgb(0 0 0 / 52%); content: ''; inset: -.95rem -1.35rem -.95rem -5rem; mask-image: linear-gradient(90deg, transparent 0%, #000 27%, #000 100%); pointer-events: none; position: absolute; z-index: -1; }
 .hero-story__statement::after { background: linear-gradient(90deg, transparent, rgb(110 226 255 / 68%), transparent); content: ''; height: 1px; left: -7%; opacity: .48; pointer-events: none; position: absolute; top: 52%; transform: skewX(-24deg); width: 112%; animation: hero-scan 5.4s 1.1s ease-in-out infinite; }
-.hero-story__statement p { margin: 0; white-space: nowrap; }
-.hero-story__statement-line + .hero-story__statement-line { color: var(--ink); }
+.hero-story__statement p { margin: 0; position: relative; white-space: nowrap; z-index: 1; }
+.hero-story__statement-line + .hero-story__statement-line { color: var(--hero-statement-accent); text-shadow: 0 1px 0 rgb(0 0 0 / 98%), 0 0 .16em rgb(0 0 0 / 98%), 0 0 .48em rgb(1 6 12 / 98%), 0 0 .78em rgb(255 199 121 / 40%); }
 
 .hero-story__cta { align-items: center; bottom: 19%; color: var(--muted); display: inline-flex; font-family: var(--font-mono); font-size: .6rem; gap: .7rem; left: clamp(1.25rem, 8.5vw, 9rem); letter-spacing: .1em; min-height: 44px; text-decoration: none; text-transform: uppercase; transition: color 180ms ease, gap 180ms ease; }
 .hero-story__cta:hover, .hero-story__cta:focus-visible { color: var(--mint); gap: 1rem; }
@@ -446,7 +450,8 @@ button { color: inherit; }
   .hero-story__line--primary > span { letter-spacing: -.035em; word-spacing: .08em; }
   .hero-story__line--accent { font-size: clamp(.84rem, 3.35vw, 1.25rem); letter-spacing: -.035em; margin-top: 1.15rem; }
   .hero-story__fde-copy { left: 1.25rem; max-width: none; top: 30%; width: calc(100% - 2.5rem); }
-  .hero-story__statement { font-size: clamp(1rem, 4.6vw, 1.25rem); line-height: 1.55; max-width: calc(100% - 2.5rem); padding-right: .8rem; right: 1.25rem; top: 38%; }
+  .hero-story__statement { font-size: clamp(1rem, 4.6vw, 1.25rem); line-height: 1.55; max-width: calc(100% - 2.5rem); padding-block: .6rem; padding-right: .8rem; right: 1.25rem; top: 38%; }
+  .hero-story__statement::before { backdrop-filter: blur(7px) saturate(.78); border-radius: 1.5rem 0 0 1.5rem; inset: -.5rem -.45rem -.5rem -2rem; }
   .hero-story[data-static='true'] .hero-story__statement { top: 51%; }
   .hero-story[data-static='true'] .hero-story__cta { bottom: 10%; }
   .hero-story__cta { bottom: 18%; }

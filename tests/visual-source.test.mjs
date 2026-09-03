@@ -127,6 +127,10 @@ test('HeroCosmosCanvas shares MotionValue progress without scroll React state', 
   assert.match(hero, /Business × AI × Software/);
   assert.match(hero, /課題整理から設計・開発・導入まで。/);
   assert.match(hero, /事業の課題を、技術で解決します。/);
+  assert.match(styles, /--hero-statement-primary: #f8fffd/);
+  assert.match(styles, /--hero-statement-accent: #ffe8a6/);
+  assert.match(styles, /\.hero-story__statement::before \{[^}]*backdrop-filter: blur\(10px\)/);
+  assert.match(styles, /\.hero-story__statement-line \+ \.hero-story__statement-line \{[^}]*text-shadow:/);
   assert.match(styles, /hero-story\[data-static='true'\] \.hero-story__fde-copy[\s\S]*top: 29%/);
   assert.match(styles, /\.hero-story__fde-copy \{[^}]*max-width: none;[^}]*width: min\(76rem,/);
   assert.match(styles, /\.hero-story__initial--forward \{ color: #70e9ff; \}/);
