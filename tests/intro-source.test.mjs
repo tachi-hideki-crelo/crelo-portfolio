@@ -28,3 +28,8 @@ test('intro explicitly hands control to the Hero entrance without double-finishi
   assert.match(source, /const replay = \(\) => startIntro\(\)/);
   assert.match(source, /if \(seen\) \{[\s\S]*onIntroComplete\(\)/);
 });
+
+test('intro uses the requested Create & Logic wordmark', () => {
+  assert.match(source, /<span className="intro-layer__wordmark">Create &amp; Logic<\/span>/);
+  assert.doesNotMatch(source, /<span className="intro-layer__wordmark">Crelo<\/span>/);
+});

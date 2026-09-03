@@ -239,7 +239,7 @@ export default function IntroExperience({ mainRef, onIntroStart, onIntroComplete
       <div className="intro-layer__topline"><span>CRELO / FIELD SYSTEM</span><span>BOOT SEQUENCE 01</span></div>
       <div className="intro-layer__center">
         <Image className="intro-layer__logo" src="/assets/crelo-logo.png" alt="Crelo" width={180} height={180} priority />
-        <span className="intro-layer__wordmark">Crelo</span>
+        <span className="intro-layer__wordmark">Create &amp; Logic</span>
         <span className="intro-layer__subline">Forward deployed / neural operations</span>
       </div>
       <div className="intro-layer__bottomline">
