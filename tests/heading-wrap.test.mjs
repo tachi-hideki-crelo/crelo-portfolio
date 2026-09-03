@@ -28,13 +28,17 @@ test('approved profile keeps the portrait static with an intermittent light scan
   assert.match(homeSource, /className="profile-photo"/);
   assert.doesNotMatch(homeSource, /profile-photo-coin/);
   assert.doesNotMatch(homeSource, /profile-person-name|NAME \/ 01/);
-  assert.match(homeSource, /className="profile-facts">[\s\S]*?<span>NAME<\/span><strong>\{profile\.name\}<\/strong>[\s\S]*?<span>ROLE<\/span><strong>Forward Deployed Engineer<\/strong>/);
+  assert.match(homeSource, /className="profile-identity-plate">[\s\S]*?<span>NAME \/ IDENTITY<\/span>[\s\S]*?<strong>\{profile\.name\}<\/strong>/);
+  assert.match(homeSource, /className="profile-facts">[\s\S]*?<span>ROLE<\/span><strong>Forward Deployed Engineer<\/strong>/);
+  assert.doesNotMatch(homeSource, /className="profile-facts">[\s\S]*?<span>NAME<\/span>/);
   assert.match(homeSource, /profile\.approved && Boolean/);
   assert.match(styles, /\.profile-photo-frame \{[^}]*transform: translate\(-50%, -50%\)/);
   assert.match(styles, /\.profile-photo \{[^}]*transform: scale\(1\.025\)/);
   assert.match(styles, /\.profile-photo-frame::before \{[^}]*animation: profile-photo-scan 7s ease-in-out infinite/);
   assert.match(styles, /@keyframes profile-photo-scan \{[\s\S]*translateX\(45%\)/);
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.profile-photo-frame::before, \.profile-orbit--approved \.profile-orbit__ring \{ animation: none/);
+  assert.match(styles, /\.profile-identity-plate \{[^}]*bottom: 5%;[^}]*right: -6%;[^}]*z-index: 4/);
+  assert.match(styles, /\.profile-identity-plate strong \{[^}]*white-space: nowrap/);
   assert.doesNotMatch(styles, /profile-photo-coin|profile-photo-orbit/);
 });
 

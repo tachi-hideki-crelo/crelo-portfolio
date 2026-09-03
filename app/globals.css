@@ -307,6 +307,11 @@ button { color: inherit; }
 .profile-orbit__ring--one { border-style: dashed; height: 74%; width: 74%; }
 .profile-orbit__ring--two { border-color: rgb(121 220 255 / 30%); height: 100%; transform: translate(-50%, -50%) rotate(-33deg) skewX(-14deg); width: 67%; }
 .profile-orbit__signal { color: var(--cyan); font-family: var(--font-mono); font-size: .5rem; left: 8%; letter-spacing: .1em; position: absolute; top: 13%; }
+.profile-identity-plate { backdrop-filter: blur(14px); background: linear-gradient(118deg, rgb(6 17 20 / 94%), rgb(12 34 34 / 86%)); border: 1px solid rgb(166 255 219 / 56%); bottom: 5%; box-shadow: 0 0 0 1px rgb(121 220 255 / 8%), 0 0 2.4rem rgb(103 245 186 / 18%), inset .2rem 0 0 var(--mint-strong); clip-path: polygon(0 0, calc(100% - 1rem) 0, 100% 1rem, 100% 100%, 0 100%); display: grid; gap: .38rem; margin: 0; min-width: clamp(12rem, 17vw, 15rem); padding: .9rem 2.1rem 1rem 1.2rem; pointer-events: none; position: absolute; right: -6%; z-index: 4; }
+.profile-identity-plate::before { background: linear-gradient(90deg, var(--mint-strong), rgb(121 220 255 / 45%), transparent); content: ''; height: 1px; left: 0; position: absolute; right: 1rem; top: 0; }
+.profile-identity-plate::after { background: var(--mint-strong); border-radius: 50%; box-shadow: 0 0 .8rem var(--mint-strong); content: ''; height: .34rem; position: absolute; right: .85rem; top: .82rem; width: .34rem; }
+.profile-identity-plate span { color: var(--cyan); font-family: var(--font-mono); font-size: .48rem; letter-spacing: .18em; }
+.profile-identity-plate strong { color: var(--text); font-size: clamp(1.35rem, 2vw, 1.9rem); font-weight: 560; letter-spacing: .12em; line-height: 1; text-shadow: 0 0 1.3rem rgb(166 255 219 / 24%); white-space: nowrap; }
 .profile-copy h2 { margin-top: .3rem; }
 .profile-copy h2 { font-size: clamp(2.8rem, 5vw, 6rem); }
 .profile-heading-line, .contact-heading-line { display: inline-block; white-space: nowrap; }
@@ -460,6 +465,8 @@ button { color: inherit; }
   .profile-section__grid { gap: 3.5rem; }
   .profile-orbit { margin: 0 auto; max-width: 17rem; width: 82%; }
   .profile-photo-frame { height: 72%; width: 72%; }
+  .profile-identity-plate { bottom: -1%; min-width: 10.75rem; padding: .7rem 1.7rem .78rem .9rem; right: -3%; }
+  .profile-identity-plate strong { font-size: 1.2rem; }
   .profile-copy h2, .contact-copy h2 { font-size: clamp(2.25rem, 10vw, 3.4rem); }
   .profile-facts div { align-items: flex-start; flex-direction: column; gap: .35rem; }
   .profile-facts strong { text-align: left; }

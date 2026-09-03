@@ -68,6 +68,10 @@ export default function HomeExperience({ publicBuild, profile, workCases, footer
                 <span className="profile-orbit__ring profile-orbit__ring--one" aria-hidden="true" />
                 <span className="profile-orbit__ring profile-orbit__ring--two" aria-hidden="true" />
                 <span className="profile-orbit__signal" aria-hidden="true">ID / PUBLIC</span>
+                <p className="profile-identity-plate">
+                  <span>NAME / IDENTITY</span>
+                  <strong>{profile.name}</strong>
+                </p>
               </div>
             ) : (
               <div className="profile-orbit" aria-hidden="true"><div className="profile-orbit__core"><span>CR</span></div><span className="profile-orbit__ring profile-orbit__ring--one" /><span className="profile-orbit__ring profile-orbit__ring--two" /><span className="profile-orbit__signal">ID / 00</span></div>
@@ -77,7 +81,6 @@ export default function HomeExperience({ publicBuild, profile, workCases, footer
               <h2 id="profile-title"><span className="profile-heading-line">創造は論理を持って</span><br /><em className="profile-heading-line">かたちにする。</em></h2>
               <p className="profile-description">{profileReady ? profile.career : 'ただ創造するだけでなく、「なぜそうするのか」\n論理、根拠、設計思想をもって形にします。'}</p>
               <div className="profile-facts">
-                {profileReady ? <div><span>NAME</span><strong>{profile.name}</strong></div> : null}
                 <div><span>ROLE</span><strong>Forward Deployed Engineer</strong></div>
                 <div><span>MODE</span><strong>Business × AI × Software</strong></div>
                 <div><span>STATUS</span><strong>{profileReady ? 'Identity / approved' : 'Identity content pending approval'}</strong></div>
