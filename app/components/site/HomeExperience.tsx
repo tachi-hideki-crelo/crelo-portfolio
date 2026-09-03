@@ -91,7 +91,7 @@ export default function HomeExperience({ publicBuild, profile, workCases, footer
 
         <section id="contact" className="contact-section" aria-labelledby="contact-title">
           <div className="section-marker"><span>07</span><span>CONTACT / START A FIELD LOOP</span></div>
-          <div className="contact-section__grid"><div className="contact-copy"><p className="eyebrow eyebrow--mint">Let&apos;s work from the field</p><h2 id="contact-title"><span className="contact-heading-line">まず、課題の</span><br /><span className="contact-heading-line"><em>輪郭</em>を</span><br /><span className="contact-heading-line">聞かせてください。</span></h2><p>まだ要件になっていなくても大丈夫です。現場で起きていること、変えたいこと、制約を教えてください。</p><div className="contact-copy__meta"><span>{modeCopy.contactPolicy}</span><span>{modeCopy.contactSecurity}</span></div></div><ContactForm publicBuild={publicBuild} /></div>
+          <div className="contact-section__grid"><div className="contact-copy"><p className="eyebrow eyebrow--mint">Let&apos;s work from the field</p><h2 id="contact-title"><span className="contact-heading-line">まずはお気軽に</span><br /><span className="contact-heading-line"><em>お悩み</em>をご相談</span><br /><span className="contact-heading-line">ください。</span></h2><p>まだ要件になっていなくても大丈夫です。現場で起きていること、変えたいこと、制約を教えてください。</p><aside className="contact-copy__availability" aria-label="新規案件の受付状況"><span>CURRENT AVAILABILITY / CLOSED</span><p>現在、新規案件はお受けしていないため、ご相談いただいても返信できません。あらかじめご了承ください。</p></aside><div className="contact-copy__meta"><span>{modeCopy.contactPolicy}</span><span>{modeCopy.contactSecurity}</span></div></div><ContactForm publicBuild={publicBuild} /></div>
         </section>
       </main>
 

@@ -9,7 +9,9 @@ const labStyles = readFileSync(new URL('../app/components/site/self-development-
 test('profile and contact headings keep Japanese meaning phrases together', () => {
   assert.match(homeSource, /className="profile-heading-line">創造は論理を持って<\/span><br \/><em className="profile-heading-line">かたちにする。/);
   assert.match(homeSource, /ただ創造するだけでなく、「なぜそうするのか」\\n論理、根拠、設計思想をもって形にします。/);
-  assert.match(homeSource, /className="contact-heading-line">まず、課題の<\/span><br \/><span className="contact-heading-line"><em>輪郭<\/em>を<\/span><br \/><span className="contact-heading-line">聞かせてください。/);
+  assert.match(homeSource, /className="contact-heading-line">まずはお気軽に<\/span><br \/><span className="contact-heading-line"><em>お悩み<\/em>をご相談<\/span><br \/><span className="contact-heading-line">ください。/);
+  assert.match(homeSource, /aria-label="新規案件の受付状況"><span>CURRENT AVAILABILITY \/ CLOSED<\/span><p>現在、新規案件はお受けしていないため、ご相談いただいても返信できません。あらかじめご了承ください。/);
+  assert.match(styles, /\.contact-copy__availability \{[^}]*border-left: 2px solid var\(--amber\)/);
   assert.match(styles, /\.profile-heading-line, \.contact-heading-line \{[^}]*white-space: nowrap/);
   assert.match(styles, /\.profile-copy h2, \.contact-copy h2 \{ font-size: clamp\(2\.25rem, 10vw, 3\.4rem\); \}/);
   assert.match(styles, /@media \(max-width: 420px\)[\s\S]*\.profile-copy h2, \.contact-copy h2 \{ font-size: clamp\(2\.2rem, 10vw, 2\.7rem\); \}/);
