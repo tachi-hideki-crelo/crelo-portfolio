@@ -130,8 +130,8 @@ test('template section replaces the old capability section and keeps CTA/link sa
   assert.match(gallerySource, /id="templates"/);
   assert.match(gallerySource, /<article\s+key=\{template\.id\}/);
   assert.match(gallerySource, /START SMALL \/ CHOOSE A DIRECTION/);
-  assert.match(gallerySource, /まずは、ひとつのWebサイトから。/);
-  assert.match(gallerySource, /大がかりな開発でなくても構いません。まずはお気軽に、シンプルなWebサイトの制作からご相談ください。公開済みのテンプレートから、目的や雰囲気に合うものを選んで始められます。/);
+  assert.match(gallerySource, /まずは簡単なWEBサイトから。/);
+  assert.match(gallerySource, /大がかりな開発でなくても構いません。まずはお気軽に、シンプルなWebサイトの制作だけお受けすることも可能です。公開済みのテンプレートから、目的や雰囲気に合うものを選んで始められます。/);
   assert.match(gallerySource, /テンプレート一覧を見る/);
   assert.match(gallerySource, /VIEW ALL TEMPLATES ↗/);
   assert.match(gallerySource, /一覧URL準備中/);

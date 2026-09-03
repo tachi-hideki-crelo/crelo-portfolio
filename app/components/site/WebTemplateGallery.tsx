@@ -415,9 +415,9 @@ export default function WebTemplateGallery({ config = webTemplateGallery }: { co
 
         <header className={styles.intro}>
           <p className="eyebrow eyebrow--amber">START SMALL / CHOOSE A DIRECTION</p>
-          <h2 id="templates-title" aria-label="まずは、ひとつのWebサイトから。"><span className={styles.titleLine}>まずは、</span><span className={styles.titleLine}>ひとつのWebサイトから。</span></h2>
+          <h2 id="templates-title" aria-label="まずは簡単なWEBサイトから。"><span className={styles.titleLine}>まずは簡単な</span><span className={styles.titleLine}>WEBサイトから。</span></h2>
           <div className={styles.introLower}>
-            <p className={styles.description}>大がかりな開発でなくても構いません。まずはお気軽に、シンプルなWebサイトの制作からご相談ください。公開済みのテンプレートから、目的や雰囲気に合うものを選んで始められます。</p>
+            <p className={styles.description}>大がかりな開発でなくても構いません。まずはお気軽に、シンプルなWebサイトの制作だけお受けすることも可能です。公開済みのテンプレートから、目的や雰囲気に合うものを選んで始められます。</p>
             <div className={styles.ctaBlock}>
               <span className={styles.ctaLabel}>VIEW ALL TEMPLATES ↗</span>
               {galleryUrl ? (
