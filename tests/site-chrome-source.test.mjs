@@ -12,7 +12,9 @@ test('menu replay delegates focus to Intro while ordinary close returns to the t
   assert.match(source, /if \(!replayingIntro\) menuButtonRef\.current\?\.focus\(\)/);
 });
 
-test('header wordmark keeps the requested Crelo casing', () => {
-  assert.match(source, /<span>Crelo<\/span>/);
-  assert.doesNotMatch(source, /<span>CRELO<\/span>/);
+test('header brand is logo-only while remaining accessible', () => {
+  const brandSource = source.slice(source.indexOf('<a className="brand-mark"'), source.indexOf('</a>', source.indexOf('<a className="brand-mark"')) + 4);
+  assert.match(brandSource, /aria-label="Crelo home"/);
+  assert.match(brandSource, /<Image src="\/assets\/crelo-logo\.png" alt="Crelo"/);
+  assert.doesNotMatch(brandSource, /<span>Crelo<\/span>/);
 });
