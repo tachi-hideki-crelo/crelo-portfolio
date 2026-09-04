@@ -149,20 +149,25 @@ function CasePreviewVideo({
 function CaseFeatureVideo({
   video,
   videoRef,
+  reduceMotion,
 }: {
   video: PublicCaseStudyVideoMedia;
   videoRef: { current: HTMLVideoElement | null };
+  reduceMotion: boolean;
 }) {
   useEffect(() => {
     const element = videoRef.current;
     if (!element) return;
     element.src = video.src;
     element.load();
+    if (!reduceMotion) {
+      void element.play().catch(() => undefined);
+    }
     return () => {
       releaseLoadedVideo(element);
       if (videoRef.current === element) videoRef.current = null;
     };
-  }, [video, videoRef]);
+  }, [reduceMotion, video, videoRef]);
 
   return (
     <video
@@ -170,7 +175,10 @@ function CaseFeatureVideo({
       className={styles.featureVideo}
       poster={video.poster ?? undefined}
       preload="none"
+      autoPlay={!reduceMotion}
       controls
+      muted
+      loop
       playsInline
       aria-label={video.alt}
       data-work-feature-video
@@ -542,7 +550,11 @@ function ExpandedCaseDialog({
 
         <div className={styles.expandedVisual}>
           {featureVideo ? (
-            <CaseFeatureVideo video={featureVideo} videoRef={featureVideoRef} />
+            <CaseFeatureVideo
+              video={featureVideo}
+              videoRef={featureVideoRef}
+              reduceMotion={reduceMotion}
+            />
           ) : (
             <div aria-hidden="true">
               <WorkVisual accent={theme.accent} compact label={`CASE ${String(caseStudy.displayOrder).padStart(2, '0')} / FDE SIGNAL`} />

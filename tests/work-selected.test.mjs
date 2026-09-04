@@ -256,6 +256,10 @@ test('selected work keeps motion browser-safe and has a static reduced-motion pa
 });
 
 test('selected work video roles attach only at the right interaction boundary', () => {
+  const featureSource = selectedWorkSource.slice(
+    selectedWorkSource.indexOf('function CaseFeatureVideo'),
+    selectedWorkSource.indexOf('\nfunction clampIndex'),
+  );
   assert.match(selectedWorkSource, /function getVideoMedia/);
   assert.match(selectedWorkSource, /role: PublicCaseStudyVideoMedia\['role'\]/);
   assert.match(selectedWorkSource, /function CasePreviewVideo/);
@@ -269,6 +273,15 @@ test('selected work video roles attach only at the right interaction boundary', 
   assert.match(selectedWorkSource, /loop/);
   assert.match(selectedWorkSource, /playsInline/);
   assert.match(selectedWorkSource, /function CaseFeatureVideo/);
+  assert.match(featureSource, /reduceMotion: boolean/);
+  assert.match(featureSource, /element\.src = video\.src/);
+  assert.match(featureSource, /element\.load\(\)/);
+  assert.match(featureSource, /if \(!reduceMotion\) \{[\s\S]*void element\.play\(\)\.catch\(\(\) => undefined\)/);
+  assert.match(featureSource, /autoPlay=\{!reduceMotion\}/);
+  assert.match(featureSource, /muted/);
+  assert.match(featureSource, /loop/);
+  assert.match(featureSource, /playsInline/);
+  assert.match(featureSource, /releaseLoadedVideo\(element\)/);
   assert.match(selectedWorkSource, /data-work-feature-video/);
   assert.match(selectedWorkSource, /controls/);
   assert.match(selectedWorkSource, /releaseLoadedVideo\(featureVideoRef\.current\)/);
