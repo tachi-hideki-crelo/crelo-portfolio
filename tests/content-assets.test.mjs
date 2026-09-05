@@ -25,6 +25,7 @@ function approvedRecords() {
     constraints: ['公開可能な制約'],
     technologies: ['TypeScript'],
     tags: ['FDE'],
+    media: [],
     approved: true,
     approvedAt: '2026-08-25',
   }));

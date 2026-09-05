@@ -22,7 +22,7 @@ const homeSource = await readFile(new URL('../app/components/site/HomeExperience
 const publicProjectionSource = await readFile(new URL('../app/components/work/work-public.ts', import.meta.url), 'utf8');
 const sitemapSource = await readFile(new URL('../app/sitemap.ts', import.meta.url), 'utf8');
 
-test('selected work exposes one approved video case and redacts the remaining slots', () => {
+test('selected work exposes approved video and flyer cases and redacts the remaining slots', () => {
   assert.deepEqual(caseStudies.map(({ slug }) => slug), [
     'field-signal',
     'workflow-atlas',
@@ -57,7 +57,20 @@ test('selected work exposes one approved video case and redacts the remaining sl
       hasAudio: false,
     },
   ]);
-  assert.ok(caseStudies.slice(1).every(({ approved, title, media }) => !approved && title === null && media.length === 0));
+  assert.equal(caseStudies[1].approved, true);
+  assert.equal(caseStudies[1].title, 'チラシのデザイン制作');
+  assert.equal(caseStudies[1].role, '印刷依頼代行まで対応');
+  assert.deepEqual(caseStudies[1].media, [{
+    src: '/assets/cases/flyer-design-print.jpg',
+    alt: 'コーヒー商品の両面チラシデザイン',
+    kind: 'image',
+    approved: true,
+    approvedAt: '2026-09-05',
+    width: 800,
+    height: 565,
+  }]);
+  assert.equal(existsSync(new URL('../public/assets/cases/flyer-design-print.jpg', import.meta.url)), true);
+  assert.ok(caseStudies.slice(2).every(({ approved, title, media }) => !approved && title === null && media.length === 0));
 });
 
 test('selected work keyboard contract opens accessible inline details instead of separate pages', () => {
@@ -73,6 +86,10 @@ test('selected work keyboard contract opens accessible inline details instead of
   assert.match(selectedWorkSource, /role="dialog"/);
   assert.match(selectedWorkSource, /aria-modal="true"/);
   assert.match(selectedWorkSource, /data-work-detail-overlay/);
+  assert.match(selectedWorkSource, /data-work-image-role="preview"/);
+  assert.match(selectedWorkSource, /data-work-feature-image/);
+  assert.match(selectedWorkSource, /alt=\{featureImage\.alt\}/);
+  assert.match(selectedWorkStyles, /\.featureImage/);
   assert.match(selectedWorkSource, /data-expanded-case=\{caseStudy\.slug\}/);
   assert.match(selectedWorkSource, /event\.key === 'Escape'/);
   assert.match(selectedWorkSource, /event\.key !== 'Tab'/);

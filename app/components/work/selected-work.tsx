@@ -3,6 +3,7 @@
 import type { CSSProperties, FocusEvent, KeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import Image from 'next/image';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 
 import { WorkVisual } from './work-visual';
@@ -14,7 +15,11 @@ import {
   getPointerCardMotion,
   getScatterEntryProgress,
 } from './work-motion';
-import type { PublicCaseStudy, PublicCaseStudyVideoMedia } from './work-public';
+import type {
+  PublicCaseStudy,
+  PublicCaseStudyImageMedia,
+  PublicCaseStudyVideoMedia,
+} from './work-public';
 import styles from './selected-work.module.css';
 
 type CSSVars = CSSProperties & Record<`--${string}`, string | number>;
@@ -76,6 +81,12 @@ function getVideoMedia(
   if (!caseStudy.approved) return null;
   const media = caseStudy.media.find((item) => item.kind === 'video' && item.role === role);
   return media?.kind === 'video' ? media : null;
+}
+
+function getImageMedia(caseStudy: PublicCaseStudy): PublicCaseStudyImageMedia | null {
+  if (!caseStudy.approved) return null;
+  const media = caseStudy.media.find((item) => item.kind === 'image');
+  return media?.kind === 'image' ? media : null;
 }
 
 function releaseLoadedVideo(video: HTMLVideoElement | null) {
@@ -297,6 +308,7 @@ function CaseCard({
   const layout = CARD_LAYOUT[index] ?? CARD_LAYOUT[0];
   const title = statusCopy(caseStudy);
   const previewVideo = getVideoMedia(caseStudy, 'preview');
+  const previewImage = getImageMedia(caseStudy);
   const cardStyle: CSSVars = {
     '--card-x': layout.x,
     '--card-y': layout.y,
@@ -347,6 +359,19 @@ function CaseCard({
           <span className={styles.cardMedia} aria-hidden="true">
             <CasePreviewVideo video={previewVideo} reduceMotion={reduceMotion} className={styles.cardMediaVideo} />
           </span>
+        ) : previewImage ? (
+          <span className={styles.cardMedia} aria-hidden="true">
+            <Image
+              className={styles.cardMediaImage}
+              src={previewImage.src}
+              alt=""
+              width={previewImage.width}
+              height={previewImage.height}
+              loading="lazy"
+              sizes="(max-width: 768px) 100vw, 31vw"
+              data-work-image-role="preview"
+            />
+          </span>
         ) : null}
         <span className={styles.cardTopline}>
           <span>CASE {String(caseStudy.displayOrder).padStart(2, '0')}</span>
@@ -390,6 +415,7 @@ function MobileCaseItem({
   const theme = getTheme(caseStudy);
   const title = statusCopy(caseStudy);
   const previewVideo = getVideoMedia(caseStudy, 'preview');
+  const previewImage = getImageMedia(caseStudy);
   const style: CSSVars = {
     '--case-accent': theme.accent,
     '--case-accent-rgb': theme.accentSoft,
@@ -418,6 +444,19 @@ function MobileCaseItem({
         {previewVideo ? (
           <span className={styles.mobileMedia} aria-hidden="true">
             <CasePreviewVideo video={previewVideo} reduceMotion={reduceMotion} className={styles.mobileMediaVideo} />
+          </span>
+        ) : previewImage ? (
+          <span className={styles.mobileMedia} aria-hidden="true">
+            <Image
+              className={styles.mobileMediaImage}
+              src={previewImage.src}
+              alt=""
+              width={previewImage.width}
+              height={previewImage.height}
+              loading="lazy"
+              sizes="100vw"
+              data-work-image-role="preview"
+            />
           </span>
         ) : null}
         <span className={styles.mobileIndex}>{String(caseStudy.displayOrder).padStart(2, '0')}</span>
@@ -454,6 +493,7 @@ function ExpandedCaseDialog({
   const highlights = approvedHighlights(caseStudy);
   const detail = caseStudy.approved ? caseStudy.detail : null;
   const featureVideo = getVideoMedia(caseStudy, 'full');
+  const featureImage = getImageMedia(caseStudy);
   const dialogTitleId = `work-detail-title-${caseStudy.slug}`;
   const dialogDescriptionId = `work-detail-description-${caseStudy.slug}`;
   const style = {
@@ -555,6 +595,17 @@ function ExpandedCaseDialog({
               video={featureVideo}
               videoRef={featureVideoRef}
               reduceMotion={reduceMotion}
+            />
+          ) : featureImage ? (
+            <Image
+              className={styles.featureImage}
+              src={featureImage.src}
+              alt={featureImage.alt}
+              width={featureImage.width}
+              height={featureImage.height}
+              loading="eager"
+              sizes="(max-width: 768px) calc(100vw - 2rem), 32rem"
+              data-work-feature-image
             />
           ) : (
             <div aria-hidden="true">

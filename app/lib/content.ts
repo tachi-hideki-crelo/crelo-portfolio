@@ -36,8 +36,8 @@ function privateCaseStudy(slug: (typeof CASE_STUDY_SLUGS)[number], index: number
 }
 
 /**
- * Only the explicitly approved first case is populated. The remaining slots
- * stay empty so no industry, outcome, or media is invented for them.
+ * Only explicitly approved cases are populated. The remaining slots stay
+ * empty so no industry, outcome, or media is invented for them.
  */
 export const caseStudies: readonly CaseStudy[] = [
   {
@@ -89,7 +89,25 @@ export const caseStudies: readonly CaseStudy[] = [
       },
     ],
   },
-  ...CASE_STUDY_SLUGS.slice(1).map((slug, index) => privateCaseStudy(slug, index + 1)),
+  {
+    ...privateCaseStudy('workflow-atlas', 1),
+    title: 'チラシのデザイン制作',
+    role: '印刷依頼代行まで対応',
+    approved: true,
+    approvedAt: '2026-09-05',
+    media: [
+      {
+        src: '/assets/cases/flyer-design-print.jpg',
+        alt: 'コーヒー商品の両面チラシデザイン',
+        kind: 'image',
+        approved: true,
+        approvedAt: '2026-09-05',
+        width: 800,
+        height: 565,
+      },
+    ],
+  },
+  ...CASE_STUDY_SLUGS.slice(2).map((slug, index) => privateCaseStudy(slug, index + 2)),
 ];
 
 export const siteContent: SiteContent = {

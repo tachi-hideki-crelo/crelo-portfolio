@@ -61,7 +61,7 @@ function approvedRecords() {
   }));
 }
 
-test('provides one explicitly approved video case and four stable private preview slots', () => {
+test('provides two explicitly approved cases and three stable private preview slots', () => {
   assert.equal(caseStudies.length, 5);
   assert.equal(new Set(caseStudies.map((item) => item.slug)).size, 5);
   assert.deepEqual(caseStudies.map((item) => item.displayOrder), [1, 2, 3, 4, 5]);
@@ -75,7 +75,14 @@ test('provides one explicitly approved video case and four stable private previe
     '/assets/cases/ai-promo-preview.mp4',
     '/assets/cases/ai-promo-feature.mp4',
   ]);
-  for (const item of caseStudies.slice(1)) {
+  assert.equal(caseStudies[1].approved, true);
+  assert.equal(caseStudies[1].title, 'チラシのデザイン制作');
+  assert.equal(caseStudies[1].role, '印刷依頼代行まで対応');
+  assert.deepEqual(caseStudies[1].media.map((item) => item.src), [
+    '/assets/cases/flyer-design-print.jpg',
+  ]);
+  assert.equal(caseStudies[1].media[0]?.kind, 'image');
+  for (const item of caseStudies.slice(2)) {
     assert.equal(item.approved, false);
     assert.equal(item.title, null);
     assert.deepEqual(item.media, []);
