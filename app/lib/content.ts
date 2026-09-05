@@ -25,6 +25,7 @@ function privateCaseStudy(slug: (typeof CASE_STUDY_SLUGS)[number], index: number
     implementation: null,
     rollout: null,
     qualitativeOutcome: null,
+    detail: null,
     technologies: [],
     tags: [],
     theme: ['mint', 'cyan', 'violet', 'amber', 'rose'][index],
@@ -43,6 +44,24 @@ export const caseStudies: readonly CaseStudy[] = [
     ...privateCaseStudy('field-signal', 0),
     title: '宣伝動画の制作',
     role: 'AIを用いた動画の作成',
+    detail: {
+      projectName: 'AIフル活用によるプロモーション動画の企画・制作・実装',
+      overview: '企画・絵コンテ作成・ビジュアル生成・動画化・BGM/ナレーション付与までを一気通貫でAIワークフロー化。従来の映像制作に比べ、制作コストとリードタイムを大幅に圧縮しながら、高品質な宣伝動画を構築しました。',
+      outcomes: [
+        {
+          title: '制作コスト削減',
+          description: '従来の外注実写・アニメーション制作と比較し、コストを大幅に削減',
+        },
+        {
+          title: '短納期納品',
+          description: '企画から完成まで最短数日での高速デプロイを実現',
+        },
+        {
+          title: '柔軟なPDCA',
+          description: '素材の差し替えやABテスト用パターンの量産が容易になり、広告・LP運用の改善スピードが向上',
+        },
+      ],
+    },
     approved: true,
     approvedAt: CASE_APPROVAL_DATE,
     media: [

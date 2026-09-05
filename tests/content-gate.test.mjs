@@ -68,6 +68,8 @@ test('provides one explicitly approved video case and four stable private previe
   assert.equal(caseStudies[0].approved, true);
   assert.equal(caseStudies[0].title, '宣伝動画の制作');
   assert.equal(caseStudies[0].role, 'AIを用いた動画の作成');
+  assert.equal(caseStudies[0].detail?.projectName, 'AIフル活用によるプロモーション動画の企画・制作・実装');
+  assert.equal(caseStudies[0].detail?.outcomes.length, 3);
   assert.deepEqual(caseStudies[0].media.map((item) => item.kind === 'video' ? item.role : null), ['preview', 'full']);
   assert.deepEqual(caseStudies[0].media.map((item) => item.src), [
     '/assets/cases/ai-promo-preview.mp4',
@@ -127,6 +129,19 @@ test('production gate catches duplicate slugs, placeholders, missing alt, and en
   invalidApprovalDate[0].approvedAt = '2026-02-30';
   const approvalDateResult = validateProductionContent(invalidApprovalDate, approvedContent, productionEnv);
   assert.ok(approvalDateResult.errors.includes('caseStudies[0](field-signal).approvedAt must be a valid YYYY-MM-DD date'));
+});
+
+test('production gate validates optional approved case detail copy', () => {
+  const records = approvedRecords();
+  records[0].detail = {
+    projectName: '',
+    overview: 'TODO',
+    outcomes: [{ title: '成果', description: '' }],
+  };
+  const result = validateProductionContent(records, approvedContent, productionEnv);
+  assert.ok(result.errors.includes('caseStudies[0](field-signal).detail.projectName is missing'));
+  assert.ok(result.errors.includes('caseStudies[0](field-signal).detail.overview contains placeholder content'));
+  assert.ok(result.errors.includes('caseStudies[0](field-signal).detail.outcomes[0].description is missing'));
 });
 
 test('production gate rejects ASCII and full-width quantitative outcomes but permits period labels', () => {

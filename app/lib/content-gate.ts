@@ -18,6 +18,8 @@ const REQUIRED_CASE_FIELDS = [
 
 const PLACEHOLDER_PATTERN =
   /(TBD|TODO|FIXME|EXAMPLE\.COM|TITLE TBD|PROFILE NAME|仮|未提供|公開承認待ち|差し替え|架空)/i;
+const DETAIL_PLACEHOLDER_PATTERN =
+  /(TBD|TODO|FIXME|EXAMPLE\.COM|TITLE TBD|PROFILE NAME|仮入力|未提供|公開承認待ち|架空)/i;
 const PLACEHOLDER_EMAIL_PATTERN = /(example\.(com|test|org)|hello@|test@|noreply@)/i;
 const LOCAL_CASE_ASSET_PATTERN = /^\/assets\/cases\/[A-Za-z0-9][A-Za-z0-9._/-]*$/;
 const LOCAL_PROFILE_ASSET_PATTERN = /^\/assets\/profile\/[A-Za-z0-9][A-Za-z0-9._/-]*$/;
@@ -153,6 +155,27 @@ function inspectCaseStudy(caseStudy: CaseStudy, index: number): string[] {
   if (caseStudy.tags.length === 0) errors.push(`${prefix}.tags is empty`);
   if (!isNonEmpty(caseStudy.theme) || PLACEHOLDER_PATTERN.test(caseStudy.theme)) {
     errors.push(`${prefix}.theme is invalid`);
+  }
+
+  if (caseStudy.detail) {
+    for (const field of ['projectName', 'overview'] as const) {
+      const value = caseStudy.detail[field];
+      if (!isNonEmpty(value)) errors.push(`${prefix}.detail.${field} is missing`);
+      else if (DETAIL_PLACEHOLDER_PATTERN.test(value)) errors.push(`${prefix}.detail.${field} contains placeholder content`);
+    }
+    if (!Array.isArray(caseStudy.detail.outcomes) || caseStudy.detail.outcomes.length === 0) {
+      errors.push(`${prefix}.detail.outcomes must contain at least one item`);
+    } else {
+      caseStudy.detail.outcomes.forEach((outcome, outcomeIndex) => {
+        for (const field of ['title', 'description'] as const) {
+          const value = outcome[field];
+          if (!isNonEmpty(value)) errors.push(`${prefix}.detail.outcomes[${outcomeIndex}].${field} is missing`);
+          else if (DETAIL_PLACEHOLDER_PATTERN.test(value)) {
+            errors.push(`${prefix}.detail.outcomes[${outcomeIndex}].${field} contains placeholder content`);
+          }
+        }
+      });
+    }
   }
 
   if (!Array.isArray(caseStudy.media)) {

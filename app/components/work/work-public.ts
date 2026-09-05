@@ -1,5 +1,6 @@
 import type {
   CaseStudy,
+  CaseStudyDetail,
   CaseStudyImageMedia,
   CaseStudyMedia,
   CaseStudySlug,
@@ -26,6 +27,8 @@ export type PublicCaseStudyVideoMedia = Pick<
 
 export type PublicCaseStudyMedia = PublicCaseStudyImageMedia | PublicCaseStudyVideoMedia;
 
+export type PublicCaseStudyDetail = Pick<CaseStudyDetail, 'projectName' | 'overview' | 'outcomes'>;
+
 export type PublicCaseStudy = {
   slug: CaseStudySlug;
   displayOrder: number;
@@ -34,6 +37,7 @@ export type PublicCaseStudy = {
   challenge: string | null;
   role: string | null;
   qualitativeOutcome: string | null;
+  detail: PublicCaseStudyDetail | null;
   theme: string;
   approved: boolean;
   media: readonly PublicCaseStudyMedia[];
@@ -72,6 +76,7 @@ function redactedCaseStudy(caseStudy: CaseStudy): PublicCaseStudy {
     challenge: null,
     role: null,
     qualitativeOutcome: null,
+    detail: null,
     theme: caseStudy.theme,
     approved: false,
     media: [],
@@ -87,6 +92,13 @@ function approvedCaseStudy(caseStudy: CaseStudy): PublicCaseStudy {
     challenge: caseStudy.challenge,
     role: caseStudy.role,
     qualitativeOutcome: caseStudy.qualitativeOutcome,
+    detail: caseStudy.detail
+      ? {
+          projectName: caseStudy.detail.projectName,
+          overview: caseStudy.detail.overview,
+          outcomes: caseStudy.detail.outcomes.map(({ title, description }) => ({ title, description })),
+        }
+      : null,
     theme: caseStudy.theme,
     approved: true,
     media: projectApprovedMedia(caseStudy.media),

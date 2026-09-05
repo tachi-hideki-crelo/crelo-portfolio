@@ -744,6 +744,76 @@
   position: relative;
 }
 
+.expandedDetail {
+  display: grid;
+  margin: 1.2rem 0 0;
+  position: relative;
+}
+
+.expandedDetail > div {
+  border-top: 1px solid rgb(var(--case-accent-rgb) / 18%);
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.85rem 0;
+}
+
+.expandedDetail dt {
+  color: var(--case-accent);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.56rem;
+  letter-spacing: 0.08em;
+}
+
+.expandedDetail dd {
+  color: #c7d2ce;
+  font-size: 0.78rem;
+  line-height: 1.7;
+  margin: 0;
+}
+
+.expandedDetail .expandedProjectName {
+  color: #f1f7f4;
+  font-size: 0.9rem;
+  font-weight: 650;
+  line-height: 1.55;
+}
+
+.expandedOutcomes {
+  display: grid;
+  gap: 0.8rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.expandedOutcomes li {
+  display: grid;
+  gap: 0.15rem;
+  padding-left: 0.8rem;
+  position: relative;
+}
+
+.expandedOutcomes li::before {
+  background: var(--case-accent);
+  box-shadow: 0 0 0.7rem rgb(var(--case-accent-rgb) / 60%);
+  content: '';
+  height: 0.28rem;
+  left: 0;
+  position: absolute;
+  top: 0.47rem;
+  width: 0.28rem;
+}
+
+.expandedOutcomes strong {
+  color: #e9f3ef;
+  font-size: 0.76rem;
+  font-weight: 650;
+}
+
+.expandedOutcomes span {
+  color: #aebbb7;
+}
+
 .expandedFacts {
   display: grid;
   margin: 1.2rem 0 0;
@@ -1025,6 +1095,14 @@
 
   .expandedDescription {
     font-size: 0.78rem;
+  }
+
+  .expandedDetail dd {
+    font-size: 0.75rem;
+  }
+
+  .expandedDetail .expandedProjectName {
+    font-size: 0.86rem;
   }
 
   .expandedFacts > div {

@@ -34,6 +34,17 @@ export type CaseStudyVideoMedia = {
 
 export type CaseStudyMedia = CaseStudyImageMedia | CaseStudyVideoMedia;
 
+export type CaseStudyDetailOutcome = {
+  title: string;
+  description: string;
+};
+
+export type CaseStudyDetail = {
+  projectName: string;
+  overview: string;
+  outcomes: readonly CaseStudyDetailOutcome[];
+};
+
 export type CaseStudy = {
   slug: CaseStudySlug;
   displayOrder: number;
@@ -48,6 +59,7 @@ export type CaseStudy = {
   implementation: string | null;
   rollout: string | null;
   qualitativeOutcome: string | null;
+  detail: CaseStudyDetail | null;
   technologies: readonly string[];
   tags: readonly string[];
   theme: string;

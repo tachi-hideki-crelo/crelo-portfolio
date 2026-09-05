@@ -452,6 +452,7 @@ function ExpandedCaseDialog({
   const title = statusCopy(caseStudy);
   const industry = approvedIndustry(caseStudy);
   const highlights = approvedHighlights(caseStudy);
+  const detail = caseStudy.approved ? caseStudy.detail : null;
   const featureVideo = getVideoMedia(caseStudy, 'full');
   const dialogTitleId = `work-detail-title-${caseStudy.slug}`;
   const dialogDescriptionId = `work-detail-description-${caseStudy.slug}`;
@@ -514,7 +515,7 @@ function ExpandedCaseDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby={dialogTitleId}
-        aria-describedby={dialogDescriptionId}
+        aria-describedby={detail || !caseStudy.approved ? dialogDescriptionId : undefined}
         tabIndex={-1}
         data-expanded-case={caseStudy.slug}
         style={style}
@@ -566,23 +567,47 @@ function ExpandedCaseDialog({
           <span className={styles.expandedIndex} aria-hidden="true">{String(caseStudy.displayOrder).padStart(2, '0')}</span>
           {industry ? <span className={styles.expandedIndustry}>{industry}</span> : null}
           <h3 id={dialogTitleId}>{title}</h3>
-          <p id={dialogDescriptionId} className={styles.expandedDescription}>
-            {caseStudy.approved
-              ? '公開承認済みの実績内容を簡潔に表示しています。'
-              : 'このケースの業界・課題・担当範囲・定性成果は、公開承認後にここへ反映します。'}
-          </p>
-          {caseStudy.approved ? (
+          {detail ? (
+            <dl className={styles.expandedDetail}>
+              <div>
+                <dt>プロジェクト名：</dt>
+                <dd className={styles.expandedProjectName}>{detail.projectName}</dd>
+              </div>
+              <div>
+                <dt>概要：</dt>
+                <dd id={dialogDescriptionId}>{detail.overview}</dd>
+              </div>
+              <div>
+                <dt>成果：</dt>
+                <dd>
+                  <ul className={styles.expandedOutcomes}>
+                    {detail.outcomes.map(({ title: outcomeTitle, description }) => (
+                      <li key={outcomeTitle}>
+                        <strong>{outcomeTitle}：</strong>
+                        <span>{description}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </dd>
+              </div>
+            </dl>
+          ) : caseStudy.approved ? (
             <dl className={styles.expandedFacts}>
               {highlights.map(({ label, value }) => (
                 <div key={label}><dt>{label}</dt><dd>{value}</dd></div>
               ))}
             </dl>
           ) : (
-            <dl className={`${styles.expandedFacts} ${styles.expandedFactsPending}`}>
-              {['課題', '担当', '成果'].map((label) => (
-                <div key={label}><dt>{label}</dt><dd>公開承認後に反映</dd></div>
-              ))}
-            </dl>
+            <>
+              <p id={dialogDescriptionId} className={styles.expandedDescription}>
+                このケースの業界・課題・担当範囲・定性成果は、公開承認後にここへ反映します。
+              </p>
+              <dl className={`${styles.expandedFacts} ${styles.expandedFactsPending}`}>
+                {['課題', '担当', '成果'].map((label) => (
+                  <div key={label}><dt>{label}</dt><dd>公開承認後に反映</dd></div>
+                ))}
+              </dl>
+            </>
           )}
         </div>
 

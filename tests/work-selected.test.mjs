@@ -34,6 +34,15 @@ test('selected work exposes one approved video case and redacts the remaining sl
   assert.equal(caseStudies[0].approved, true);
   assert.equal(caseStudies[0].title, '宣伝動画の制作');
   assert.equal(caseStudies[0].role, 'AIを用いた動画の作成');
+  assert.deepEqual(caseStudies[0].detail, {
+    projectName: 'AIフル活用によるプロモーション動画の企画・制作・実装',
+    overview: '企画・絵コンテ作成・ビジュアル生成・動画化・BGM/ナレーション付与までを一気通貫でAIワークフロー化。従来の映像制作に比べ、制作コストとリードタイムを大幅に圧縮しながら、高品質な宣伝動画を構築しました。',
+    outcomes: [
+      { title: '制作コスト削減', description: '従来の外注実写・アニメーション制作と比較し、コストを大幅に削減' },
+      { title: '短納期納品', description: '企画から完成まで最短数日での高速デプロイを実現' },
+      { title: '柔軟なPDCA', description: '素材の差し替えやABテスト用パターンの量産が容易になり、広告・LP運用の改善スピードが向上' },
+    ],
+  });
   assert.deepEqual(caseStudies[0].media.map(({ src, role, poster, hasAudio }) => ({ src, role, poster, hasAudio })), [
     {
       src: '/assets/cases/ai-promo-preview.mp4',
@@ -101,6 +110,11 @@ test('client SelectedWork receives a safe projection with approved media only', 
     challenge: 'UNAPPROVED CHALLENGE',
     constraints: ['UNAPPROVED CONSTRAINT'],
     role: 'UNAPPROVED ROLE',
+    detail: {
+      projectName: 'UNAPPROVED PROJECT',
+      overview: 'UNAPPROVED OVERVIEW',
+      outcomes: [{ title: 'UNAPPROVED OUTCOME', description: 'UNAPPROVED DESCRIPTION' }],
+    },
     technologies: ['UNAPPROVED TECH'],
     media: [{
       src: '/assets/cases/private.mp4',
@@ -120,6 +134,7 @@ test('client SelectedWork receives a safe projection with approved media only', 
   assert.deepEqual(redacted.media, []);
   assert.equal(redacted.title, null);
   assert.equal(redacted.challenge, null);
+  assert.equal(redacted.detail, null);
   assert.equal('constraints' in redacted, false);
   assert.equal('technologies' in redacted, false);
   assert.equal('media' in redacted, true);
@@ -135,6 +150,10 @@ test('client SelectedWork receives a safe projection with approved media only', 
   assert.equal(approved.approved, true);
   assert.equal(Array.isArray(approved.media), true);
   assert.equal(approved.title, 'Approved case');
+  assert.equal(approved.detail?.projectName, 'UNAPPROVED PROJECT');
+  assert.deepEqual(approved.detail?.outcomes, [
+    { title: 'UNAPPROVED OUTCOME', description: 'UNAPPROVED DESCRIPTION' },
+  ]);
   assert.equal('constraints' in approved, false);
   assert.equal(approved.media.length, 1);
   assert.deepEqual(approved.media[0], {
@@ -326,6 +345,13 @@ test('inline expanded cards replace the removed case-study routes', () => {
   assert.doesNotMatch(selectedWorkSource, /href=/);
   assert.doesNotMatch(sitemapSource, /caseStudies|\/work\//);
   assert.match(selectedWorkSource, /const summaryRows[\s\S]*label: '課題'[\s\S]*label: '担当'[\s\S]*label: '成果'/);
+  assert.doesNotMatch(selectedWorkSource, /公開承認済みの実績内容を簡潔に表示しています。/);
+  assert.match(selectedWorkSource, /<dt>プロジェクト名：<\/dt>/);
+  assert.match(selectedWorkSource, /<dt>概要：<\/dt>/);
+  assert.match(selectedWorkSource, /<dt>成果：<\/dt>/);
+  assert.match(selectedWorkSource, /detail\.outcomes\.map/);
+  assert.match(selectedWorkStyles, /\.expandedDetail/);
+  assert.match(selectedWorkStyles, /\.expandedOutcomes/);
   assert.match(selectedWorkSource, /caseStudy\.approved \? \([\s\S]*className=\{styles\.expandedFacts\}/);
   assert.match(selectedWorkSource, /\['課題', '担当', '成果'\][\s\S]*公開承認後に反映/);
 });
