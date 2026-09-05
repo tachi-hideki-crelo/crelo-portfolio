@@ -166,36 +166,66 @@ function CaseFeatureVideo({
   videoRef: { current: HTMLVideoElement | null };
   reduceMotion: boolean;
 }) {
+  const [isPlaying, setIsPlaying] = useState(false);
+
   useEffect(() => {
     const element = videoRef.current;
     if (!element) return;
+
     element.src = video.src;
     element.load();
     if (!reduceMotion) {
       void element.play().catch(() => undefined);
     }
+
     return () => {
       releaseLoadedVideo(element);
       if (videoRef.current === element) videoRef.current = null;
     };
   }, [reduceMotion, video, videoRef]);
 
+  const togglePlayback = () => {
+    const element = videoRef.current;
+    if (!element) return;
+
+    if (element.paused) {
+      void element.play().catch(() => undefined);
+      return;
+    }
+
+    element.pause();
+  };
+
   return (
-    <video
-      ref={videoRef}
-      className={styles.featureVideo}
-      poster={video.poster ?? undefined}
-      preload="none"
-      autoPlay={!reduceMotion}
-      controls
-      muted
-      loop
-      playsInline
-      aria-label={video.alt}
-      data-work-feature-video
-    >
-      {video.captionsSrc ? <track kind="captions" src={video.captionsSrc} /> : null}
-    </video>
+    <div className={styles.featureVideoShell} data-work-feature-video-shell>
+      <video
+        ref={videoRef}
+        className={styles.featureVideo}
+        poster={video.poster ?? undefined}
+        preload="none"
+        autoPlay={!reduceMotion}
+        muted
+        loop
+        playsInline
+        aria-label={video.alt}
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+        data-work-feature-video
+      >
+        {video.captionsSrc ? <track kind="captions" src={video.captionsSrc} /> : null}
+      </video>
+      <button
+        className={styles.featurePlayback}
+        type="button"
+        aria-label={isPlaying ? '動画を一時停止' : '動画を再生'}
+        aria-pressed={isPlaying}
+        data-work-feature-playback
+        onClick={togglePlayback}
+      >
+        <span aria-hidden="true">{isPlaying ? 'Ⅱ' : '▶'}</span>
+        <span>{isPlaying ? 'PAUSE' : 'PLAY'}</span>
+      </button>
+    </div>
   );
 }
 

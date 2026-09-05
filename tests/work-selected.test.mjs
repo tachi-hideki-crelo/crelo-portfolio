@@ -319,12 +319,21 @@ test('selected work video roles attach only at the right interaction boundary', 
   assert.match(featureSource, /playsInline/);
   assert.match(featureSource, /releaseLoadedVideo\(element\)/);
   assert.match(selectedWorkSource, /data-work-feature-video/);
-  assert.match(selectedWorkSource, /controls/);
+  assert.doesNotMatch(featureSource, /\scontrols(?:\s|=|>)/);
+  assert.match(featureSource, /data-work-feature-video-shell/);
+  assert.match(featureSource, /data-work-feature-playback/);
+  assert.match(featureSource, /aria-label=\{isPlaying \? '動画を一時停止' : '動画を再生'\}/);
+  assert.match(featureSource, /if \(element\.paused\)/);
+  assert.match(featureSource, /element\.pause\(\)/);
   assert.match(selectedWorkSource, /releaseLoadedVideo\(featureVideoRef\.current\)/);
   assert.match(selectedWorkSource, /video\.removeAttribute\('src'\)/);
   assert.match(selectedWorkSource, /className=\{styles\.featureVideo\}/);
   assert.match(selectedWorkStyles, /\.cardMediaVideo[\s\S]*object-fit: cover/);
-  assert.match(selectedWorkStyles, /\.featureVideo[\s\S]*object-fit: contain/);
+  assert.match(selectedWorkStyles, /\.expandedVisual > \.featureVideoShell[\s\S]*aspect-ratio: 16 \/ 9/);
+  assert.match(selectedWorkStyles, /\.featureVideo[\s\S]*object-fit: cover/);
+  assert.match(selectedWorkStyles, /\.featurePlayback[\s\S]*min-height: 2\.75rem/);
+  assert.match(selectedWorkStyles, /grid-template-rows: auto minmax\(19\.25rem, 0\.95fr\)/);
+  assert.match(selectedWorkStyles, /grid-template-rows: auto minmax\(13rem, 0\.7fr\)/);
   assert.match(selectedWorkStyles, /\.mobileMediaVideo/);
 });
 
