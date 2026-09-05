@@ -37,6 +37,7 @@ test('selected work exposes approved video and flyer cases and redacts the remai
   assert.deepEqual(caseStudies[0].detail, {
     projectName: 'AIフル活用によるプロモーション動画の企画・制作・実装',
     overview: '企画・絵コンテ作成・ビジュアル生成・動画化・BGM/ナレーション付与までを一気通貫でAIワークフロー化。従来の映像制作に比べ、制作コストとリードタイムを大幅に圧縮しながら、高品質な宣伝動画を構築しました。',
+    outcomesLabel: '成果',
     outcomes: [
       { title: '制作コスト削減', description: '従来の外注実写・アニメーション制作と比較し、コストを大幅に削減' },
       { title: '短納期納品', description: '企画から完成まで最短数日での高速デプロイを実現' },
@@ -60,6 +61,16 @@ test('selected work exposes approved video and flyer cases and redacts the remai
   assert.equal(caseStudies[1].approved, true);
   assert.equal(caseStudies[1].title, 'チラシのデザイン制作');
   assert.equal(caseStudies[1].role, '印刷依頼代行まで対応');
+  assert.deepEqual(caseStudies[1].detail, {
+    projectName: 'オフライン集客・成約率を最大化する販促チラシ／リーフレット制作・印刷代行',
+    overview: 'ターゲット層や配布目的に合わせ、ペルソナ設計からキャッチコピー考案、ビジュアル作成、印刷所への入稿手配までを一貫して担当。標準的なA4片面・両面チラシはもちろん、情報量の多い3つ折りパンフレットなど、用途に応じた最適な判型・折り加工に幅広く対応しました。オフラインからオンラインへの動線構築も含めて設計・制作を行っています。',
+    outcomesLabel: '効果',
+    outcomes: [
+      { title: '用途に合わせた最適フォーマットの提供', description: '卓上置き、ポスティング、対面手渡しなど、配布シーンに最も適した形状（両面・3つ折り等）を選択し、受取手の可読性・保存性を向上。' },
+      { title: '事業主の負担軽減', description: '印刷会社ごとの仕様確認・トンボ付け・色調確認などの専門的な入稿工程を代行し、納品まで安心・スムーズに完了。' },
+      { title: 'Web動線とのシームレスな統合', description: 'チラシ内のQRコードやキャンペーン導線を精緻に配置し、紙から自社Webサイトや公式LINEへの登録率向上に寄与。' },
+    ],
+  });
   assert.deepEqual(caseStudies[1].media, [{
     src: '/assets/cases/flyer-design-print.jpg',
     alt: 'コーヒー商品の両面チラシデザイン',
@@ -89,6 +100,7 @@ test('selected work keyboard contract opens accessible inline details instead of
   assert.match(selectedWorkSource, /data-work-image-role="preview"/);
   assert.match(selectedWorkSource, /data-work-feature-image/);
   assert.match(selectedWorkSource, /alt=\{featureImage\.alt\}/);
+  assert.match(selectedWorkSource, /<dt>\{detail\.outcomesLabel\}：<\/dt>/);
   assert.match(selectedWorkStyles, /\.featureImage/);
   assert.match(selectedWorkSource, /data-expanded-case=\{caseStudy\.slug\}/);
   assert.match(selectedWorkSource, /event\.key === 'Escape'/);
@@ -385,7 +397,7 @@ test('inline expanded cards replace the removed case-study routes', () => {
   assert.doesNotMatch(selectedWorkSource, /公開承認済みの実績内容を簡潔に表示しています。/);
   assert.match(selectedWorkSource, /<dt>プロジェクト名：<\/dt>/);
   assert.match(selectedWorkSource, /<dt>概要：<\/dt>/);
-  assert.match(selectedWorkSource, /<dt>成果：<\/dt>/);
+  assert.match(selectedWorkSource, /<dt>\{detail\.outcomesLabel\}：<\/dt>/);
   assert.match(selectedWorkSource, /detail\.outcomes\.map/);
   assert.match(selectedWorkStyles, /\.expandedDetail/);
   assert.match(selectedWorkStyles, /\.expandedOutcomes/);

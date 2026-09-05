@@ -42,6 +42,7 @@ export type CaseStudyDetailOutcome = {
 export type CaseStudyDetail = {
   projectName: string;
   overview: string;
+  outcomesLabel: '成果' | '効果';
   outcomes: readonly CaseStudyDetailOutcome[];
 };
 

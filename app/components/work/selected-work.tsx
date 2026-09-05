@@ -715,7 +715,7 @@ function ExpandedCaseDialog({
                 <dd id={dialogDescriptionId}>{detail.overview}</dd>
               </div>
               <div>
-                <dt>成果：</dt>
+                <dt>{detail.outcomesLabel}：</dt>
                 <dd>
                   <ul className={styles.expandedOutcomes}>
                     {detail.outcomes.map(({ title: outcomeTitle, description }) => (

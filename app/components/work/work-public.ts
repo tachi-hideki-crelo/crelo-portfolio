@@ -27,7 +27,10 @@ export type PublicCaseStudyVideoMedia = Pick<
 
 export type PublicCaseStudyMedia = PublicCaseStudyImageMedia | PublicCaseStudyVideoMedia;
 
-export type PublicCaseStudyDetail = Pick<CaseStudyDetail, 'projectName' | 'overview' | 'outcomes'>;
+export type PublicCaseStudyDetail = Pick<
+  CaseStudyDetail,
+  'projectName' | 'overview' | 'outcomesLabel' | 'outcomes'
+>;
 
 export type PublicCaseStudy = {
   slug: CaseStudySlug;
@@ -96,6 +99,7 @@ function approvedCaseStudy(caseStudy: CaseStudy): PublicCaseStudy {
       ? {
           projectName: caseStudy.detail.projectName,
           overview: caseStudy.detail.overview,
+          outcomesLabel: caseStudy.detail.outcomesLabel,
           outcomes: caseStudy.detail.outcomes.map(({ title, description }) => ({ title, description })),
         }
       : null,

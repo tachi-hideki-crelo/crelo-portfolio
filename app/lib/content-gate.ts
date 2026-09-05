@@ -163,6 +163,9 @@ function inspectCaseStudy(caseStudy: CaseStudy, index: number): string[] {
       if (!isNonEmpty(value)) errors.push(`${prefix}.detail.${field} is missing`);
       else if (DETAIL_PLACEHOLDER_PATTERN.test(value)) errors.push(`${prefix}.detail.${field} contains placeholder content`);
     }
+    if (caseStudy.detail.outcomesLabel !== '成果' && caseStudy.detail.outcomesLabel !== '効果') {
+      errors.push(`${prefix}.detail.outcomesLabel must be 成果 or 効果`);
+    }
     if (!Array.isArray(caseStudy.detail.outcomes) || caseStudy.detail.outcomes.length === 0) {
       errors.push(`${prefix}.detail.outcomes must contain at least one item`);
     } else {
