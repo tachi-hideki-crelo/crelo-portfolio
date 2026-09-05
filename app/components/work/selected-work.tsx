@@ -1,6 +1,12 @@
 'use client';
 
-import type { CSSProperties, FocusEvent, KeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
+import type {
+  CSSProperties,
+  FocusEvent,
+  KeyboardEvent,
+  MouseEvent as ReactMouseEvent,
+  PointerEvent as ReactPointerEvent,
+} from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Image from 'next/image';
@@ -167,6 +173,9 @@ function CaseFeatureVideo({
   reduceMotion: boolean;
 }) {
   const [isPlaying, setIsPlaying] = useState(false);
+  const [playbackFeedback, setPlaybackFeedback] = useState<'play' | 'pause' | null>(null);
+  const feedbackTimerRef = useRef<number | null>(null);
+  const pointerActivatedAtRef = useRef<number | null>(null);
 
   useEffect(() => {
     const element = videoRef.current;
@@ -184,16 +193,44 @@ function CaseFeatureVideo({
     };
   }, [reduceMotion, video, videoRef]);
 
-  const togglePlayback = () => {
+  useEffect(() => () => {
+    if (feedbackTimerRef.current !== null) {
+      window.clearTimeout(feedbackTimerRef.current);
+    }
+  }, []);
+
+  const showPlaybackFeedback = (feedback: 'play' | 'pause') => {
+    if (feedbackTimerRef.current !== null) {
+      window.clearTimeout(feedbackTimerRef.current);
+    }
+    setPlaybackFeedback(feedback);
+    feedbackTimerRef.current = window.setTimeout(() => {
+      setPlaybackFeedback(null);
+      feedbackTimerRef.current = null;
+    }, 680);
+  };
+
+  const togglePlayback = (event: ReactMouseEvent<HTMLButtonElement>) => {
     const element = videoRef.current;
     if (!element) return;
 
+    const pointerActivatedAt = pointerActivatedAtRef.current;
+    const isPointerActivation = event.detail > 0
+      || (pointerActivatedAt !== null && Date.now() - pointerActivatedAt < 1_000);
+    pointerActivatedAtRef.current = null;
+    if (isPointerActivation) {
+      event.currentTarget.blur();
+    }
+
     if (element.paused) {
-      void element.play().catch(() => undefined);
+      void element.play()
+        .then(() => showPlaybackFeedback('play'))
+        .catch(() => undefined);
       return;
     }
 
     element.pause();
+    showPlaybackFeedback('pause');
   };
 
   return (
@@ -215,15 +252,32 @@ function CaseFeatureVideo({
         {video.captionsSrc ? <track kind="captions" src={video.captionsSrc} /> : null}
       </video>
       <button
-        className={styles.featurePlayback}
+        className={styles.featurePlaybackSurface}
         type="button"
-        aria-label={isPlaying ? '動画を一時停止' : '動画を再生'}
+        aria-label={isPlaying ? `${video.alt}を一時停止` : `${video.alt}を再生`}
         aria-pressed={isPlaying}
         data-work-feature-playback
+        onPointerDown={() => {
+          pointerActivatedAtRef.current = Date.now();
+        }}
         onClick={togglePlayback}
       >
-        <span aria-hidden="true">{isPlaying ? 'Ⅱ' : '▶'}</span>
-        <span>{isPlaying ? 'PAUSE' : 'PLAY'}</span>
+        <AnimatePresence initial={false}>
+          {playbackFeedback ? (
+            <motion.span
+              key={playbackFeedback}
+              className={styles.featurePlaybackIndicator}
+              aria-hidden="true"
+              data-playback-feedback={playbackFeedback}
+              initial={reduceMotion ? false : { opacity: 0, scale: 0.72 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 1.2 }}
+              transition={{ duration: reduceMotion ? 0 : 0.2, ease: 'easeOut' }}
+            >
+              {playbackFeedback === 'play' ? '▶' : 'Ⅱ'}
+            </motion.span>
+          ) : null}
+        </AnimatePresence>
       </button>
     </div>
   );
@@ -620,28 +674,30 @@ function ExpandedCaseDialog({
         </header>
 
         <div className={styles.expandedVisual}>
-          {featureVideo ? (
-            <CaseFeatureVideo
-              video={featureVideo}
-              videoRef={featureVideoRef}
-              reduceMotion={reduceMotion}
-            />
-          ) : featureImage ? (
-            <Image
-              className={styles.featureImage}
-              src={featureImage.src}
-              alt={featureImage.alt}
-              width={featureImage.width}
-              height={featureImage.height}
-              loading="eager"
-              sizes="(max-width: 768px) calc(100vw - 2rem), 32rem"
-              data-work-feature-image
-            />
-          ) : (
-            <div aria-hidden="true">
-              <WorkVisual accent={theme.accent} compact label={`CASE ${String(caseStudy.displayOrder).padStart(2, '0')} / FDE SIGNAL`} />
-            </div>
-          )}
+          <div className={styles.expandedMediaFrame} data-work-feature-frame>
+            {featureVideo ? (
+              <CaseFeatureVideo
+                video={featureVideo}
+                videoRef={featureVideoRef}
+                reduceMotion={reduceMotion}
+              />
+            ) : featureImage ? (
+              <Image
+                className={styles.featureImage}
+                src={featureImage.src}
+                alt={featureImage.alt}
+                width={featureImage.width}
+                height={featureImage.height}
+                loading="eager"
+                sizes="(max-width: 768px) calc(100vw - 2rem), 32rem"
+                data-work-feature-image
+              />
+            ) : (
+              <div aria-hidden="true">
+                <WorkVisual accent={theme.accent} compact label={`CASE ${String(caseStudy.displayOrder).padStart(2, '0')} / FDE SIGNAL`} />
+              </div>
+            )}
+          </div>
         </div>
 
         <div className={styles.expandedBody}>
