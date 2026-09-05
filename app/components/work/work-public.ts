@@ -29,7 +29,7 @@ export type PublicCaseStudyMedia = PublicCaseStudyImageMedia | PublicCaseStudyVi
 
 export type PublicCaseStudyDetail = Pick<
   CaseStudyDetail,
-  'projectName' | 'overview' | 'outcomesLabel' | 'outcomes'
+  'projectName' | 'overview' | 'outcomesLabel' | 'labelSuffix' | 'outcomes'
 >;
 
 export type PublicCaseStudy = {
@@ -100,6 +100,7 @@ function approvedCaseStudy(caseStudy: CaseStudy): PublicCaseStudy {
           projectName: caseStudy.detail.projectName,
           overview: caseStudy.detail.overview,
           outcomesLabel: caseStudy.detail.outcomesLabel,
+          labelSuffix: caseStudy.detail.labelSuffix,
           outcomes: caseStudy.detail.outcomes.map(({ title, description }) => ({ title, description })),
         }
       : null,

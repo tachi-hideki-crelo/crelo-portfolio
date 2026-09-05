@@ -48,6 +48,7 @@ export const caseStudies: readonly CaseStudy[] = [
       projectName: 'AIフル活用によるプロモーション動画の企画・制作・実装',
       overview: '企画・絵コンテ作成・ビジュアル生成・動画化・BGM/ナレーション付与までを一気通貫でAIワークフロー化。従来の映像制作に比べ、制作コストとリードタイムを大幅に圧縮しながら、高品質な宣伝動画を構築しました。',
       outcomesLabel: '成果',
+      labelSuffix: '',
       outcomes: [
         {
           title: '制作コスト削減',
@@ -98,6 +99,7 @@ export const caseStudies: readonly CaseStudy[] = [
       projectName: 'オフライン集客・成約率を最大化する販促チラシ／リーフレット制作・印刷代行',
       overview: 'ターゲット層や配布目的に合わせ、ペルソナ設計からキャッチコピー考案、ビジュアル作成、印刷所への入稿手配までを一貫して担当。標準的なA4片面・両面チラシはもちろん、情報量の多い3つ折りパンフレットなど、用途に応じた最適な判型・折り加工に幅広く対応しました。オフラインからオンラインへの動線構築も含めて設計・制作を行っています。',
       outcomesLabel: '効果',
+      labelSuffix: '：',
       outcomes: [
         {
           title: '用途に合わせた最適フォーマットの提供',

@@ -70,6 +70,7 @@ test('provides two explicitly approved cases and three stable private preview sl
   assert.equal(caseStudies[0].role, 'AIを用いた動画の作成');
   assert.equal(caseStudies[0].detail?.projectName, 'AIフル活用によるプロモーション動画の企画・制作・実装');
   assert.equal(caseStudies[0].detail?.outcomesLabel, '成果');
+  assert.equal(caseStudies[0].detail?.labelSuffix, '');
   assert.equal(caseStudies[0].detail?.outcomes.length, 3);
   assert.deepEqual(caseStudies[0].media.map((item) => item.kind === 'video' ? item.role : null), ['preview', 'full']);
   assert.deepEqual(caseStudies[0].media.map((item) => item.src), [
@@ -81,6 +82,7 @@ test('provides two explicitly approved cases and three stable private preview sl
   assert.equal(caseStudies[1].role, '印刷依頼代行まで対応');
   assert.equal(caseStudies[1].detail?.projectName, 'オフライン集客・成約率を最大化する販促チラシ／リーフレット制作・印刷代行');
   assert.equal(caseStudies[1].detail?.outcomesLabel, '効果');
+  assert.equal(caseStudies[1].detail?.labelSuffix, '：');
   assert.equal(caseStudies[1].detail?.outcomes.length, 3);
   assert.deepEqual(caseStudies[1].media.map((item) => item.src), [
     '/assets/cases/flyer-design-print.jpg',
@@ -148,12 +150,14 @@ test('production gate validates optional approved case detail copy', () => {
     projectName: '',
     overview: 'TODO',
     outcomesLabel: '結果',
+    labelSuffix: '・',
     outcomes: [{ title: '成果', description: '' }],
   };
   const result = validateProductionContent(records, approvedContent, productionEnv);
   assert.ok(result.errors.includes('caseStudies[0](field-signal).detail.projectName is missing'));
   assert.ok(result.errors.includes('caseStudies[0](field-signal).detail.overview contains placeholder content'));
   assert.ok(result.errors.includes('caseStudies[0](field-signal).detail.outcomesLabel must be 成果 or 効果'));
+  assert.ok(result.errors.includes('caseStudies[0](field-signal).detail.labelSuffix must be empty or ：'));
   assert.ok(result.errors.includes('caseStudies[0](field-signal).detail.outcomes[0].description is missing'));
 });
 

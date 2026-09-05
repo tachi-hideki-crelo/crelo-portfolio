@@ -43,6 +43,7 @@ export type CaseStudyDetail = {
   projectName: string;
   overview: string;
   outcomesLabel: '成果' | '効果';
+  labelSuffix: '' | '：';
   outcomes: readonly CaseStudyDetailOutcome[];
 };
 

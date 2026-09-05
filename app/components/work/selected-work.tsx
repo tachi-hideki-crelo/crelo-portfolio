@@ -707,20 +707,20 @@ function ExpandedCaseDialog({
           {detail ? (
             <dl className={styles.expandedDetail}>
               <div>
-                <dt>プロジェクト名：</dt>
+                <dt>プロジェクト名{detail.labelSuffix}</dt>
                 <dd className={styles.expandedProjectName}>{detail.projectName}</dd>
               </div>
               <div>
-                <dt>概要：</dt>
+                <dt>概要{detail.labelSuffix}</dt>
                 <dd id={dialogDescriptionId}>{detail.overview}</dd>
               </div>
               <div>
-                <dt>{detail.outcomesLabel}：</dt>
+                <dt>{detail.outcomesLabel}{detail.labelSuffix}</dt>
                 <dd>
                   <ul className={styles.expandedOutcomes}>
                     {detail.outcomes.map(({ title: outcomeTitle, description }) => (
                       <li key={outcomeTitle}>
-                        <strong>{outcomeTitle}：</strong>
+                        <strong>{outcomeTitle}{detail.labelSuffix}</strong>
                         <span>{description}</span>
                       </li>
                     ))}
