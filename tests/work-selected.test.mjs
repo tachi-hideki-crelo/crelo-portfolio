@@ -22,7 +22,7 @@ const homeSource = await readFile(new URL('../app/components/site/HomeExperience
 const publicProjectionSource = await readFile(new URL('../app/components/work/work-public.ts', import.meta.url), 'utf8');
 const sitemapSource = await readFile(new URL('../app/sitemap.ts', import.meta.url), 'utf8');
 
-test('selected work exposes four approved cases and redacts the remaining slot', () => {
+test('selected work exposes all five approved cases', () => {
   assert.deepEqual(caseStudies.map(({ slug }) => slug), [
     'field-signal',
     'workflow-atlas',
@@ -145,7 +145,30 @@ test('selected work exposes four approved cases and redacts the remaining slot',
   assert.equal(existsSync(new URL('../public/assets/cases/web-site-preview.mp4', import.meta.url)), true);
   assert.equal(existsSync(new URL('../public/assets/cases/web-site-feature.mp4', import.meta.url)), true);
   assert.equal(existsSync(new URL('../public/assets/cases/web-site-poster.jpg', import.meta.url)), true);
-  assert.ok(caseStudies.slice(4).every(({ approved, title, media }) => !approved && title === null && media.length === 0));
+  assert.equal(caseStudies[4].approved, true);
+  assert.equal(caseStudies[4].title, '業務のDX化');
+  assert.equal(caseStudies[4].role, '受発注・製造・原価管理を一元化');
+  assert.deepEqual(caseStudies[4].detail, {
+    projectName: '受発注・製造・原価管理を一元化する「業務データ統合基盤」の構築およびDX推進',
+    overview: 'アナログな手作業や紙文化が残る受発注・製造・原価管理フローを抜本的に見直し、データ蓄積から取り込み、集計・出力までをワンストップで連携する業務基盤を設計・開発。',
+    outcomesLabel: '効果',
+    labelSuffix: '',
+    outcomes: [
+      { title: '転記作業のゼロ化と人的ミスの撲滅', description: 'FAXからの注文手入力や確認作業にかかる膨大な時間を削減し、入力ミス・注文漏れ・伝達ミスを大幅に抑制。' },
+      { title: '発注・仕込み業務の効率化とロス削減', description: '注文データに連動して必要な食材・資材数が即座に可視化されるため、過不足のない発注と仕込みが可能になり、食品・資材ロスを低減。' },
+      { title: '原価・利益のリアルタイム可視化', description: '従来は見えづらかった日々の実績原価や月間予測がタイムリーに把握できるようになり、迅速な経営判断とコストコントロールを実現。' },
+    ],
+  });
+  assert.deepEqual(caseStudies[4].media, [{
+    src: '/assets/cases/business-dx-integration.jpg',
+    alt: '受発注・製造・資材・原価のデータが中央基盤へ統合されるサイバービジュアル',
+    kind: 'image',
+    approved: true,
+    approvedAt: '2026-09-06',
+    width: 1280,
+    height: 720,
+  }]);
+  assert.equal(existsSync(new URL('../public/assets/cases/business-dx-integration.jpg', import.meta.url)), true);
 });
 
 test('selected work keyboard contract opens accessible inline details instead of separate pages', () => {

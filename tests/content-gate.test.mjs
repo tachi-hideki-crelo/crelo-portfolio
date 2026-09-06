@@ -61,7 +61,7 @@ function approvedRecords() {
   }));
 }
 
-test('provides four explicitly approved cases and one stable private preview slot', () => {
+test('provides five explicitly approved cases', () => {
   assert.equal(caseStudies.length, 5);
   assert.equal(new Set(caseStudies.map((item) => item.slug)).size, 5);
   assert.deepEqual(caseStudies.map((item) => item.displayOrder), [1, 2, 3, 4, 5]);
@@ -112,17 +112,23 @@ test('provides four explicitly approved cases and one stable private preview slo
     '/assets/cases/web-site-preview.mp4',
     '/assets/cases/web-site-feature.mp4',
   ]);
-  for (const item of caseStudies.slice(4)) {
-    assert.equal(item.approved, false);
-    assert.equal(item.title, null);
-    assert.deepEqual(item.media, []);
-  }
+  assert.equal(caseStudies[4].approved, true);
+  assert.equal(caseStudies[4].title, '業務のDX化');
+  assert.equal(caseStudies[4].role, '受発注・製造・原価管理を一元化');
+  assert.equal(caseStudies[4].detail?.projectName, '受発注・製造・原価管理を一元化する「業務データ統合基盤」の構築およびDX推進');
+  assert.equal(caseStudies[4].detail?.outcomesLabel, '効果');
+  assert.equal(caseStudies[4].detail?.labelSuffix, '');
+  assert.equal(caseStudies[4].detail?.outcomes.length, 3);
+  assert.deepEqual(caseStudies[4].media.map((item) => item.src), [
+    '/assets/cases/business-dx-integration.jpg',
+  ]);
+  assert.equal(caseStudies[4].media[0]?.kind, 'image');
 });
 
 test('preview data fails production gate with explicit reasons', () => {
   const result = validateProductionContent(caseStudies, siteContent, productionEnv);
   assert.equal(result.ok, false);
-  assert.ok(result.errors.some((error) => error.includes('approved must be true')));
+  assert.ok(result.errors.every((error) => !error.includes('approved must be true')));
   assert.ok(result.errors.every((error) => !error.includes('profile.name is missing')));
   assert.ok(result.errors.some((error) => error.includes('privacy.operator is missing')));
   assert.ok(result.errors.some((error) => error.includes('contactEmail is missing or invalid')));
