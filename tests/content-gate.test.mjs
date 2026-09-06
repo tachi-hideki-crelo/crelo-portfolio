@@ -120,7 +120,7 @@ test('provides five explicitly approved cases', () => {
   assert.equal(caseStudies[4].detail?.labelSuffix, '');
   assert.equal(caseStudies[4].detail?.outcomes.length, 3);
   assert.deepEqual(caseStudies[4].media.map((item) => item.src), [
-    '/assets/cases/business-dx-integration.jpg',
+    '/assets/cases/business-dx-dashboard.jpg',
   ]);
   assert.equal(caseStudies[4].media[0]?.kind, 'image');
 });

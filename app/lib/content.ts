@@ -259,8 +259,8 @@ export const caseStudies: readonly CaseStudy[] = [
     approvedAt: '2026-09-06',
     media: [
       {
-        src: '/assets/cases/business-dx-integration.jpg',
-        alt: '受発注・製造・資材・原価のデータが中央基盤へ統合されるサイバービジュアル',
+        src: '/assets/cases/business-dx-dashboard.jpg',
+        alt: '受注管理、製造進捗、在庫状況、原価推移を一元表示したサンプル管理画面',
         kind: 'image',
         approved: true,
         approvedAt: '2026-09-06',
