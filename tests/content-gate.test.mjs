@@ -61,7 +61,7 @@ function approvedRecords() {
   }));
 }
 
-test('provides two explicitly approved cases and three stable private preview slots', () => {
+test('provides three explicitly approved cases and two stable private preview slots', () => {
   assert.equal(caseStudies.length, 5);
   assert.equal(new Set(caseStudies.map((item) => item.slug)).size, 5);
   assert.deepEqual(caseStudies.map((item) => item.displayOrder), [1, 2, 3, 4, 5]);
@@ -88,7 +88,19 @@ test('provides two explicitly approved cases and three stable private preview sl
     '/assets/cases/flyer-design-print.jpg',
   ]);
   assert.equal(caseStudies[1].media[0]?.kind, 'image');
-  for (const item of caseStudies.slice(2)) {
+  assert.equal(caseStudies[2].approved, true);
+  assert.equal(caseStudies[2].title, 'ECサイト構築');
+  assert.equal(caseStudies[2].role, 'サービス選定から独自開発まで');
+  assert.equal(caseStudies[2].detail?.projectName, '事業規模・予算に応じた最適なECサイト構築・開発');
+  assert.equal(caseStudies[2].detail?.outcomesLabel, '効果');
+  assert.equal(caseStudies[2].detail?.labelSuffix, '');
+  assert.equal(caseStudies[2].detail?.outcomes.length, 3);
+  assert.deepEqual(caseStudies[2].media.map((item) => item.kind === 'video' ? item.role : null), ['preview', 'full']);
+  assert.deepEqual(caseStudies[2].media.map((item) => item.src), [
+    '/assets/cases/ec-site-preview.mp4',
+    '/assets/cases/ec-site-feature.mp4',
+  ]);
+  for (const item of caseStudies.slice(3)) {
     assert.equal(item.approved, false);
     assert.equal(item.title, null);
     assert.deepEqual(item.media, []);

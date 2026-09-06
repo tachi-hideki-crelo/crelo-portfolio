@@ -22,7 +22,7 @@ const homeSource = await readFile(new URL('../app/components/site/HomeExperience
 const publicProjectionSource = await readFile(new URL('../app/components/work/work-public.ts', import.meta.url), 'utf8');
 const sitemapSource = await readFile(new URL('../app/sitemap.ts', import.meta.url), 'utf8');
 
-test('selected work exposes approved video and flyer cases and redacts the remaining slots', () => {
+test('selected work exposes three approved cases and redacts the remaining slots', () => {
   assert.deepEqual(caseStudies.map(({ slug }) => slug), [
     'field-signal',
     'workflow-atlas',
@@ -83,7 +83,38 @@ test('selected work exposes approved video and flyer cases and redacts the remai
     height: 565,
   }]);
   assert.equal(existsSync(new URL('../public/assets/cases/flyer-design-print.jpg', import.meta.url)), true);
-  assert.ok(caseStudies.slice(2).every(({ approved, title, media }) => !approved && title === null && media.length === 0));
+  assert.equal(caseStudies[2].approved, true);
+  assert.equal(caseStudies[2].title, 'ECサイト構築');
+  assert.equal(caseStudies[2].role, 'サービス選定から独自開発まで');
+  assert.deepEqual(caseStudies[2].detail, {
+    projectName: '事業規模・予算に応じた最適なECサイト構築・開発',
+    overview: 'クライアントのビジネスフェーズや商品特性、予算感に合わせて最適な構築手法を提案・実装。BASEやカラーミーショップ、Shopifyなどの主要プラットフォーム選定から初期設定・デザインカスタマイズまで対応。さらに、既存のプラットフォームでは実現できない独自の会員システムや複雑な受発注フロー、専用機能が求められる場合には、ゼロからの完全独自開発（フルスクラッチ）にも対応しています。',
+    outcomesLabel: '効果',
+    labelSuffix: '',
+    outcomes: [
+      { title: '初期投資・運用コストの最適化', description: 'ツールありきではなく事業フェーズに合わせた最適な基盤を選択したことで、無駄な開発費用・月額ランニングコストを大幅に抑制。' },
+      { title: '購入率（CVR）を高めるUI/UX設計', description: 'モバイル最適化や直感的な購入フロー、AIを活用した商品説明文・ビジュアルの最適化により、離脱を防ぎ購買転換率を向上。' },
+      { title: '運用の自動化・属人化解消', description: '決済連携、在庫管理、発送連絡などのバックオフィス業務を効率化し、少人数でも無理なくEC運営が回る仕組みを構築。' },
+    ],
+  });
+  assert.deepEqual(caseStudies[2].media.map(({ src, role, poster, hasAudio }) => ({ src, role, poster, hasAudio })), [
+    {
+      src: '/assets/cases/ec-site-preview.mp4',
+      role: 'preview',
+      poster: '/assets/cases/ec-site-poster.jpg',
+      hasAudio: false,
+    },
+    {
+      src: '/assets/cases/ec-site-feature.mp4',
+      role: 'full',
+      poster: '/assets/cases/ec-site-poster.jpg',
+      hasAudio: false,
+    },
+  ]);
+  assert.equal(existsSync(new URL('../public/assets/cases/ec-site-preview.mp4', import.meta.url)), true);
+  assert.equal(existsSync(new URL('../public/assets/cases/ec-site-feature.mp4', import.meta.url)), true);
+  assert.equal(existsSync(new URL('../public/assets/cases/ec-site-poster.jpg', import.meta.url)), true);
+  assert.ok(caseStudies.slice(3).every(({ approved, title, media }) => !approved && title === null && media.length === 0));
 });
 
 test('selected work keyboard contract opens accessible inline details instead of separate pages', () => {
