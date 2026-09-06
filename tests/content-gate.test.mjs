@@ -82,7 +82,7 @@ test('provides two explicitly approved cases and three stable private preview sl
   assert.equal(caseStudies[1].role, '印刷依頼代行まで対応');
   assert.equal(caseStudies[1].detail?.projectName, 'オフライン集客・成約率を最大化する販促チラシ／リーフレット制作・印刷代行');
   assert.equal(caseStudies[1].detail?.outcomesLabel, '効果');
-  assert.equal(caseStudies[1].detail?.labelSuffix, '：');
+  assert.equal(caseStudies[1].detail?.labelSuffix, '');
   assert.equal(caseStudies[1].detail?.outcomes.length, 3);
   assert.deepEqual(caseStudies[1].media.map((item) => item.src), [
     '/assets/cases/flyer-design-print.jpg',
