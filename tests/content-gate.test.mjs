@@ -61,7 +61,7 @@ function approvedRecords() {
   }));
 }
 
-test('provides three explicitly approved cases and two stable private preview slots', () => {
+test('provides four explicitly approved cases and one stable private preview slot', () => {
   assert.equal(caseStudies.length, 5);
   assert.equal(new Set(caseStudies.map((item) => item.slug)).size, 5);
   assert.deepEqual(caseStudies.map((item) => item.displayOrder), [1, 2, 3, 4, 5]);
@@ -100,7 +100,19 @@ test('provides three explicitly approved cases and two stable private preview sl
     '/assets/cases/ec-site-preview.mp4',
     '/assets/cases/ec-site-feature.mp4',
   ]);
-  for (const item of caseStudies.slice(3)) {
+  assert.equal(caseStudies[3].approved, true);
+  assert.equal(caseStudies[3].title, 'Webサイト構築');
+  assert.equal(caseStudies[3].role, '集客・成約・業務効率化まで');
+  assert.equal(caseStudies[3].detail?.projectName, 'ビジネスの目的に合わせたWebサイト制作・システム構築');
+  assert.equal(caseStudies[3].detail?.outcomesLabel, '効果');
+  assert.equal(caseStudies[3].detail?.labelSuffix, '');
+  assert.equal(caseStudies[3].detail?.outcomes.length, 3);
+  assert.deepEqual(caseStudies[3].media.map((item) => item.kind === 'video' ? item.role : null), ['preview', 'full']);
+  assert.deepEqual(caseStudies[3].media.map((item) => item.src), [
+    '/assets/cases/web-site-preview.mp4',
+    '/assets/cases/web-site-feature.mp4',
+  ]);
+  for (const item of caseStudies.slice(4)) {
     assert.equal(item.approved, false);
     assert.equal(item.title, null);
     assert.deepEqual(item.media, []);

@@ -22,7 +22,7 @@ const homeSource = await readFile(new URL('../app/components/site/HomeExperience
 const publicProjectionSource = await readFile(new URL('../app/components/work/work-public.ts', import.meta.url), 'utf8');
 const sitemapSource = await readFile(new URL('../app/sitemap.ts', import.meta.url), 'utf8');
 
-test('selected work exposes three approved cases and redacts the remaining slots', () => {
+test('selected work exposes four approved cases and redacts the remaining slot', () => {
   assert.deepEqual(caseStudies.map(({ slug }) => slug), [
     'field-signal',
     'workflow-atlas',
@@ -114,7 +114,38 @@ test('selected work exposes three approved cases and redacts the remaining slots
   assert.equal(existsSync(new URL('../public/assets/cases/ec-site-preview.mp4', import.meta.url)), true);
   assert.equal(existsSync(new URL('../public/assets/cases/ec-site-feature.mp4', import.meta.url)), true);
   assert.equal(existsSync(new URL('../public/assets/cases/ec-site-poster.jpg', import.meta.url)), true);
-  assert.ok(caseStudies.slice(3).every(({ approved, title, media }) => !approved && title === null && media.length === 0));
+  assert.equal(caseStudies[3].approved, true);
+  assert.equal(caseStudies[3].title, 'Webサイト構築');
+  assert.equal(caseStudies[3].role, '集客・成約・業務効率化まで');
+  assert.deepEqual(caseStudies[3].detail, {
+    projectName: 'ビジネスの目的に合わせたWebサイト制作・システム構築',
+    overview: '単なる「会社案内」にとどまらず、集客・成約・業務効率化のハブとして機能するWebサイトを構築。WordPressを用いた迅速なCMS構築はもちろん、パフォーマンスやセキュリティ、特殊なUI/UXが求められるプロジェクトでは、モダンな技術スタックを用いたゼロベースでの完全独自開発（フルスクラッチ）にも対応。スパム対策や自動返信、通知連携を含めた「問い合わせ機能の実装」や、現場スタッフが手軽に運用できる「お知らせ・コンテンツ管理システム」など、多様なニーズに合わせた柔軟なカスタマイズを提供しました。',
+    outcomesLabel: '効果',
+    labelSuffix: '',
+    outcomes: [
+      { title: '内製化による運用コスト削減', description: '管理画面から直感的に更新できる仕組みを整えたことで、軽微な修正やニュース発信の外注コストとタイムラグをゼロ化。' },
+      { title: '問い合わせ率（CVR）の向上', description: 'ユーザーが迷わない導線設計と入力負荷を軽減したフォーム実装により、Webサイト経由の問い合わせ・相談獲得数が増加。' },
+      { title: '高速表示とマルチデバイス最適化', description: '表示速度の高速化とモバイルファースト設計により、SEO評価およびユーザーの直帰率改善に寄与。' },
+    ],
+  });
+  assert.deepEqual(caseStudies[3].media.map(({ src, role, poster, hasAudio }) => ({ src, role, poster, hasAudio })), [
+    {
+      src: '/assets/cases/web-site-preview.mp4',
+      role: 'preview',
+      poster: '/assets/cases/web-site-poster.jpg',
+      hasAudio: false,
+    },
+    {
+      src: '/assets/cases/web-site-feature.mp4',
+      role: 'full',
+      poster: '/assets/cases/web-site-poster.jpg',
+      hasAudio: false,
+    },
+  ]);
+  assert.equal(existsSync(new URL('../public/assets/cases/web-site-preview.mp4', import.meta.url)), true);
+  assert.equal(existsSync(new URL('../public/assets/cases/web-site-feature.mp4', import.meta.url)), true);
+  assert.equal(existsSync(new URL('../public/assets/cases/web-site-poster.jpg', import.meta.url)), true);
+  assert.ok(caseStudies.slice(4).every(({ approved, title, media }) => !approved && title === null && media.length === 0));
 });
 
 test('selected work keyboard contract opens accessible inline details instead of separate pages', () => {

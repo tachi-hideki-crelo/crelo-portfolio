@@ -180,7 +180,58 @@ export const caseStudies: readonly CaseStudy[] = [
       },
     ],
   },
-  ...CASE_STUDY_SLUGS.slice(3).map((slug, index) => privateCaseStudy(slug, index + 3)),
+  {
+    ...privateCaseStudy('ops-interface', 3),
+    title: 'Webサイト構築',
+    role: '集客・成約・業務効率化まで',
+    detail: {
+      projectName: 'ビジネスの目的に合わせたWebサイト制作・システム構築',
+      overview: '単なる「会社案内」にとどまらず、集客・成約・業務効率化のハブとして機能するWebサイトを構築。WordPressを用いた迅速なCMS構築はもちろん、パフォーマンスやセキュリティ、特殊なUI/UXが求められるプロジェクトでは、モダンな技術スタックを用いたゼロベースでの完全独自開発（フルスクラッチ）にも対応。スパム対策や自動返信、通知連携を含めた「問い合わせ機能の実装」や、現場スタッフが手軽に運用できる「お知らせ・コンテンツ管理システム」など、多様なニーズに合わせた柔軟なカスタマイズを提供しました。',
+      outcomesLabel: '効果',
+      labelSuffix: '',
+      outcomes: [
+        {
+          title: '内製化による運用コスト削減',
+          description: '管理画面から直感的に更新できる仕組みを整えたことで、軽微な修正やニュース発信の外注コストとタイムラグをゼロ化。',
+        },
+        {
+          title: '問い合わせ率（CVR）の向上',
+          description: 'ユーザーが迷わない導線設計と入力負荷を軽減したフォーム実装により、Webサイト経由の問い合わせ・相談獲得数が増加。',
+        },
+        {
+          title: '高速表示とマルチデバイス最適化',
+          description: '表示速度の高速化とモバイルファースト設計により、SEO評価およびユーザーの直帰率改善に寄与。',
+        },
+      ],
+    },
+    approved: true,
+    approvedAt: '2026-09-06',
+    media: [
+      {
+        src: '/assets/cases/web-site-preview.mp4',
+        alt: 'Webサイト構築の一覧用プレビュー',
+        kind: 'video',
+        role: 'preview',
+        approved: true,
+        approvedAt: '2026-09-06',
+        poster: '/assets/cases/web-site-poster.jpg',
+        hasAudio: false,
+        captionsSrc: null,
+      },
+      {
+        src: '/assets/cases/web-site-feature.mp4',
+        alt: 'Webサイト構築の詳細動画',
+        kind: 'video',
+        role: 'full',
+        approved: true,
+        approvedAt: '2026-09-06',
+        poster: '/assets/cases/web-site-poster.jpg',
+        hasAudio: false,
+        captionsSrc: null,
+      },
+    ],
+  },
+  ...CASE_STUDY_SLUGS.slice(4).map((slug, index) => privateCaseStudy(slug, index + 4)),
 ];
 
 export const siteContent: SiteContent = {
