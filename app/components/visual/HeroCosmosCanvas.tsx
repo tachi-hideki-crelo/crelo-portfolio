@@ -6,6 +6,13 @@ import * as THREE from 'three';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { getHeroFormationTimeline, getHeroTimeline } from '../site/hero-timeline';
+import {
+  CIRCUIT_SCAN_PERIOD_SECONDS,
+  CORE_BREATH_PERIOD_SECONDS,
+  getHeroCircuitReveal,
+  HERO_CYBER_PALETTE,
+  getHeroRingPhase,
+} from './hero-cyber-config';
 
 export type HeroCosmosTier = 'pc' | 'tablet' | 'mobile' | 'static';
 
@@ -29,22 +36,13 @@ const TIER_CONFIG: Record<HeroCosmosTier, TierConfig> = {
 };
 
 const SATELLITE_PALETTE = [
-  0xffd84a,
+  0xffd24a,
   0xffaa24,
   0xfff2a8,
   0xe8ff78,
   0xff7a1a,
   0xffc4df,
   0xfff7db,
-] as const;
-
-const STATIC_CRYSTAL_FACETS = [
-  { points: [[-0.92, -0.08], [-0.28, -0.92], [-0.12, -0.06]], fill: 'rgba(91, 224, 255, 0.16)', stroke: 'rgba(172, 246, 255, 0.46)' },
-  { points: [[-0.28, -0.92], [0.46, -0.76], [-0.12, -0.06]], fill: 'rgba(198, 116, 255, 0.13)', stroke: 'rgba(230, 192, 255, 0.42)' },
-  { points: [[0.46, -0.76], [0.92, -0.08], [-0.12, -0.06]], fill: 'rgba(255, 222, 126, 0.15)', stroke: 'rgba(255, 240, 188, 0.5)' },
-  { points: [[-0.92, -0.08], [-0.12, -0.06], [-0.68, 0.62]], fill: 'rgba(82, 166, 255, 0.13)', stroke: 'rgba(118, 217, 255, 0.38)' },
-  { points: [[-0.12, -0.06], [0.92, -0.08], [0.54, 0.7]], fill: 'rgba(255, 151, 226, 0.12)', stroke: 'rgba(255, 196, 238, 0.4)' },
-  { points: [[-0.68, 0.62], [-0.12, -0.06], [0.54, 0.7]], fill: 'rgba(104, 255, 218, 0.12)', stroke: 'rgba(180, 255, 234, 0.42)' },
 ] as const;
 
 type HeroCosmosCanvasProps = {
@@ -135,6 +133,32 @@ function satelliteRevealAt(reveal: number, index: number): number {
   return smoothReveal((reveal - delay) / Math.max(1 - delay, 0.001));
 }
 
+function drawStaticCircuitRing(context: CanvasRenderingContext2D, radius: number, scaleY: number, rotation: number, color: string, phase: number): void {
+  context.save();
+  context.rotate(rotation);
+  context.scale(1, scaleY);
+  context.strokeStyle = color;
+  context.lineWidth = 0.9;
+  for (let segment = 0; segment < 48; segment += 1) {
+    if (segment % 16 < 3 || segment % 29 === 0) continue;
+    const start = (segment / 48) * Math.PI * 2 + phase;
+    const end = start + (Math.PI * 2 / 48) * 0.82;
+    context.beginPath();
+    context.arc(0, 0, radius, start, end);
+    context.stroke();
+  }
+  context.lineWidth = 0.72;
+  for (let tick = 0; tick < 12; tick += 1) {
+    if (tick % 4 !== 0) continue;
+    const angle = (tick / 12) * Math.PI * 2 + phase;
+    context.beginPath();
+    context.moveTo(Math.cos(angle) * radius * 0.9, Math.sin(angle) * radius * 0.9);
+    context.lineTo(Math.cos(angle) * radius * 1.1, Math.sin(angle) * radius * 1.1);
+    context.stroke();
+  }
+  context.restore();
+}
+
 function drawStaticCosmos(context: CanvasRenderingContext2D, width: number, height: number, progress: number, points: Float32Array, dpr: number) {
   const state = getHeroTimeline(progress);
   const centerX = width * (0.5 + state.sphereX * 0.18);
@@ -144,70 +168,60 @@ function drawStaticCosmos(context: CanvasRenderingContext2D, width: number, heig
   context.setTransform(dpr, 0, 0, dpr, 0, 0);
   context.clearRect(0, 0, width, height);
   const glow = context.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius * 3.2);
-  glow.addColorStop(0, 'rgba(255, 214, 80, 0.2)');
-  glow.addColorStop(0.18, 'rgba(126, 78, 255, 0.22)');
-  glow.addColorStop(0.48, 'rgba(54, 225, 255, 0.12)');
-  glow.addColorStop(1, 'rgba(5, 15, 18, 0)');
+  glow.addColorStop(0, 'rgba(112, 233, 255, 0.12)');
+  glow.addColorStop(0.2, 'rgba(158, 114, 255, 0.14)');
+  glow.addColorStop(0.52, 'rgba(34, 76, 148, 0.08)');
+  glow.addColorStop(1, 'rgba(5, 8, 18, 0)');
   context.fillStyle = glow;
   context.fillRect(0, 0, width, height);
 
   context.save();
   context.translate(centerX, centerY);
   context.rotate(state.sphereRotationZ);
-  context.globalCompositeOperation = 'lighter';
-  const core = context.createRadialGradient(-radius * 0.28, -radius * 0.32, radius * 0.04, 0, 0, radius * 1.08);
-  core.addColorStop(0, 'rgba(255, 246, 192, 0.88)');
-  core.addColorStop(0.18, 'rgba(255, 184, 47, 0.46)');
-  core.addColorStop(0.44, 'rgba(119, 62, 255, 0.46)');
-  core.addColorStop(0.72, 'rgba(31, 223, 255, 0.32)');
-  core.addColorStop(1, 'rgba(3, 8, 24, 0.08)');
+  context.globalCompositeOperation = 'source-over';
+  const core = context.createRadialGradient(-radius * 0.2, -radius * 0.26, radius * 0.04, 0, 0, radius * 1.08);
+  core.addColorStop(0, 'rgba(102, 70, 185, 0.44)');
+  core.addColorStop(0.22, 'rgba(30, 39, 93, 0.86)');
+  core.addColorStop(0.62, 'rgba(5, 8, 18, 0.98)');
+  core.addColorStop(1, 'rgba(5, 8, 18, 0.98)');
   context.fillStyle = core;
   context.beginPath();
   context.arc(0, 0, radius, 0, Math.PI * 2);
   context.fill();
 
-  context.save();
-  context.beginPath();
-  context.arc(0, 0, radius * 0.99, 0, Math.PI * 2);
-  context.clip();
-  STATIC_CRYSTAL_FACETS.forEach(({ points: facetPoints, fill, stroke }) => {
-    context.beginPath();
-    context.moveTo(facetPoints[0][0] * radius, facetPoints[0][1] * radius);
-    for (let pointIndex = 1; pointIndex < facetPoints.length; pointIndex += 1) {
-      context.lineTo(facetPoints[pointIndex][0] * radius, facetPoints[pointIndex][1] * radius);
-    }
-    context.closePath();
-    context.fillStyle = fill;
-    context.fill();
-    context.strokeStyle = stroke;
-    context.lineWidth = 0.72;
-    context.stroke();
-  });
-  const crystalSweep = context.createLinearGradient(-radius, -radius, radius, radius);
-  crystalSweep.addColorStop(0.28, 'rgba(255, 255, 255, 0)');
-  crystalSweep.addColorStop(0.48, 'rgba(212, 249, 255, 0.28)');
-  crystalSweep.addColorStop(0.54, 'rgba(255, 224, 142, 0.16)');
-  crystalSweep.addColorStop(0.7, 'rgba(255, 255, 255, 0)');
-  context.fillStyle = crystalSweep;
-  context.fillRect(-radius, -radius, radius * 2, radius * 2);
-  context.restore();
-
-  context.strokeStyle = 'rgba(166, 255, 219, 0.48)';
+  context.globalCompositeOperation = 'lighter';
+  context.strokeStyle = HERO_CYBER_PALETTE.cyan;
+  context.globalAlpha = 0.34;
   context.lineWidth = 1;
   context.beginPath();
   context.arc(0, 0, radius, 0, Math.PI * 2);
   context.stroke();
-  const shellColors = ['rgba(110, 226, 255, 0.42)', 'rgba(155, 102, 255, 0.34)', 'rgba(255, 205, 73, 0.42)'];
+  const shellColors = [HERO_CYBER_PALETTE.cyan, HERO_CYBER_PALETTE.violet, HERO_CYBER_PALETTE.gold];
   shellColors.forEach((color, index) => {
     context.strokeStyle = color;
+    context.globalAlpha = index === 2 ? 0.4 : 0.28;
     context.lineWidth = index === 2 ? 1.25 : 0.8;
     context.beginPath();
     context.ellipse(0, 0, radius * (1.1 + index * 0.16), radius * (0.28 + index * 0.13), 0.42 + state.cameraYaw + index * 0.72, 0, Math.PI * 2);
     context.stroke();
   });
+  context.globalAlpha = 1;
+  drawStaticCircuitRing(context, radius * 1.08, 0.3, 0.28 + state.cameraYaw, HERO_CYBER_PALETTE.cyan, 0.08);
+  drawStaticCircuitRing(context, radius * 1.24, 0.2, -0.5 + state.cameraPitch, HERO_CYBER_PALETTE.violet, 0.36);
+  drawStaticCircuitRing(context, radius * 1.4, 0.48, 1.06 + state.cameraRoll, HERO_CYBER_PALETTE.gold, 0.68);
+  context.globalCompositeOperation = 'lighter';
+  for (let node = 0; node < 9; node += 1) {
+    const angle = node * 0.72 + state.sphereRotationY * 0.2;
+    const nodeRadius = radius * (1.02 + (node % 3) * 0.12);
+    context.fillStyle = node % 3 === 0 ? HERO_CYBER_PALETTE.violet : HERO_CYBER_PALETTE.cyan;
+    context.beginPath();
+    context.arc(Math.cos(angle) * nodeRadius, Math.sin(angle) * nodeRadius * 0.72, Math.max(1.25, radius * 0.015), 0, Math.PI * 2);
+    context.fill();
+  }
+  context.globalCompositeOperation = 'source-over';
   context.restore();
 
-  context.fillStyle = 'rgba(166, 255, 219, 0.5)';
+  context.fillStyle = HERO_CYBER_PALETTE.cyan;
   for (let index = 0; index < points.length; index += 3) {
     const x = centerX + points[index] * radius * 0.72;
     const y = centerY + points[index + 1] * radius * 0.72;
@@ -278,29 +292,108 @@ function StaticCosmos({ progress, config }: { progress: MotionValue<number>; con
 function createOrbitGroup(orbitCount: number): THREE.Group {
   const group = new THREE.Group();
   const curves = [
-    { radius: 1.42, scaleY: 0.34, rotation: 0.28, color: 0x6ee2ff, opacity: 0.46, dashed: false },
-    { radius: 1.68, scaleY: 0.18, rotation: -0.5, color: 0xffd24a, opacity: 0.42, dashed: true },
-    { radius: 1.9, scaleY: 0.52, rotation: 1.08, color: 0x9e72ff, opacity: 0.34, dashed: false },
-    { radius: 2.14, scaleY: 0.26, rotation: 1.74, color: 0xffa82c, opacity: 0.32, dashed: true },
-    { radius: 2.34, scaleY: 0.58, rotation: -1.1, color: 0x75ffd5, opacity: 0.28, dashed: false },
-    { radius: 2.52, scaleY: 0.4, rotation: 0.72, color: 0xffeea8, opacity: 0.24, dashed: true },
-    { radius: 2.7, scaleY: 0.2, rotation: 2.28, color: 0x51bfff, opacity: 0.2, dashed: false },
+    { radius: 1.32, scaleY: 1, rotation: 0.28, tilt: [0.26, -0.22], color: HERO_CYBER_PALETTE.cyan, opacity: 0.82, phase: 0.08, axis: [0, 1, 0] },
+    { radius: 1.5, scaleY: 1, rotation: -0.5, tilt: [-0.3, 0.18], color: HERO_CYBER_PALETTE.violet, opacity: 0.72, phase: 0.36, axis: [1, 0, 0] },
+    { radius: 1.68, scaleY: 1, rotation: 1.08, tilt: [0.18, 0.34], color: HERO_CYBER_PALETTE.gold, opacity: 0.62, phase: 0.68, axis: [0, 0, 1] },
+    { radius: 2.04, scaleY: 0.72, rotation: 1.74, tilt: [0.38, 0.26], color: HERO_CYBER_PALETTE.cyan, opacity: 0.2, phase: 0.17, axis: [1, 1, 0] },
+    { radius: 2.28, scaleY: 0.78, rotation: -1.1, tilt: [-0.26, 0.36], color: HERO_CYBER_PALETTE.violet, opacity: 0.18, phase: 0.53, axis: [0, 1, 1] },
+    { radius: 2.5, scaleY: 0.7, rotation: 0.72, tilt: [0.3, -0.32], color: HERO_CYBER_PALETTE.gold, opacity: 0.16, phase: 0.79, axis: [1, 0, 1] },
+    { radius: 2.7, scaleY: 0.64, rotation: 2.28, tilt: [-0.22, 0.28], color: HERO_CYBER_PALETTE.cyan, opacity: 0.13, phase: 0.91, axis: [1, 1, 1] },
   ].slice(0, orbitCount);
-  curves.forEach(({ radius, scaleY, rotation, color, opacity, dashed }) => {
-    const points: THREE.Vector3[] = [];
-    for (let index = 0; index <= 128; index += 1) {
-      const angle = (index / 128) * Math.PI * 2;
-      const x = Math.cos(angle) * radius;
-      const y = Math.sin(angle) * radius * scaleY;
-      points.push(new THREE.Vector3(x * Math.cos(rotation) - y * Math.sin(rotation), x * Math.sin(rotation) + y * Math.cos(rotation), Math.sin(angle * 2.5 + rotation) * 0.12));
+  curves.forEach(({ radius, scaleY, rotation, tilt, color, opacity, phase, axis }, ringIndex) => {
+    const positions: number[] = [];
+    const tracks: number[] = [];
+    const kinds: number[] = [];
+    const strokeOffsets = ringIndex < 3 ? [-0.006, 0, 0.006] : [0];
+    const addSegment = (start: THREE.Vector3, end: THREE.Vector3, track: number, kind: number) => {
+      strokeOffsets.forEach((offset) => {
+        const strokeStart = start.clone().multiplyScalar(1 + offset);
+        const strokeEnd = end.clone().multiplyScalar(1 + offset);
+        positions.push(strokeStart.x, strokeStart.y, strokeStart.z, strokeEnd.x, strokeEnd.y, strokeEnd.z);
+        tracks.push(track, track);
+        kinds.push(kind, kind);
+      });
+    };
+    const segments = ringIndex < 3 ? 72 : 48;
+    for (let index = 0; index < segments; index += 1) {
+      // The three hero rings have visible breaks so their front/back order is
+      // readable. The remaining budget is reserved for quieter support arcs.
+      if (index % (ringIndex < 3 ? 18 : 21) < (ringIndex < 3 ? 3 : 5)) continue;
+      const startAngle = (index / segments) * Math.PI * 2 + phase;
+      const endAngle = startAngle + (Math.PI * 2 / segments) * 0.82;
+      const start = new THREE.Vector3(Math.cos(startAngle) * radius, Math.sin(startAngle) * radius * scaleY, 0).applyAxisAngle(new THREE.Vector3(0, 0, 1), rotation);
+      const end = new THREE.Vector3(Math.cos(endAngle) * radius, Math.sin(endAngle) * radius * scaleY, 0).applyAxisAngle(new THREE.Vector3(0, 0, 1), rotation);
+      addSegment(start, end, index / segments, 0);
     }
-    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const material = dashed
-      ? new THREE.LineDashedMaterial({ color, transparent: true, opacity: 0, dashSize: 0.09, gapSize: 0.065, blending: THREE.AdditiveBlending, depthWrite: false })
-      : new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+    if (ringIndex < 3) {
+      for (let tick = 0; tick < segments; tick += 9) {
+        if (tick % 18 < 3) continue;
+        const angle = (tick / segments) * Math.PI * 2 + phase;
+        const inner = new THREE.Vector3(Math.cos(angle) * radius * 0.89, Math.sin(angle) * radius * scaleY * 0.89, 0).applyAxisAngle(new THREE.Vector3(0, 0, 1), rotation);
+        const outer = new THREE.Vector3(Math.cos(angle) * radius * 1.1, Math.sin(angle) * radius * scaleY * 1.1, 0).applyAxisAngle(new THREE.Vector3(0, 0, 1), rotation);
+        addSegment(inner, outer, tick / segments, 1);
+      }
+      [0.22, 1.46, 2.76, 4.05, 5.22].forEach((angle, branchIndex) => {
+        const inner = new THREE.Vector3(Math.cos(angle + phase) * radius * (0.36 + (branchIndex % 3) * 0.08), Math.sin(angle + phase) * radius * scaleY * 0.36, 0.03 * (branchIndex % 2 === 0 ? 1 : -1)).applyAxisAngle(new THREE.Vector3(0, 0, 1), rotation);
+        const outer = new THREE.Vector3(Math.cos(angle + phase) * radius, Math.sin(angle + phase) * radius * scaleY, 0).applyAxisAngle(new THREE.Vector3(0, 0, 1), rotation);
+        addSegment(inner, outer, (branchIndex + 0.5) / 5, 2);
+      });
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute('aTrack', new THREE.Float32BufferAttribute(tracks, 1));
+    geometry.setAttribute('aKind', new THREE.Float32BufferAttribute(kinds, 1));
+    const material = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      toneMapped: false,
+      uniforms: {
+        uTime: { value: 0 },
+        uScanPeriod: { value: CIRCUIT_SCAN_PERIOD_SECONDS },
+        uReveal: { value: 0 },
+        uDissolve: { value: 0 },
+        uColor: { value: new THREE.Color(color) },
+        uBaseOpacity: { value: opacity },
+      },
+      vertexShader: [
+        'attribute float aTrack;',
+        'attribute float aKind;',
+        'varying float vTrack;',
+        'varying float vKind;',
+        'void main() {',
+        '  vTrack = aTrack;',
+        '  vKind = aKind;',
+        '  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
+        '}',
+      ].join('\n'),
+      fragmentShader: [
+        'uniform float uTime;',
+        'uniform float uScanPeriod;',
+        'uniform float uReveal;',
+        'uniform float uDissolve;',
+        'uniform vec3 uColor;',
+        'uniform float uBaseOpacity;',
+        'varying float vTrack;',
+        'varying float vKind;',
+        'void main() {',
+        '  float scanPosition = fract(uTime / uScanPeriod);',
+        '  float scanDistance = abs(scanPosition - vTrack);',
+        '  scanDistance = min(scanDistance, 1.0 - scanDistance);',
+        '  float scan = 1.0 - smoothstep(0.0, 0.16, scanDistance);',
+        '  vec3 color = mix(uColor, vec3(1.0, 0.8235, 0.2902), step(0.5, vKind) * 0.24);',
+        '  float alpha = uBaseOpacity * (0.7 + scan * 1.4) * uReveal * (1.0 - uDissolve * 0.95);',
+        '  gl_FragColor = vec4(color, alpha);',
+        '}',
+      ].join('\n'),
+    });
     material.userData.baseOpacity = opacity;
-    const line = new THREE.Line(geometry, material);
-    if (dashed) line.computeLineDistances();
+    const line = new THREE.LineSegments(geometry, material);
+    line.userData.ringIndex = ringIndex;
+    line.userData.isHeroRing = ringIndex < 3;
+    line.renderOrder = 3;
+    line.userData.baseQuaternion = new THREE.Quaternion().setFromEuler(new THREE.Euler(tilt[0], tilt[1], rotation));
+    line.userData.spinAxis = new THREE.Vector3(axis[0], axis[1], axis[2]).normalize();
     group.add(line);
   });
   return group;
@@ -310,98 +403,34 @@ function CosmosScene({ config, progress, formationProgress }: { config: TierConf
   const rootRef = useRef<THREE.Group>(null);
   const satellitesRef = useRef<THREE.InstancedMesh>(null);
   const satelliteGlowsRef = useRef<THREE.InstancedMesh>(null);
-  const goldWireRef = useRef<THREE.Mesh>(null);
   const coreStarsRef = useRef<THREE.Points>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const cameraLookAt = useMemo(() => new THREE.Vector3(0, 0, 0), []);
+  const animationTimeRef = useRef(0);
+  const ringSpinQuaternion = useMemo(() => new THREE.Quaternion(), []);
   const orbitGroup = useMemo(() => createOrbitGroup(config.orbits), [config.orbits]);
   const orbitGroupRef = useRef(orbitGroup);
-  const crystalShellRef = useRef<THREE.Group>(null);
+  const shellRef = useRef<THREE.Group>(null);
   // `detail` is an explicit product budget: do not silently lower the
   // requested PC/tablet/mobile geometry tier.
   const geometry = useMemo(() => new THREE.IcosahedronGeometry(1, config.detail), [config.detail]);
-  const crystalGeometry = useMemo(() => {
-    const baseGeometry = new THREE.IcosahedronGeometry(1.012, config.detail >= 4 ? 2 : 1);
-    const facetedGeometry = baseGeometry.index ? baseGeometry.toNonIndexed() : baseGeometry;
-    if (facetedGeometry !== baseGeometry) baseGeometry.dispose();
-    facetedGeometry.computeVertexNormals();
-    return facetedGeometry;
-  }, [config.detail]);
-  const orbMaterial = useMemo(() => new THREE.ShaderMaterial({
-    transparent: true,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-    uniforms: { uTime: { value: 0 }, uDissolve: { value: 0 }, uReveal: { value: 0 }, uFormation: { value: 0 } },
-    vertexShader: `
-      uniform float uTime;
-      uniform float uDissolve;
-      uniform float uReveal;
-      uniform float uFormation;
-      varying vec3 vNormal;
-      varying vec3 vViewPosition;
-      varying vec3 vObjectPosition;
-      float fieldNoise(vec3 p) {
-        return sin(p.x * 4.2 + uTime * 0.32) * sin(p.y * 3.7 - uTime * 0.21) * sin(p.z * 5.1 + uTime * 0.16);
-      }
-      void main() {
-        vec3 displaced = position + normal * fieldNoise(position * 1.7) * 0.055;
-        float assemblyNoise = fieldNoise(position * 6.4 + vec3(uTime * 0.12));
-        displaced += normal * (1.0 - uReveal) * assemblyNoise * 0.24;
-        displaced += normal * uFormation * sin(position.y * 18.0 - uTime * 2.1) * 0.035;
-        displaced += normal * uDissolve * fieldNoise(position * 7.0 + 2.0) * 0.22;
-        vNormal = normalize(normalMatrix * normal);
-        vObjectPosition = displaced;
-        vec4 viewPosition = modelViewMatrix * vec4(displaced, 1.0);
-        vViewPosition = viewPosition.xyz;
-        gl_Position = projectionMatrix * viewPosition;
-      }
-    `,
-    fragmentShader: `
-      uniform float uTime;
-      uniform float uDissolve;
-      uniform float uReveal;
-      uniform float uFormation;
-      varying vec3 vNormal;
-      varying vec3 vViewPosition;
-      varying vec3 vObjectPosition;
-      void main() {
-        vec3 p = vObjectPosition;
-        vec3 viewDirection = normalize(-vViewPosition);
-        float fresnel = pow(1.0 - max(dot(normalize(vNormal), viewDirection), 0.0), 2.35);
-        float cloudA = sin(p.x * 7.0 + uTime * 0.2) * sin(p.y * 5.0 - uTime * 0.13) * sin(p.z * 8.0 + uTime * 0.17);
-        float cloudB = sin((p.x + p.z) * 11.0 - uTime * 0.11) * cos((p.y - p.x) * 8.0 + uTime * 0.08);
-        float cloud = smoothstep(-0.52, 0.88, cloudA * 0.72 + cloudB * 0.28);
-        float polarAngle = atan(p.z, p.x);
-        float spiralRaw = sin(polarAngle * 5.0 + length(p.xz) * 14.0 - uTime * 0.34 + p.y * 3.0);
-        float spiral = smoothstep(0.34, 0.94, spiralRaw * 0.5 + 0.5);
-        float scanline = pow(0.5 + 0.5 * sin(p.y * 42.0 - uTime * 1.45 + sin(p.x * 4.0)), 18.0);
-        float meridian = pow(0.5 + 0.5 * cos(polarAngle * 18.0 + uTime * 0.09), 24.0);
-        float cyberGrid = max(scanline, meridian) * (0.34 + fresnel * 0.66);
-        float starHash = fract(sin(dot(floor(p * 34.0), vec3(12.9898, 78.233, 37.719))) * 43758.5453);
-        float starNoise = smoothstep(0.965, 0.998, starHash);
-        vec3 deepSpace = vec3(0.002, 0.006, 0.022);
-        vec3 cyan = vec3(0.08, 0.74, 1.0);
-        vec3 violet = vec3(0.54, 0.14, 1.0);
-        vec3 magenta = vec3(0.95, 0.18, 0.72);
-        vec3 gold = vec3(1.0, 0.58, 0.08);
-        vec3 hotWhite = vec3(1.0, 0.94, 0.72);
-        vec3 nebula = mix(cyan, violet, smoothstep(-0.55, 0.68, sin(p.y * 3.2 + p.x * 2.1)));
-        nebula = mix(nebula, magenta, cloud * 0.28);
-        nebula = mix(nebula, gold, spiral * (0.18 + cloud * 0.2));
-        vec3 color = mix(deepSpace, nebula, min(1.0, fresnel * 0.88 + cloud * 0.34 + spiral * 0.16));
-        color += mix(cyan, gold, spiral) * cyberGrid * 0.22;
-        color += hotWhite * starNoise * 0.72;
-        color += mix(hotWhite, gold, spiral) * uFormation * (0.08 + fresnel * 0.34);
-        float alpha = (0.1 + fresnel * 0.58 + cloud * 0.22 + spiral * 0.1 + cyberGrid * 0.16 + starNoise * 0.3) * uReveal * (1.0 - uDissolve * 0.94);
-        gl_FragColor = vec4(color, alpha);
-      }
-    `,
-  }), []);
+  // The semi-transparent skin deliberately reuses the core geometry so the
+  // replacement does not add another high-resolution surface mesh.
+  const shellGeometry = geometry;
   const coreMaterial = useMemo(() => new THREE.ShaderMaterial({
     transparent: true,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-    uniforms: { uTime: { value: 0 }, uDissolve: { value: 0 }, uReveal: { value: 0 }, uFormation: { value: 0 } },
+    depthWrite: true,
+    blending: THREE.NormalBlending,
+    uniforms: {
+      uTime: { value: 0 },
+      uDissolve: { value: 0 },
+      uReveal: { value: 0 },
+      uFormation: { value: 0 },
+      uBreathPeriod: { value: CORE_BREATH_PERIOD_SECONDS },
+      uDark: { value: new THREE.Color(HERO_CYBER_PALETTE.dark) },
+      uCyan: { value: new THREE.Color(HERO_CYBER_PALETTE.cyan) },
+      uViolet: { value: new THREE.Color(HERO_CYBER_PALETTE.violet) },
+    },
     vertexShader: `
       varying vec3 vNormal;
       varying vec3 vViewPosition;
@@ -419,6 +448,10 @@ function CosmosScene({ config, progress, formationProgress }: { config: TierConf
       uniform float uDissolve;
       uniform float uReveal;
       uniform float uFormation;
+      uniform float uBreathPeriod;
+      uniform vec3 uDark;
+      uniform vec3 uCyan;
+      uniform vec3 uViolet;
       varying vec3 vNormal;
       varying vec3 vViewPosition;
       varying vec3 vObjectPosition;
@@ -428,67 +461,33 @@ function CosmosScene({ config, progress, formationProgress }: { config: TierConf
         float center = pow(max(dot(normalize(vNormal), viewDirection), 0.0), 0.55);
         float cloud = sin(p.x * 8.0 + uTime * 0.16) * sin(p.y * 6.0 - uTime * 0.12) * cos(p.z * 9.0 + uTime * 0.1);
         cloud = smoothstep(-0.58, 0.82, cloud);
-        float pulse = 0.5 + 0.5 * sin(uTime * 0.72 + length(p.xy) * 12.0);
-        vec3 violet = vec3(0.38, 0.06, 0.88);
-        vec3 cyan = vec3(0.02, 0.58, 0.92);
-        vec3 gold = vec3(1.0, 0.46, 0.04);
-        vec3 color = mix(violet, cyan, cloud);
-        color = mix(color, gold, pulse * cloud * 0.28);
-        color += vec3(1.0, 0.88, 0.58) * (pow(pulse, 7.0) * 0.18 + uFormation * center * 0.24);
-        float alpha = (0.1 + center * 0.22 + cloud * 0.18) * uReveal * (1.0 - uDissolve * 0.96);
+        float pulse = 0.5 + 0.5 * sin(uTime * 6.2831853 / uBreathPeriod + length(p.xy) * 12.0);
+        float vortex = smoothstep(0.28, 0.92, 0.5 + 0.5 * sin(atan(p.z, p.x) * 5.0 + length(p.xz) * 15.0 - uTime * 0.22 + p.y * 3.0));
+        vec3 color = mix(uDark, mix(uViolet, uCyan, vortex), 0.08 + cloud * 0.1 + pulse * 0.07 + center * 0.05);
+        color += mix(uViolet, uCyan, pulse) * vortex * 0.16;
+        float alpha = (0.96 + center * 0.04) * uReveal * (1.0 - uDissolve * 0.96);
+        if (uReveal < 0.001) discard;
         gl_FragColor = vec4(color, alpha);
       }
     `,
   }), []);
-  const auraMaterial = useMemo(() => new THREE.ShaderMaterial({
-    transparent: true,
-    depthWrite: false,
-    side: THREE.BackSide,
-    blending: THREE.AdditiveBlending,
-    uniforms: { uTime: { value: 0 }, uDissolve: { value: 0 }, uReveal: { value: 0 }, uFormation: { value: 0 } },
-    vertexShader: `
-      varying vec3 vNormal;
-      varying vec3 vViewPosition;
-      varying vec3 vObjectPosition;
-      void main() {
-        vNormal = normalize(normalMatrix * normal);
-        vObjectPosition = position;
-        vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
-        vViewPosition = viewPosition.xyz;
-        gl_Position = projectionMatrix * viewPosition;
-      }
-    `,
-    fragmentShader: `
-      uniform float uTime;
-      uniform float uDissolve;
-      uniform float uReveal;
-      uniform float uFormation;
-      varying vec3 vNormal;
-      varying vec3 vViewPosition;
-      varying vec3 vObjectPosition;
-      void main() {
-        vec3 viewDirection = normalize(-vViewPosition);
-        float fresnel = pow(1.0 - abs(dot(normalize(vNormal), viewDirection)), 2.1);
-        float wave = 0.5 + 0.5 * sin(vObjectPosition.y * 9.0 + uTime * 0.42 + vObjectPosition.x * 3.0);
-        vec3 cyan = vec3(0.02, 0.72, 1.0);
-        vec3 violet = vec3(0.5, 0.1, 1.0);
-        vec3 gold = vec3(1.0, 0.56, 0.08);
-        vec3 color = mix(cyan, violet, wave);
-        color = mix(color, gold, smoothstep(0.84, 1.0, wave) * 0.34);
-        color += vec3(1.0, 0.88, 0.56) * uFormation * fresnel * 0.28;
-        float alpha = fresnel * (0.1 + wave * 0.12 + uFormation * 0.08) * uReveal * (1.0 - uDissolve * 0.96);
-        gl_FragColor = vec4(color, alpha);
-      }
-    `,
-  }), []);
-  const crystalMaterial = useMemo(() => new THREE.ShaderMaterial({
+  const shellMaterial = useMemo(() => new THREE.ShaderMaterial({
     transparent: true,
     depthWrite: false,
     depthTest: true,
     side: THREE.DoubleSide,
     blending: THREE.AdditiveBlending,
     toneMapped: false,
-    uniforms: { uTime: { value: 0 }, uDissolve: { value: 0 }, uReveal: { value: 0 }, uFormation: { value: 0 } },
+    uniforms: {
+      uTime: { value: 0 },
+      uDissolve: { value: 0 },
+      uReveal: { value: 0 },
+      uFormation: { value: 0 },
+      uScanPeriod: { value: CIRCUIT_SCAN_PERIOD_SECONDS },
+      uCircuitDensity: { value: config.detail >= 5 ? 1 : config.detail >= 4 ? 0.82 : 0.62 },
+      uCyan: { value: new THREE.Color(HERO_CYBER_PALETTE.cyan) },
+      uViolet: { value: new THREE.Color(HERO_CYBER_PALETTE.violet) },
+    },
     vertexShader: `
       uniform float uTime;
       uniform float uDissolve;
@@ -498,9 +497,9 @@ function CosmosScene({ config, progress, formationProgress }: { config: TierConf
       varying vec3 vViewPosition;
       varying vec3 vObjectPosition;
       void main() {
-        float crystalPulse = sin(position.y * 7.0 + position.x * 5.0 - uTime * 0.22) * 0.008;
+        float shellPulse = sin(position.y * 7.0 + position.x * 5.0 - uTime * 0.22) * 0.008;
         float assembling = (1.0 - uReveal) * sin(position.x * 17.0 + position.z * 13.0 + uTime) * 0.14;
-        vec3 displaced = position + normal * (crystalPulse + assembling + uFormation * 0.012);
+        vec3 displaced = position + normal * (shellPulse + assembling + uFormation * 0.012);
         displaced += normal * uDissolve * sin(position.y * 12.0 + uTime) * 0.12;
         vNormal = normalize(normalMatrix * normal);
         vObjectPosition = displaced;
@@ -514,59 +513,115 @@ function CosmosScene({ config, progress, formationProgress }: { config: TierConf
       uniform float uDissolve;
       uniform float uReveal;
       uniform float uFormation;
+      uniform float uScanPeriod;
+      uniform float uCircuitDensity;
+      uniform vec3 uCyan;
+      uniform vec3 uViolet;
       varying vec3 vNormal;
       varying vec3 vViewPosition;
       varying vec3 vObjectPosition;
+
+      float hash21(vec2 value) {
+        value = fract(value * vec2(123.34, 456.21));
+        value += dot(value, value + 45.32);
+        return fract(value.x * value.y);
+      }
+
+      float segmentDistance(vec2 point, vec2 startPoint, vec2 endPoint) {
+        vec2 along = endPoint - startPoint;
+        float amount = clamp(dot(point - startPoint, along) / max(dot(along, along), 0.0001), 0.0, 1.0);
+        return length(point - (startPoint + along * amount));
+      }
+
       void main() {
         vec3 normal = normalize(vNormal);
         vec3 viewDirection = normalize(-vViewPosition);
-        vec3 keyLight = normalize(vec3(-0.44, 0.72, 0.58));
-        vec3 rimLight = normalize(vec3(0.62, -0.2, 0.76));
-        float fresnel = pow(1.0 - abs(dot(normal, viewDirection)), 1.62);
-        float facetLight = pow(max(dot(normal, keyLight), 0.0), 2.0);
-        float reverseFacet = pow(max(dot(normal, rimLight), 0.0), 3.0);
-        float prismShift = 0.5 + 0.5 * sin(
-          dot(normal, vec3(8.0, 11.0, 6.0)) +
-          dot(vObjectPosition, vec3(7.0, -5.0, 9.0)) -
-          uTime * 0.32
+        float fresnel = pow(1.0 - abs(dot(normal, viewDirection)), 2.2);
+        vec3 spherePosition = normalize(vObjectPosition);
+        float longitude = atan(spherePosition.z, spherePosition.x);
+        float latitude = asin(clamp(spherePosition.y, -1.0, 1.0));
+        float columns = mix(13.0, 22.0, uCircuitDensity);
+        float rows = mix(8.0, 14.0, uCircuitDensity);
+        vec2 gridPosition = vec2(
+          (longitude / 6.2831853 + 0.5) * columns,
+          (latitude / 3.1415926 + 0.5) * rows
         );
-        float internalRay = pow(
-          0.5 + 0.5 * sin(dot(vObjectPosition, vec3(15.0, 9.0, -12.0)) - uTime * 0.55),
-          15.0
-        );
-        float caustic = pow(
-          0.5 + 0.5 * cos(vObjectPosition.y * 18.0 + normal.x * 8.0 + uTime * 0.38),
-          10.0
-        );
-        vec3 ice = vec3(0.18, 0.86, 1.0);
-        vec3 violet = vec3(0.58, 0.22, 1.0);
-        vec3 rose = vec3(1.0, 0.28, 0.72);
-        vec3 gold = vec3(1.0, 0.72, 0.2);
-        vec3 crystalColor = mix(ice, violet, prismShift);
-        crystalColor = mix(crystalColor, rose, smoothstep(0.7, 1.0, prismShift) * 0.34);
-        crystalColor = mix(crystalColor, gold, reverseFacet * 0.62 + internalRay * 0.18);
-        crystalColor += vec3(0.82, 0.97, 1.0) * facetLight * 0.52;
-        crystalColor += mix(ice, gold, prismShift) * fresnel * (0.72 + uFormation * 0.3);
-        crystalColor += vec3(1.0, 0.92, 0.72) * (internalRay * 0.26 + caustic * 0.12);
+        vec2 cell = floor(gridPosition);
+        vec2 local = fract(gridPosition);
+        float cellSeed = hash21(cell);
+        float activeCell = step(0.38, cellSeed);
+        float style = fract(cellSeed * 7.17);
+        float routeDistance = 10.0;
+        vec2 junctionPosition = vec2(0.5);
+        vec2 terminalPosition = vec2(0.5);
+        if (style < 0.28) {
+          routeDistance = min(
+            segmentDistance(local, vec2(0.04, 0.3), vec2(0.56, 0.3)),
+            segmentDistance(local, vec2(0.56, 0.3), vec2(0.56, 0.9))
+          );
+          junctionPosition = vec2(0.56, 0.3);
+          terminalPosition = vec2(0.56, 0.9);
+        } else if (style < 0.56) {
+          routeDistance = min(
+            segmentDistance(local, vec2(0.44, 0.08), vec2(0.44, 0.58)),
+            segmentDistance(local, vec2(0.44, 0.58), vec2(0.95, 0.58))
+          );
+          junctionPosition = vec2(0.44, 0.58);
+          terminalPosition = vec2(0.95, 0.58);
+        } else if (style < 0.78) {
+          routeDistance = segmentDistance(local, vec2(0.06, 0.84), vec2(0.84, 0.16));
+          junctionPosition = vec2(0.84, 0.16);
+          terminalPosition = vec2(0.06, 0.84);
+        } else {
+          routeDistance = min(
+            segmentDistance(local, vec2(0.08, 0.48), vec2(0.5, 0.48)),
+            segmentDistance(local, vec2(0.5, 0.48), vec2(0.5, 0.92))
+          );
+          junctionPosition = vec2(0.5, 0.48);
+          terminalPosition = vec2(0.5, 0.92);
+        }
+        float routeEdge = max(fwidth(routeDistance), 0.0012);
+        float localTrace = activeCell * (1.0 - smoothstep(max(0.0, 0.018 - routeEdge), 0.018 + routeEdge, routeDistance));
+        float localHalo = activeCell * (1.0 - smoothstep(max(0.0, 0.052 - routeEdge * 1.5), 0.052 + routeEdge * 1.5, routeDistance));
+        float trunkRow = 1.0 - step(0.14, abs(fract(cell.y / 5.0) - 0.2));
+        float trunkColumn = 1.0 - step(0.14, abs(fract(cell.x / 7.0) - 0.28));
+        float horizontalDistance = abs(local.y - 0.5);
+        float verticalDistance = abs(local.x - 0.5);
+        float horizontalEdge = max(fwidth(horizontalDistance), 0.0012);
+        float verticalEdge = max(fwidth(verticalDistance), 0.0012);
+        float horizontalTrunk = trunkRow * (1.0 - smoothstep(max(0.0, 0.016 - horizontalEdge), 0.016 + horizontalEdge, horizontalDistance));
+        float verticalTrunk = trunkColumn * (1.0 - smoothstep(max(0.0, 0.016 - verticalEdge), 0.016 + verticalEdge, verticalDistance));
+        float trunkTrace = max(horizontalTrunk, verticalTrunk);
+        float trace = max(localTrace, trunkTrace);
+        float traceHalo = max(localHalo * (1.0 - localTrace) * 0.28, trunkTrace * 0.22);
+        float junctionDistance = length(local - junctionPosition);
+        float junction = activeCell * step(0.46, fract(cellSeed * 11.73));
+        float junctionEdge = max(fwidth(junctionDistance), 0.0012);
+        junction *= 1.0 - smoothstep(max(0.0, 0.034 - junctionEdge), 0.034 + junctionEdge, junctionDistance);
+        float terminalDistance = length(local - terminalPosition);
+        float terminal = activeCell * step(0.64, fract(cellSeed * 5.37));
+        float terminalEdge = max(fwidth(terminalDistance), 0.0012);
+        terminal *= 1.0 - smoothstep(max(0.0, 0.032 - terminalEdge), 0.032 + terminalEdge, terminalDistance);
+        float trunkNodeDistance = length(local - vec2(0.5));
+        float trunkNode = step(0.55, trunkRow + trunkColumn) * (1.0 - smoothstep(0.0, 0.04, trunkNodeDistance));
+        float scanPosition = fract(uTime / uScanPeriod);
+        float scanCoordinate = fract((gridPosition.x / max(columns, 1.0)) * 0.86 + (gridPosition.y / max(rows, 1.0)) * 0.24);
+        float scanDistance = abs(scanCoordinate - scanPosition);
+        scanDistance = min(scanDistance, 1.0 - scanDistance);
+        float scan = (1.0 - smoothstep(0.0, 0.095, scanDistance)) * trace;
+        vec3 traceColor = mix(uCyan, uViolet, 0.2 + 0.35 * fract(cellSeed * 2.1 + latitude * 0.38));
+        vec3 shellColor = uCyan * (trace * 0.92 + junction * 0.66 + scan * 1.18 + trunkNode * 0.42);
+        shellColor += traceColor * traceHalo;
+        shellColor += uViolet * terminal * 0.82;
+        shellColor += uViolet * fresnel * 0.012;
         float alpha = (
-          0.045 + facetLight * 0.12 + reverseFacet * 0.08 +
-          fresnel * 0.62 + internalRay * 0.12 + caustic * 0.06
+          fresnel * 0.008 + traceHalo * 0.04 + trace * 0.34 + junction * 0.26 + terminal * 0.3 + scan * 0.52
         ) * uReveal * (1.0 - uDissolve * 0.96);
-        gl_FragColor = vec4(crystalColor, alpha);
+        if (uReveal < 0.001) discard;
+        gl_FragColor = vec4(shellColor, alpha);
       }
     `,
-  }), []);
-  const crystalWireMaterial = useMemo(() => new THREE.MeshBasicMaterial({
-    color: 0xc9f7ff,
-    transparent: true,
-    opacity: 0,
-    wireframe: true,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-    toneMapped: false,
-  }), []);
-  const wireMaterial = useMemo(() => new THREE.MeshBasicMaterial({ color: 0x70e7ff, transparent: true, opacity: 0, wireframe: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }), []);
-  const goldWireMaterial = useMemo(() => new THREE.MeshBasicMaterial({ color: 0xffc84a, transparent: true, opacity: 0, wireframe: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }), []);
+  }), [config.detail]);
   const pointData = useMemo(() => {
     const positions = seededPoints(config.points);
     const geometryPoints = new THREE.BufferGeometry();
@@ -606,10 +661,7 @@ function CosmosScene({ config, progress, formationProgress }: { config: TierConf
           moved *= 1.0 + uDissolve * 0.9;
           vAlpha = aAlpha * uReveal * (1.0 + uFormation * 0.34);
           float hue = sin(position.x * 2.4 + position.z * 4.1) * 0.5 + 0.5;
-          float warm = smoothstep(0.56, 0.96, hue);
-          vColor = mix(vec3(0.12, 0.74, 1.0), vec3(0.5, 0.18, 1.0), hue);
-          vColor = mix(vColor, vec3(1.0, 0.56, 0.06), warm * 0.58);
-          vColor = mix(vColor, vec3(1.0, 0.94, 0.72), smoothstep(0.92, 1.0, hue) * 0.52);
+          vColor = mix(vec3(0.4392, 0.9137, 1.0), vec3(0.6196, 0.4471, 1.0), hue);
           vec4 viewPosition = modelViewMatrix * vec4(moved, 1.0);
           gl_Position = projectionMatrix * viewPosition;
           gl_PointSize = aSize * (36.0 / max(1.0, -viewPosition.z));
@@ -620,7 +672,7 @@ function CosmosScene({ config, progress, formationProgress }: { config: TierConf
         varying vec3 vColor;
         void main() {
           float radius = length(gl_PointCoord - vec2(0.5));
-          float glow = smoothstep(0.5, 0.02, radius);
+          float glow = 1.0 - smoothstep(0.02, 0.5, radius);
           gl_FragColor = vec4(vColor, glow * vAlpha);
         }
       `,
@@ -637,6 +689,7 @@ function CosmosScene({ config, progress, formationProgress }: { config: TierConf
     const material = new THREE.ShaderMaterial({
       transparent: true,
       depthWrite: false,
+      depthTest: false,
       blending: THREE.AdditiveBlending,
       uniforms: { uTime: { value: 0 }, uDissolve: { value: 0 }, uReveal: { value: 0 }, uFormation: { value: 0 } },
       vertexShader: `
@@ -653,8 +706,8 @@ function CosmosScene({ config, progress, formationProgress }: { config: TierConf
           vec4 viewPosition = modelViewMatrix * vec4(moved, 1.0);
           gl_Position = projectionMatrix * viewPosition;
           gl_PointSize = (1.1 + aPulse * 2.15) * flicker * (34.0 / max(1.0, -viewPosition.z));
-          vAlpha = flicker * (0.38 + aPulse * 0.46) * uReveal * (1.0 + uFormation * 0.28) * (1.0 - uDissolve * 0.96);
-          vColor = mix(vec3(0.24, 0.82, 1.0), vec3(1.0, 0.78, 0.24), aPulse);
+          vAlpha = flicker * (0.14 + aPulse * 0.22) * uReveal * (1.0 + uFormation * 0.28) * (1.0 - uDissolve * 0.96);
+          vColor = mix(vec3(0.4392, 0.9137, 1.0), vec3(0.6196, 0.4471, 1.0), aPulse);
         }
       `,
       fragmentShader: `
@@ -662,21 +715,16 @@ function CosmosScene({ config, progress, formationProgress }: { config: TierConf
         varying vec3 vColor;
         void main() {
           float radius = length(gl_PointCoord - vec2(0.5));
-          float glow = smoothstep(0.5, 0.0, radius);
+          float glow = 1.0 - smoothstep(0.0, 0.5, radius);
           gl_FragColor = vec4(vColor, glow * vAlpha);
         }
       `,
     });
     return { geometry: geometryPoints, material };
   }, [config.coreStars]);
-  const orbMaterialRef = useRef(orbMaterial);
   const coreMaterialRef = useRef(coreMaterial);
-  const auraMaterialRef = useRef(auraMaterial);
-  const crystalMaterialRef = useRef(crystalMaterial);
-  const crystalWireMaterialRef = useRef(crystalWireMaterial);
+  const shellMaterialRef = useRef(shellMaterial);
   const pointMaterialRef = useRef(pointData.material);
-  const wireMaterialRef = useRef(wireMaterial);
-  const goldWireMaterialRef = useRef(goldWireMaterial);
   const coreStarMaterialRef = useRef(coreStarData.material);
   const satelliteGeometry = useMemo(() => new THREE.SphereGeometry(0.045, 12, 10), []);
   const satelliteMaterial = useMemo(() => new THREE.MeshPhongMaterial({ color: 0xffffff, emissive: 0x3a2105, emissiveIntensity: 1.35, specular: 0xfff4ce, shininess: 92, transparent: true, opacity: 0, blending: THREE.NormalBlending, depthWrite: false, toneMapped: false }), []);
@@ -701,14 +749,8 @@ function CosmosScene({ config, progress, formationProgress }: { config: TierConf
 
   useEffect(() => () => {
     geometry.dispose();
-    crystalGeometry.dispose();
-    orbMaterial.dispose();
     coreMaterial.dispose();
-    auraMaterial.dispose();
-    crystalMaterial.dispose();
-    crystalWireMaterial.dispose();
-    wireMaterial.dispose();
-    goldWireMaterial.dispose();
+    shellMaterial.dispose();
     pointData.geometry.dispose();
     pointData.material.dispose();
     coreStarData.geometry.dispose();
@@ -717,51 +759,47 @@ function CosmosScene({ config, progress, formationProgress }: { config: TierConf
     satelliteMaterial.dispose();
     satelliteGlowMaterial.dispose();
     orbitGroup.traverse((object) => {
-      if (object instanceof THREE.Line) {
+      if (object instanceof THREE.Line || object instanceof THREE.LineSegments) {
         object.geometry.dispose();
         const materials = Array.isArray(object.material) ? object.material : [object.material];
         materials.forEach((material) => material.dispose());
       }
     });
-  }, [auraMaterial, coreMaterial, coreStarData, crystalGeometry, crystalMaterial, crystalWireMaterial, geometry, goldWireMaterial, orbMaterial, orbitGroup, pointData, satelliteGeometry, satelliteGlowMaterial, satelliteMaterial, wireMaterial]);
+  }, [coreMaterial, coreStarData, geometry, orbitGroup, pointData, satelliteGeometry, satelliteGlowMaterial, satelliteMaterial, shellMaterial]);
 
-  useFrame(({ clock, camera }, delta) => {
+  useFrame(({ camera }, delta) => {
     const root = rootRef.current;
     const satellites = satellitesRef.current;
     const satelliteGlows = satelliteGlowsRef.current;
     const state = getHeroTimeline(progress.get());
     const formation = getHeroFormationTimeline(formationProgress.get());
     if (!root) return;
-    const time = clock.elapsedTime;
+    // R3F clocks can advance while a tab is hidden. Bounded accumulation
+    // preserves phase continuity on resume instead of jumping the rings.
+    const safeDelta = Math.min(Math.max(delta, 0), 0.05);
+    animationTimeRef.current += safeDelta;
+    const time = animationTimeRef.current;
     root.visible = formation.particleReveal > 0.001 || formation.sphereReveal > 0.001;
     const targetX = state.sphereX * config.xFactor;
     const targetY = state.sphereY + config.yOffset;
     const entranceScale = 0.78 + formation.sphereReveal * 0.22 + formation.formationGlow * 0.035;
     const targetScale = state.sphereScale * config.sphereScale * entranceScale;
-    root.position.x = THREE.MathUtils.damp(root.position.x, targetX, 8, delta);
-    root.position.y = THREE.MathUtils.damp(root.position.y, targetY, 8, delta);
-    root.position.z = THREE.MathUtils.damp(root.position.z, 0, 8, delta);
-    root.rotation.x = THREE.MathUtils.damp(root.rotation.x, state.sphereRotationX + (1 - formation.sphereReveal) * 0.42, 8, delta);
-    root.rotation.y = THREE.MathUtils.damp(root.rotation.y, state.sphereRotationY + (1 - formation.sphereReveal) * 1.08, 8, delta);
-    root.rotation.z = THREE.MathUtils.damp(root.rotation.z, state.sphereRotationZ - (1 - formation.sphereReveal) * 0.34, 8, delta);
-    const nextScale = THREE.MathUtils.damp(root.scale.x, targetScale, 8, delta);
+    root.position.x = THREE.MathUtils.damp(root.position.x, targetX, 8, safeDelta);
+    root.position.y = THREE.MathUtils.damp(root.position.y, targetY, 8, safeDelta);
+    root.position.z = THREE.MathUtils.damp(root.position.z, 0, 8, safeDelta);
+    root.rotation.x = THREE.MathUtils.damp(root.rotation.x, state.sphereRotationX + (1 - formation.sphereReveal) * 0.42, 8, safeDelta);
+    root.rotation.y = THREE.MathUtils.damp(root.rotation.y, state.sphereRotationY + (1 - formation.sphereReveal) * 1.08, 8, safeDelta);
+    root.rotation.z = THREE.MathUtils.damp(root.rotation.z, state.sphereRotationZ - (1 - formation.sphereReveal) * 0.34, 8, safeDelta);
+    const nextScale = THREE.MathUtils.damp(root.scale.x, targetScale, 8, safeDelta);
     root.scale.setScalar(nextScale);
-    orbMaterialRef.current.uniforms.uTime.value = time;
-    orbMaterialRef.current.uniforms.uDissolve.value = state.dissolve;
-    orbMaterialRef.current.uniforms.uReveal.value = formation.sphereReveal;
-    orbMaterialRef.current.uniforms.uFormation.value = formation.formationGlow;
     coreMaterialRef.current.uniforms.uTime.value = time;
     coreMaterialRef.current.uniforms.uDissolve.value = state.dissolve;
     coreMaterialRef.current.uniforms.uReveal.value = formation.sphereReveal;
     coreMaterialRef.current.uniforms.uFormation.value = formation.formationGlow;
-    auraMaterialRef.current.uniforms.uTime.value = time;
-    auraMaterialRef.current.uniforms.uDissolve.value = state.dissolve;
-    auraMaterialRef.current.uniforms.uReveal.value = formation.sphereReveal;
-    auraMaterialRef.current.uniforms.uFormation.value = formation.formationGlow;
-    crystalMaterialRef.current.uniforms.uTime.value = time;
-    crystalMaterialRef.current.uniforms.uDissolve.value = state.dissolve;
-    crystalMaterialRef.current.uniforms.uReveal.value = formation.sphereReveal;
-    crystalMaterialRef.current.uniforms.uFormation.value = formation.formationGlow;
+    shellMaterialRef.current.uniforms.uTime.value = time;
+    shellMaterialRef.current.uniforms.uDissolve.value = state.dissolve;
+    shellMaterialRef.current.uniforms.uReveal.value = getHeroCircuitReveal(formation.sphereReveal);
+    shellMaterialRef.current.uniforms.uFormation.value = formation.formationGlow;
     pointMaterialRef.current.uniforms.uTime.value = time;
     pointMaterialRef.current.uniforms.uDissolve.value = state.dissolve;
     pointMaterialRef.current.uniforms.uReveal.value = formation.particleReveal;
@@ -770,33 +808,31 @@ function CosmosScene({ config, progress, formationProgress }: { config: TierConf
     coreStarMaterialRef.current.uniforms.uDissolve.value = state.dissolve;
     coreStarMaterialRef.current.uniforms.uReveal.value = formation.sphereReveal;
     coreStarMaterialRef.current.uniforms.uFormation.value = formation.formationGlow;
-    crystalWireMaterialRef.current.opacity = 0.22 * formation.sphereReveal * (1 - state.dissolve * 0.96);
-    wireMaterialRef.current.opacity = 0.09 * formation.orbitReveal * (1 - state.dissolve * 0.94);
-    goldWireMaterialRef.current.opacity = 0.05 * formation.orbitReveal * (1 - state.dissolve * 0.94);
     satelliteMaterialRef.current.opacity = 0.92 * formation.satelliteReveal * (1 - state.dissolve * 0.94);
     satelliteGlowMaterialRef.current.opacity = 0.055 * formation.satelliteReveal * (1 - state.dissolve * 0.96);
     orbitGroupRef.current.visible = formation.orbitReveal > 0.001;
     orbitGroupRef.current.scale.setScalar(0.72 + formation.orbitReveal * 0.28);
-    orbitGroupRef.current.rotation.x = time * 0.035;
-    orbitGroupRef.current.rotation.y = -time * 0.028;
-    orbitGroupRef.current.rotation.z = time * 0.045;
-    orbitGroupRef.current.traverse((object) => {
-      if (object instanceof THREE.Line) {
-        const materials = Array.isArray(object.material) ? object.material : [object.material];
-        materials.forEach((material) => {
-          material.opacity = Number(material.userData.baseOpacity ?? 0.25) * formation.orbitReveal * (1 - state.dissolve * 0.96);
-        });
+    orbitGroupRef.current.children.forEach((object, index) => {
+      const angle = getHeroRingPhase(time, index, 110 + index * 12);
+      const baseQuaternion = object.userData.baseQuaternion as THREE.Quaternion | undefined;
+      const spinAxis = object.userData.spinAxis as THREE.Vector3 | undefined;
+      if (baseQuaternion && spinAxis) {
+        ringSpinQuaternion.setFromAxisAngle(spinAxis, angle);
+        object.quaternion.copy(baseQuaternion).multiply(ringSpinQuaternion);
       }
     });
-    if (goldWireRef.current) {
-      goldWireRef.current.rotation.x = time * 0.065;
-      goldWireRef.current.rotation.y = -time * 0.085;
-      goldWireRef.current.rotation.z = time * 0.042;
-    }
-    if (crystalShellRef.current) {
-      crystalShellRef.current.rotation.x = time * 0.028 - state.cameraPitch * 0.12;
-      crystalShellRef.current.rotation.y = -time * 0.042 + state.cameraYaw * 0.16;
-      crystalShellRef.current.rotation.z = time * 0.018;
+    orbitGroupRef.current.traverse((object) => {
+      if (object instanceof THREE.LineSegments) {
+        const material = object.material as THREE.ShaderMaterial;
+        material.uniforms.uTime.value = time;
+        material.uniforms.uReveal.value = formation.orbitReveal;
+        material.uniforms.uDissolve.value = state.dissolve;
+      }
+    });
+    if (shellRef.current) {
+      shellRef.current.rotation.x = time * 0.028 - state.cameraPitch * 0.12;
+      shellRef.current.rotation.y = -time * 0.042 + state.cameraYaw * 0.16;
+      shellRef.current.rotation.z = time * 0.018;
     }
     if (coreStarsRef.current) {
       coreStarsRef.current.rotation.y = time * 0.052;
@@ -833,13 +869,13 @@ function CosmosScene({ config, progress, formationProgress }: { config: TierConf
       const cameraX = Math.sin(yaw) * 0.62;
       const cameraY = state.cameraPitch * 0.7;
       const cameraZ = 5.35 - Math.abs(yaw) * 0.2;
-      perspectiveCamera.position.x = THREE.MathUtils.damp(perspectiveCamera.position.x, cameraX, 5, delta);
-      perspectiveCamera.position.y = THREE.MathUtils.damp(perspectiveCamera.position.y, cameraY, 5, delta);
-      perspectiveCamera.position.z = THREE.MathUtils.damp(perspectiveCamera.position.z, cameraZ, 5, delta);
+      perspectiveCamera.position.x = THREE.MathUtils.damp(perspectiveCamera.position.x, cameraX, 5, safeDelta);
+      perspectiveCamera.position.y = THREE.MathUtils.damp(perspectiveCamera.position.y, cameraY, 5, safeDelta);
+      perspectiveCamera.position.z = THREE.MathUtils.damp(perspectiveCamera.position.z, cameraZ, 5, safeDelta);
       // Look toward a stable world origin so the object movement remains
       // visible. Apply roll after lookAt because lookAt overwrites Euler z.
       perspectiveCamera.lookAt(cameraLookAt);
-      perspectiveCamera.rotation.z = THREE.MathUtils.damp(perspectiveCamera.rotation.z, state.cameraRoll, 5, delta);
+      perspectiveCamera.rotation.z = THREE.MathUtils.damp(perspectiveCamera.rotation.z, state.cameraRoll, 5, safeDelta);
     }
   });
 
@@ -849,16 +885,11 @@ function CosmosScene({ config, progress, formationProgress }: { config: TierConf
       <pointLight color={0xffdda0} intensity={36} distance={12} decay={2} position={[4, 3, 5]} />
       <pointLight color={0x56dfff} intensity={18} distance={11} decay={2} position={[-4, -2, 4]} />
       <group ref={rootRef} visible={false}>
-        <mesh geometry={geometry} material={coreMaterial} scale={0.9} />
-        <points ref={coreStarsRef} geometry={coreStarData.geometry} material={coreStarData.material} scale={0.96} />
-        <mesh geometry={geometry} material={orbMaterial} />
-        <group ref={crystalShellRef}>
-          <mesh geometry={crystalGeometry} material={crystalMaterial} scale={1.028} />
-          <mesh geometry={crystalGeometry} material={crystalWireMaterial} scale={1.036} />
+        <mesh geometry={geometry} material={coreMaterial} scale={0.9} renderOrder={1} />
+        <points ref={coreStarsRef} geometry={coreStarData.geometry} material={coreStarData.material} scale={0.96} renderOrder={1.5} />
+        <group ref={shellRef}>
+          <mesh geometry={shellGeometry} material={shellMaterial} scale={1.028} renderOrder={2} />
         </group>
-        <mesh geometry={geometry} material={auraMaterial} scale={1.105} />
-        <mesh geometry={geometry} material={wireMaterial} scale={1.018} />
-        <mesh ref={goldWireRef} geometry={geometry} material={goldWireMaterial} scale={1.044} />
         <primitive object={orbitGroup} />
         <points geometry={pointData.geometry} material={pointData.material} />
         {config.satellites > 0 ? <instancedMesh ref={satellitesRef} args={[satelliteGeometry, satelliteMaterial, config.satellites]} /> : null}
