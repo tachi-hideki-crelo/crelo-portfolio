@@ -16,8 +16,7 @@ import { WorkVisual } from './work-visual';
 import {
   CARD_LAYOUT,
   STATIC_CARD_LAYOUT,
-  getOrbitStageVisuals,
-  getOrbitalCardMotion,
+  getHolographicCardMotion,
   getPointerCardMotion,
   getScatterEntryProgress,
 } from './work-motion';
@@ -314,6 +313,15 @@ function setDesktopCardListReady(cardList: HTMLElement, ready: boolean) {
   });
 }
 
+function resetPointerCardMotion(stage: HTMLElement) {
+  stage.querySelectorAll<HTMLElement>('[data-case-index]').forEach((card) => {
+    card.style.setProperty('--card-pointer-x', '0px');
+    card.style.setProperty('--card-pointer-y', '0px');
+    card.style.setProperty('--card-pointer-rotate-x', '0deg');
+    card.style.setProperty('--card-pointer-rotate-y', '0deg');
+  });
+}
+
 function updateScatterFromScroll(
   section: HTMLElement,
   reduceMotion: boolean,
@@ -325,47 +333,53 @@ function updateScatterFromScroll(
   const rect = section.getBoundingClientRect();
   const stageFlowTop = stageAnchor.getBoundingClientRect().top - rect.top;
   const travel = Math.max(section.offsetHeight - window.innerHeight, 1);
-  const visualProgress = reduceMotion ? 0 : Math.min(Math.max(-rect.top / travel, 0), 1);
   const entryProgress = getScatterEntryProgress(
     rect.top,
     stageFlowTop,
     window.innerHeight,
     reduceMotion,
   );
-  const entryVisuals = getOrbitStageVisuals(entryProgress, reduceMotion);
   const useContainedLayout = reduceMotion || !isFinePointer();
 
+  const visualProgress = reduceMotion ? 0 : Math.min(Math.max(-rect.top / travel, 0), 1);
   section.style.setProperty('--work-progress', visualProgress.toFixed(4));
   section.style.setProperty('--work-rotation', `${(visualProgress * 34).toFixed(3)}deg`);
-  section.style.setProperty('--work-entry-opacity', entryVisuals.opacity.toFixed(4));
-  section.style.setProperty('--work-entry-scale', entryVisuals.scale.toFixed(4));
-  section.style.setProperty('--work-entry-blur', `${entryVisuals.blur.toFixed(3)}px`);
-  const orbitReady = entryProgress > 0.3 || reduceMotion;
+  const entryReady = entryProgress >= 1 || reduceMotion;
   const desktopCardList = stage.querySelector<HTMLElement>('[data-work-card-list]');
-  section.dataset.orbitReady = orbitReady ? 'true' : 'false';
-  if (desktopCardList) setDesktopCardListReady(desktopCardList, orbitReady);
+  section.dataset.entryReady = entryReady ? 'true' : 'false';
+  if (reduceMotion) section.dataset.entrySettled = 'false';
+  else if (!entryReady) section.dataset.entrySettled = 'false';
+  if (desktopCardList) setDesktopCardListReady(desktopCardList, entryReady);
+  if (!entryReady) resetPointerCardMotion(stage);
 
   section.querySelectorAll<HTMLElement>('[data-case-index]').forEach((card) => {
     const index = Number(card.dataset.caseIndex);
     const layout = (useContainedLayout ? STATIC_CARD_LAYOUT : CARD_LAYOUT)[index];
     if (!layout) return;
-    const orbit = getOrbitalCardMotion({
+    const motion = getHolographicCardMotion({
       progress: entryProgress,
       index,
       targetX: resolveViewportOffset(layout.x),
       targetY: resolveViewportOffset(layout.y),
       targetZ: layout.z,
       targetRotate: Number.parseFloat(layout.rotate),
-      viewportWidth: window.innerWidth,
       viewportHeight: window.innerHeight,
       reduceMotion,
     });
-    const depthDrift = reduceMotion ? 0 : layout.depth * visualProgress * orbit.progress * 0.18;
-    card.style.setProperty('--card-x-px', `${orbit.x.toFixed(3)}px`);
-    card.style.setProperty('--card-y-px', `${orbit.y.toFixed(3)}px`);
-    card.style.setProperty('--card-z-px', `${(orbit.z + depthDrift).toFixed(3)}px`);
-    card.style.setProperty('--card-rotate-current', `${orbit.rotate.toFixed(3)}deg`);
-    card.style.setProperty('--card-orbit-progress', orbit.progress.toFixed(4));
+    card.style.setProperty('--card-x-px', `${motion.x.toFixed(3)}px`);
+    card.style.setProperty('--card-y-px', `${motion.y.toFixed(3)}px`);
+    card.style.setProperty('--card-z-px', `${motion.z.toFixed(3)}px`);
+    card.style.setProperty('--card-rotate-current', `${motion.rotate.toFixed(3)}deg`);
+    card.style.setProperty('--card-entry-progress', motion.progress.toFixed(4));
+    card.style.setProperty('--card-entry-scale', motion.scale.toFixed(4));
+    card.style.setProperty('--card-entry-blur', `${motion.blur.toFixed(3)}px`);
+    card.style.setProperty('--card-entry-opacity', motion.opacity.toFixed(4));
+    card.style.setProperty('--card-entry-inactive-opacity', motion.inactiveOpacity.toFixed(4));
+    card.style.setProperty('--card-media-opacity', motion.mediaOpacity.toFixed(4));
+    card.style.setProperty('--card-hologram-opacity', motion.hologramOpacity.toFixed(4));
+    card.style.setProperty('--card-scan-opacity', motion.scanOpacity.toFixed(4));
+    card.style.setProperty('--card-scan-offset', `${(motion.progress * 86).toFixed(3)}%`);
+    card.style.setProperty('--card-glow-opacity', motion.glowOpacity.toFixed(4));
   });
 }
 
@@ -408,7 +422,16 @@ function CaseCard({
     '--card-pointer-rotate-x': '0deg',
     '--card-pointer-rotate-y': '0deg',
     '--card-rotate-current': '0deg',
-    '--card-orbit-progress': 0,
+    '--card-entry-progress': 0,
+    '--card-entry-scale': 0.55,
+    '--card-entry-blur': '18px',
+    '--card-entry-opacity': 0,
+    '--card-entry-inactive-opacity': 0,
+    '--card-media-opacity': 0,
+    '--card-hologram-opacity': 1,
+    '--card-scan-opacity': 0.82,
+    '--card-scan-offset': '0%',
+    '--card-glow-opacity': 0.46,
     '--case-accent': theme.accent,
     '--case-accent-rgb': theme.accentSoft,
     '--card-order': index,
@@ -432,6 +455,7 @@ function CaseCard({
         data-tab-index={index}
         data-tab-group="desktop"
         data-work-trigger="true"
+        tabIndex={-1}
         aria-haspopup="dialog"
         aria-expanded={expanded}
         aria-controls={expanded ? `work-detail-dialog-${caseStudy.slug}` : undefined}
@@ -439,6 +463,9 @@ function CaseCard({
         onClick={(event) => onOpen(index, event.currentTarget)}
         onFocus={() => onSelect(index)}
       >
+        <span className={styles.cardHologram} aria-hidden="true" />
+        <span className={styles.cardScan} aria-hidden="true" />
+        <span className={styles.cardResidualGlow} aria-hidden="true" />
         {previewVideo ? (
           <span className={styles.cardMedia} aria-hidden="true">
             <CasePreviewVideo video={previewVideo} reduceMotion={reduceMotion} className={styles.cardMediaVideo} />
@@ -795,6 +822,7 @@ function ThemeBleedLayer({
 export function SelectedWork({ cases }: SelectedWorkProps) {
   const sectionRef = useRef<HTMLElement | null>(null);
   const frameRef = useRef<number | null>(null);
+  const entrySettleFrameRef = useRef<number | null>(null);
   const pointerFrameRef = useRef<number | null>(null);
   const pointerSampleRef = useRef<{
     stage: HTMLDivElement;
@@ -884,12 +912,25 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
     const section = sectionRef.current;
     if (!section) return;
 
+    const scheduleEntrySettle = () => {
+      if (reduceMotion || entrySettleFrameRef.current !== null) return;
+      entrySettleFrameRef.current = window.requestAnimationFrame(() => {
+        entrySettleFrameRef.current = null;
+        if (sectionRef.current !== section || section.dataset.entryReady !== 'true') return;
+        section.dataset.entrySettled = 'true';
+      });
+    };
+
     const onScroll = () => {
       if (window.matchMedia('(max-width: 768px)').matches) return;
       if (frameRef.current !== null) return;
       frameRef.current = window.requestAnimationFrame(() => {
         frameRef.current = null;
+        const wasEntryReady = section.dataset.entryReady === 'true';
         updateScatterFromScroll(section, reduceMotion);
+        const isEntryReady = section.dataset.entryReady === 'true';
+        if (!isEntryReady || reduceMotion) return;
+        if (!wasEntryReady && section.dataset.entrySettled !== 'true') scheduleEntrySettle();
       });
     };
 
@@ -900,6 +941,10 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onScroll);
       if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
+      if (entrySettleFrameRef.current !== null) {
+        window.cancelAnimationFrame(entrySettleFrameRef.current);
+        entrySettleFrameRef.current = null;
+      }
     };
   }, [reduceMotion]);
 
@@ -910,8 +955,15 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
   const handleStagePointerMove = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       const stage = event.currentTarget;
+      const section = sectionRef.current;
+      if (section?.dataset.entryReady !== 'true') {
+        pointerSampleRef.current = null;
+        resetPointerCardMotion(stage);
+        return;
+      }
       if (reduceMotion || !isFinePointer() || event.pointerType === 'touch') {
         pointerSampleRef.current = null;
+        resetPointerCardMotion(stage);
         return;
       }
 
@@ -925,6 +977,11 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
         pointerFrameRef.current = null;
         const sample = pointerSampleRef.current;
         if (!sample) return;
+        if (sectionRef.current?.dataset.entryReady !== 'true') {
+          pointerSampleRef.current = null;
+          resetPointerCardMotion(sample.stage);
+          return;
+        }
         const stageRect = sample.stage.getBoundingClientRect();
         const pointerX = sample.clientX - stageRect.left - stageRect.width / 2;
         const pointerY = sample.clientY - stageRect.top - stageRect.height / 2;
@@ -961,15 +1018,11 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
       window.cancelAnimationFrame(pointerFrameRef.current);
       pointerFrameRef.current = null;
     }
-    event.currentTarget.querySelectorAll<HTMLElement>('[data-case-index]').forEach((card) => {
-      card.style.setProperty('--card-pointer-x', '0px');
-      card.style.setProperty('--card-pointer-y', '0px');
-      card.style.setProperty('--card-pointer-rotate-x', '0deg');
-      card.style.setProperty('--card-pointer-rotate-y', '0deg');
-    });
+    resetPointerCardMotion(event.currentTarget);
   }, []);
 
   const handleStageFocusCapture = useCallback((event: FocusEvent<HTMLDivElement>) => {
+    if (reduceMotion || sectionRef.current?.dataset.entryReady !== 'true') return;
     const target = event.target as Element;
     const card = target.closest<HTMLElement>('[data-case-index]');
     if (!card) return;
@@ -979,7 +1032,7 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
     card.style.setProperty('--card-pointer-y', `${(-baseY * 0.58).toFixed(3)}px`);
     card.style.setProperty('--card-pointer-rotate-x', '0deg');
     card.style.setProperty('--card-pointer-rotate-y', '0deg');
-  }, []);
+  }, [reduceMotion]);
 
   const sectionStyle: CSSVars = useMemo(
     () => ({
@@ -1000,6 +1053,8 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
       aria-labelledby="selected-work-title"
       data-active-theme={activeCase.theme}
       data-detail-open={expandedCase ? 'true' : 'false'}
+      data-entry-ready="false"
+      data-entry-settled="false"
       style={sectionStyle}
       onKeyDown={handleKeyboard}
     >
@@ -1034,7 +1089,15 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
           onPointerLeave={handleStagePointerLeave}
           onFocusCapture={handleStageFocusCapture}
         >
-          <div className={styles.tabList} role="list" aria-label="Selected work cases" data-work-card-list>
+          <div
+            className={styles.tabList}
+            role="list"
+            aria-label="Selected work cases"
+            data-work-card-list
+            data-entry-ready="false"
+            inert
+            aria-hidden="true"
+          >
             {caseStudies.map((caseStudy, index) => (
               <CaseCard
                 caseStudy={caseStudy}

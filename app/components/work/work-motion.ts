@@ -7,19 +7,26 @@ export type CardMotionLayout = {
   parallax: number;
 };
 
-export type OrbitalCardMotion = {
+export type HolographicCardMotion = {
   x: number;
   y: number;
   z: number;
   rotate: number;
   progress: number;
-};
-
-export type OrbitStageVisuals = {
-  opacity: number;
   scale: number;
   blur: number;
+  opacity: number;
+  inactiveOpacity: number;
+  mediaOpacity: number;
+  hologramOpacity: number;
+  scanOpacity: number;
+  glowOpacity: number;
 };
+
+export const CARD_ENTRY_STAGGER = 0.035;
+export const CARD_ENTRY_START_Z = -480;
+export const CARD_ENTRY_START_SCALE = 0.55;
+export const CARD_ENTRY_START_Y_OFFSET = 0.12;
 
 export const CARD_LAYOUT: readonly CardMotionLayout[] = [
   { x: '0vw', y: '-2vh', rotate: '-2deg', z: 92, depth: 132, parallax: 14 },
@@ -47,6 +54,10 @@ function smoothstep(progress: number): number {
   return clamped * clamped * (3 - 2 * clamped);
 }
 
+function safeCardIndex(index: number): number {
+  return Math.min(Math.max(Number.isFinite(index) ? index : 0, 0), 4);
+}
+
 export function getScatterEntryProgress(
   sectionTop: number,
   stageFlowTop: number,
@@ -68,36 +79,26 @@ export function getScatterEntryProgress(
   return clampProgress((scrolledDistance - entryStart) / entryTravel);
 }
 
-export function getOrbitProgress(progress: number, index: number, reduceMotion = false): number {
+export function getCardEntryProgress(progress: number, index: number, reduceMotion = false): number {
   if (reduceMotion) return 1;
-  const safeIndex = Math.min(Math.max(Number.isFinite(index) ? index : 0, 0), 4);
-  const delay = safeIndex * 0.032;
-  const normalized = clampProgress((progress - delay) / 0.82);
+  const safeIndex = safeCardIndex(index);
+  const delay = safeIndex * CARD_ENTRY_STAGGER;
+  const normalized = clampProgress((progress - delay) / Math.max(1 - delay, 0.001));
   return smoothstep(normalized);
 }
 
-export function getOrbitStageVisuals(progress: number, reduceMotion = false): OrbitStageVisuals {
-  if (reduceMotion) return { opacity: 1, scale: 1, blur: 0 };
-
-  const safeProgress = clampProgress(progress);
-  const opacity = smoothstep(safeProgress / 0.72);
-  const scaleProgress = smoothstep(safeProgress / 0.9);
-
-  return {
-    opacity,
-    scale: 0.72 + scaleProgress * 0.28,
-    blur: (1 - opacity) * 20,
-  };
-}
-
-export function getOrbitalCardMotion({
+/**
+ * A single card enters as a faint hologram, then lands in the approved layout.
+ * The path is deliberately monotonic: XY moves outward, Z moves toward the
+ * viewer, and the final tilt is the only rotation used by the card.
+ */
+export function getHolographicCardMotion({
   progress,
   index,
   targetX,
   targetY,
   targetZ,
   targetRotate,
-  viewportWidth,
   viewportHeight,
   reduceMotion = false,
 }: {
@@ -107,48 +108,53 @@ export function getOrbitalCardMotion({
   targetY: number;
   targetZ: number;
   targetRotate: number;
-  viewportWidth: number;
   viewportHeight: number;
   reduceMotion?: boolean;
-}): OrbitalCardMotion {
+}): HolographicCardMotion {
+  const cardProgress = getCardEntryProgress(progress, index, reduceMotion);
   if (reduceMotion) {
-    return { x: targetX, y: targetY, z: targetZ, rotate: targetRotate, progress: 1 };
+    return {
+      x: targetX,
+      y: targetY,
+      z: targetZ,
+      rotate: targetRotate,
+      progress: 1,
+      scale: 1,
+      blur: 0,
+      opacity: 1,
+      inactiveOpacity: 0.6,
+      mediaOpacity: 0.72,
+      hologramOpacity: 0,
+      scanOpacity: 0,
+      glowOpacity: 0,
+    };
   }
 
-  const safeIndex = Math.min(Math.max(Number.isFinite(index) ? index : 0, 0), 4);
-  const orbitProgress = getOrbitProgress(progress, safeIndex);
-  const targetRadius = Math.hypot(targetX, targetY);
-  const targetAngle = targetRadius > 0.001
-    ? Math.atan2(targetY, targetX)
-    : -Math.PI / 2;
-  const safeViewportWidth = Number.isFinite(viewportWidth) ? Math.max(viewportWidth, 1) : 1;
   const safeViewportHeight = Number.isFinite(viewportHeight) ? Math.max(viewportHeight, 1) : 1;
-  const tornadoCoreRadius = Math.min(
-    Math.max(Math.min(safeViewportWidth, safeViewportHeight) * 0.095, 64),
-    110,
-  );
-  const tornadoEnvelope = Math.sin(Math.PI * orbitProgress);
-  const turns = 1.12 + safeIndex * 0.055;
-  const phaseOffset = (safeIndex - 2) * ((Math.PI * 2) / 5);
-  const currentAngle = targetAngle
-    - (1 - orbitProgress) * Math.PI * 2 * turns
-    + phaseOffset * tornadoEnvelope;
-  const centerOrbit = Math.max(tornadoCoreRadius - targetRadius, 0) * tornadoEnvelope;
-  const funnelRadius = tornadoCoreRadius * 0.14 * tornadoEnvelope * (1 - orbitProgress);
-  const currentRadius = targetRadius * orbitProgress ** 1.12 + centerOrbit + funnelRadius;
-  const depthArc = tornadoEnvelope * (
-    98
-    + safeIndex * 13
-    + Math.cos(currentAngle + phaseOffset) * 32
-  );
-  const spin = (1 - orbitProgress) * (252 + safeIndex * 22);
+  const landing = cardProgress >= 1 ? 1 : smoothstep(cardProgress);
+  const startX = targetX * 0.15;
+  const startY = targetY * 0.15 + safeViewportHeight * CARD_ENTRY_START_Y_OFFSET;
+  const mediaReveal = smoothstep((cardProgress - 0.32) / 0.56);
+  const hologramFade = 1 - smoothstep(cardProgress / 0.68);
+  const scanFade = cardProgress >= 0.92 ? 0 : 0.82 * (1 - smoothstep(cardProgress / 0.92));
+  const glowFade = 0.08 + 0.38 * (1 - smoothstep(cardProgress / 0.86));
+  const revealEnvelope = smoothstep(cardProgress / 0.16);
+  const opacity = revealEnvelope * (0.82 + landing * 0.18);
 
   return {
-    x: Math.cos(currentAngle) * currentRadius,
-    y: Math.sin(currentAngle) * currentRadius,
-    z: targetZ * orbitProgress + depthArc,
-    rotate: targetRotate * orbitProgress - spin,
-    progress: orbitProgress,
+    x: startX + (targetX - startX) * landing,
+    y: startY + (targetY - startY) * landing,
+    z: CARD_ENTRY_START_Z + (targetZ - CARD_ENTRY_START_Z) * landing,
+    rotate: targetRotate * landing,
+    progress: cardProgress,
+    scale: CARD_ENTRY_START_SCALE + (1 - CARD_ENTRY_START_SCALE) * landing,
+    blur: 18 * (1 - landing),
+    opacity,
+    inactiveOpacity: opacity * 0.6,
+    mediaOpacity: 0.72 * mediaReveal,
+    hologramOpacity: hologramFade,
+    scanOpacity: scanFade,
+    glowOpacity: glowFade,
   };
 }
 

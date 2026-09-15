@@ -5,11 +5,14 @@ import test from 'node:test';
 
 import { caseStudies } from '../app/lib/content.ts';
 import {
+  CARD_ENTRY_START_SCALE,
+  CARD_ENTRY_START_Y_OFFSET,
+  CARD_ENTRY_START_Z,
+  CARD_ENTRY_STAGGER,
   CARD_LAYOUT,
   STATIC_CARD_LAYOUT,
-  getOrbitProgress,
-  getOrbitStageVisuals,
-  getOrbitalCardMotion,
+  getCardEntryProgress,
+  getHolographicCardMotion,
   getPointerCardMotion,
   getScatterEntryProgress,
 } from '../app/components/work/work-motion.ts';
@@ -329,14 +332,29 @@ test('selected work keeps motion browser-safe and has a static reduced-motion pa
   assert.match(selectedWorkSource, /getScatterEntryProgress\([\s\S]*rect\.top,[\s\S]*stageFlowTop,[\s\S]*window\.innerHeight,[\s\S]*reduceMotion/);
   assert.match(selectedWorkSource, /data-work-stage-anchor/);
   assert.match(selectedWorkSource, /stageAnchor\.getBoundingClientRect\(\)\.top - rect\.top/);
-  assert.match(selectedWorkSource, /getOrbitStageVisuals\(entryProgress, reduceMotion\)/);
-  assert.match(selectedWorkSource, /getOrbitalCardMotion/);
-  assert.match(selectedWorkSource, /dataset\.orbitReady/);
+  assert.match(selectedWorkSource, /getHolographicCardMotion/);
+  assert.match(selectedWorkSource, /dataset\.entryReady/);
+  assert.match(selectedWorkSource, /dataset\.entrySettled/);
+  assert.match(selectedWorkSource, /--card-hologram-opacity/);
+  assert.match(selectedWorkSource, /--card-scan-opacity/);
+  assert.match(selectedWorkSource, /--card-media-opacity/);
+  assert.match(selectedWorkSource, /entryProgress >= 1 \|\| reduceMotion/);
+  assert.match(selectedWorkSource, /data-entry-ready="false"/);
+  assert.match(selectedWorkSource, /inert/);
+  assert.match(selectedWorkSource, /tabIndex=\{-1\}/);
   assert.match(selectedWorkSource, /toggleAttribute\('inert', !ready\)/);
   assert.match(selectedWorkSource, /setAttribute\('aria-hidden', 'true'\)/);
   assert.match(selectedWorkSource, /querySelectorAll<HTMLElement>\('button'\)/);
-  assert.match(selectedWorkSource, /setDesktopCardListReady\(desktopCardList, orbitReady\)/);
+  assert.match(selectedWorkSource, /setDesktopCardListReady\(desktopCardList, entryReady\)/);
+  assert.match(selectedWorkSource, /if \(!entryReady\) resetPointerCardMotion\(stage\)/);
+  assert.match(selectedWorkSource, /entrySettleFrameRef/);
+  assert.match(selectedWorkSource, /if \(reduceMotion\) section\.dataset\.entrySettled = 'false'/);
+  assert.match(selectedWorkSource, /sectionRef\.current !== section \|\| section\.dataset\.entryReady !== 'true'/);
+  assert.match(selectedWorkSource, /data-entry-settled="false"/);
+  assert.match(selectedWorkSource, /sectionRef\.current\?\.dataset\.entryReady !== 'true'/);
+  assert.match(selectedWorkSource, /resetPointerCardMotion\(sample\.stage\)/);
   assert.doesNotMatch(selectedWorkSource, /getBurstProgress|card-burst-progress|dataset\.burstReady/);
+  assert.doesNotMatch(selectedWorkSource, /getOrbitProgress|getOrbitStageVisuals|getOrbitalCardMotion|tornado|depthDrift/);
   assert.doesNotMatch(selectedWorkSource, /getActiveCaseIndex/);
   const scatterSource = selectedWorkSource.slice(
     selectedWorkSource.indexOf('function updateScatterFromScroll'),
@@ -359,8 +377,10 @@ test('selected work keeps motion browser-safe and has a static reduced-motion pa
   assert.doesNotMatch(selectedWorkSource, /cursor\.style\.opacity/);
   assert.doesNotMatch(selectedWorkSource, /window\.addEventListener\('pointermove'/);
   assert.match(selectedWorkStyles, /perspective: 1100px/);
-  assert.match(selectedWorkStyles, /--work-entry-scale/);
-  assert.match(selectedWorkStyles, /data-orbit-ready='false'/);
+  assert.match(selectedWorkStyles, /\.tabList[\s\S]*filter: blur\(0px\)/);
+  assert.match(selectedWorkStyles, /--card-entry-scale/);
+  assert.match(selectedWorkStyles, /data-entry-ready='false'/);
+  assert.match(selectedWorkStyles, /\.selectedWork\[data-entry-ready='true'\]\[data-entry-settled='true'\] \.card/);
   assert.match(selectedWorkStyles, /translate3d\(calc\(var\(--card-x-px\) \+ var\(--card-pointer-x\)\)/);
   assert.match(selectedWorkStyles, /rotate\(var\(--work-rotation\)\)/);
   assert.match(selectedWorkStyles, /z-index: calc\(3 - var\(--card-order\)\)/);
@@ -371,6 +391,9 @@ test('selected work keeps motion browser-safe and has a static reduced-motion pa
   assert.match(selectedWorkStyles, /\.detailOverlay[\s\S]*position: fixed[\s\S]*z-index: 10000/);
   assert.match(selectedWorkStyles, /\.expandedCard[\s\S]*height: min\(86svh, 47rem\)[\s\S]*width: min\(92vw, 34rem\)/);
   assert.match(selectedWorkStyles, /\.expandedClose[\s\S]*min-height: 2\.75rem[\s\S]*min-width: 2\.75rem/);
+  assert.match(selectedWorkStyles, /\.cardHologram[\s\S]*opacity: var\(--card-hologram-opacity\)/);
+  assert.match(selectedWorkStyles, /\.cardScan[\s\S]*height: 1px/);
+  assert.match(selectedWorkStyles, /\.cardResidualGlow[\s\S]*opacity: var\(--card-glow-opacity\)/);
   assert.match(selectedWorkStyles, /\.expandedScan[\s\S]*animation: expandedCardScan/);
   assert.match(selectedWorkSource, /<h2 id="selected-work-title">実績例<\/h2>/);
   assert.match(selectedWorkSource, /実際の例をご紹介します。<br \/>/);
@@ -385,7 +408,7 @@ test('selected work keeps motion browser-safe and has a static reduced-motion pa
   assert.doesNotMatch(selectedWorkStyles, /\.cursor\s*\{/);
   assert.doesNotMatch(selectedWorkStyles, /data-cursor-(?:inside|hover|focus)/);
   assert.match(selectedWorkStyles, /prefers-reduced-motion: reduce\) and \(min-width: 769px\)/);
-  assert.match(selectedWorkStyles, /\.selectedWork \{[\s\S]*?min-height: 200vh/);
+  assert.match(selectedWorkStyles, /\.selectedWork \{[\s\S]*?min-height: 240vh/);
   assert.match(selectedWorkStyles, /prefers-reduced-motion: reduce\) and \(min-width: 769px\)[\s\S]*?min-height: 190vh/);
   assert.match(selectedWorkStyles, /min-width: 769px\) and \(max-height: 688px\)[\s\S]*?\.desktopStage,[\s\S]*?\.stageShell[\s\S]*?min-height: 100vh/);
   assert.doesNotMatch(selectedWorkStyles, /calc\([^)]*\*/);
@@ -495,7 +518,7 @@ test('inline expanded cards replace the removed case-study routes', () => {
   assert.match(selectedWorkSource, /\['課題', '担当', '成果'\][\s\S]*公開承認後に反映/);
 });
 
-test('scroll orbit keeps its start, expands as a tornado, and preserves pointer magnetism', () => {
+test('scroll entry keeps bounded holographic motion, exact landing, and preserves pointer magnetism', () => {
   assert.equal(CARD_LAYOUT[0].x, '0vw');
   for (const layout of CARD_LAYOUT.slice(1)) {
     assert.ok(Math.abs(Number.parseFloat(layout.x)) >= 30);
@@ -504,12 +527,12 @@ test('scroll orbit keeps its start, expands as a tornado, and preserves pointer 
     assert.ok(Math.abs(Number.parseFloat(layout.y)) <= 25);
   }
   assert.ok(Math.abs(Number.parseFloat(STATIC_CARD_LAYOUT[1].x)) < 30);
-  assert.equal(getOrbitProgress(0, 0), 0);
-  assert.ok(getOrbitProgress(0.2, 0) > 0);
-  assert.ok(getOrbitProgress(0.2, 0) < 0.2);
-  assert.ok(getOrbitProgress(0.2, 4) < getOrbitProgress(0.2, 0));
-  assert.equal(getOrbitProgress(1, 4), 1);
-  assert.equal(getOrbitProgress(0, 4, true), 1);
+  assert.equal(CARD_ENTRY_STAGGER, 0.035);
+  assert.equal(getCardEntryProgress(0, 0), 0);
+  assert.equal(getCardEntryProgress(CARD_ENTRY_STAGGER * 4 - 0.001, 4), 0);
+  assert.ok(getCardEntryProgress(0.2, 0) > getCardEntryProgress(0.2, 4));
+  assert.equal(getCardEntryProgress(1, 4), 1);
+  assert.equal(getCardEntryProgress(0, 4, true), 1);
 
   assert.equal(getScatterEntryProgress(0, 531, 900), 0);
   assert.equal(getScatterEntryProgress(-171, 531, 900), 0);
@@ -532,83 +555,136 @@ test('scroll orbit keeps its start, expands as a tornado, and preserves pointer 
     assert.ok(getScatterEntryProgress(-viewportHeight * 0.88, stageFlowTop, viewportHeight) < 1);
   }
 
-  assert.deepEqual(getOrbitStageVisuals(0), { opacity: 0, scale: 0.72, blur: 20 });
-  const middleVisuals = getOrbitStageVisuals(0.5);
-  assert.ok(middleVisuals.opacity > 0.7 && middleVisuals.opacity < 0.9);
-  assert.ok(middleVisuals.scale > 0.85 && middleVisuals.scale < 0.95);
-  assert.ok(middleVisuals.blur > 0 && middleVisuals.blur < 6);
-  assert.deepEqual(getOrbitStageVisuals(1), { opacity: 1, scale: 1, blur: 0 });
-  assert.deepEqual(getOrbitStageVisuals(0, true), { opacity: 1, scale: 1, blur: 0 });
-
-  const orbitInput = {
+  const motionInput = {
     index: 2,
     targetX: 400,
     targetY: -200,
     targetZ: 40,
     targetRotate: 11,
-    viewportWidth: 1440,
     viewportHeight: 900,
   };
-  const orbitStart = getOrbitalCardMotion({ ...orbitInput, progress: 0 });
-  assert.equal(orbitStart.progress, 0);
-  assert.ok(Math.abs(orbitStart.x) < 0.0001);
-  assert.ok(Math.abs(orbitStart.y) < 0.0001);
-  assert.ok(Math.abs(orbitStart.z) < 0.0001);
 
-  const orbitMiddle = getOrbitalCardMotion({ ...orbitInput, progress: 0.5 });
-  assert.ok(orbitMiddle.progress > 0.45 && orbitMiddle.progress < 0.65);
-  assert.ok(Math.hypot(orbitMiddle.x, orbitMiddle.y) > 100);
-  assert.ok(orbitMiddle.z > orbitInput.targetZ);
-  assert.ok(Math.abs(orbitMiddle.rotate) > 90);
+  for (const distanceRatio of [0.89, 1.14, 1.4]) {
+    const heldProgress = getScatterEntryProgress(-900 * distanceRatio, 534.594, 900);
+    assert.equal(heldProgress, 1, `entry remains complete at ${distanceRatio}H`);
+    assert.deepEqual(
+      getHolographicCardMotion({
+        ...motionInput,
+        progress: heldProgress,
+      }),
+      getHolographicCardMotion({
+        ...motionInput,
+        progress: 1,
+      }),
+    );
+  }
 
-  const orbitEnd = getOrbitalCardMotion({ ...orbitInput, progress: 1 });
-  assert.ok(Math.abs(orbitEnd.x - orbitInput.targetX) < 0.0001);
-  assert.ok(Math.abs(orbitEnd.y - orbitInput.targetY) < 0.0001);
-  assert.ok(Math.abs(orbitEnd.z - orbitInput.targetZ) < 0.0001);
-  assert.ok(Math.abs(orbitEnd.rotate - orbitInput.targetRotate) < 0.0001);
-  assert.equal(orbitEnd.progress, 1);
+  const reverseProgress = getScatterEntryProgress(-900 * 0.88, 534.594, 900);
+  assert.ok(reverseProgress < 1);
+  const reverseMotion = getHolographicCardMotion({ ...motionInput, progress: reverseProgress });
+  const forwardMotion = getHolographicCardMotion({ ...motionInput, progress: 1 });
+  assert.ok(reverseMotion.z < forwardMotion.z);
+  assert.ok(reverseMotion.scale < forwardMotion.scale);
+  assert.ok(reverseMotion.blur > forwardMotion.blur);
 
+  const motionStart = getHolographicCardMotion({ ...motionInput, progress: 0 });
+  assert.equal(motionStart.progress, 0);
+  assert.equal(motionStart.x, motionInput.targetX * 0.15);
+  assert.equal(motionStart.y, motionInput.targetY * 0.15 + motionInput.viewportHeight * CARD_ENTRY_START_Y_OFFSET);
+  assert.equal(motionStart.z, CARD_ENTRY_START_Z);
+  assert.equal(motionStart.scale, CARD_ENTRY_START_SCALE);
+  assert.equal(motionStart.blur, 18);
+  assert.equal(motionStart.rotate, 0);
+  assert.equal(motionStart.opacity, 0);
+  assert.equal(motionStart.inactiveOpacity, 0);
+  assert.equal(motionStart.mediaOpacity, 0);
+  assert.equal(motionStart.hologramOpacity, 1);
+  assert.ok(motionStart.scanOpacity > 0);
+
+  const motionMiddle = getHolographicCardMotion({ ...motionInput, progress: 0.5 });
+  assert.ok(motionMiddle.progress > 0.4 && motionMiddle.progress < 0.5);
+  assert.ok(motionMiddle.x > motionStart.x && motionMiddle.x < motionInput.targetX);
+  assert.ok(motionMiddle.y < motionStart.y && motionMiddle.y > motionInput.targetY);
+  assert.ok(motionMiddle.z > motionStart.z && motionMiddle.z < motionInput.targetZ);
+  assert.ok(motionMiddle.scale > CARD_ENTRY_START_SCALE && motionMiddle.scale < 1);
+  assert.ok(motionMiddle.blur > 0 && motionMiddle.blur < 18);
+  assert.ok(motionMiddle.mediaOpacity > 0);
+  assert.ok(Math.abs(motionMiddle.rotate) < motionInput.targetRotate);
+
+  const motionEnd = getHolographicCardMotion({ ...motionInput, progress: 1 });
+  assert.ok(Math.abs(motionEnd.x - motionInput.targetX) < 0.0001);
+  assert.ok(Math.abs(motionEnd.y - motionInput.targetY) < 0.0001);
+  assert.ok(Math.abs(motionEnd.z - motionInput.targetZ) < 0.0001);
+  assert.ok(Math.abs(motionEnd.rotate - motionInput.targetRotate) < 0.0001);
+  assert.equal(motionEnd.progress, 1);
+  assert.equal(motionEnd.scale, 1);
+  assert.equal(motionEnd.blur, 0);
+  assert.equal(motionEnd.inactiveOpacity, 0.6);
+  assert.equal(motionEnd.mediaOpacity, 0.72);
+  assert.equal(motionEnd.hologramOpacity, 0);
+  assert.equal(motionEnd.scanOpacity, 0);
+
+  const heldMotion = getHolographicCardMotion({ ...motionInput, progress: 1.4 });
+  assert.deepEqual(heldMotion, motionEnd);
   assert.deepEqual(
-    getOrbitalCardMotion({ ...orbitInput, progress: 0, reduceMotion: true }),
-    { x: 400, y: -200, z: 40, rotate: 11, progress: 1 },
+    getHolographicCardMotion({ ...motionInput, progress: 0, reduceMotion: true }),
+    {
+      x: 400,
+      y: -200,
+      z: 40,
+      rotate: 11,
+      progress: 1,
+      scale: 1,
+      blur: 0,
+      opacity: 1,
+      inactiveOpacity: 0.6,
+      mediaOpacity: 0.72,
+      hologramOpacity: 0,
+      scanOpacity: 0,
+      glowOpacity: 0,
+    },
   );
 
-  const tornadoSamples = [0.16, 0.24, 0.32, 0.4, 0.48, 0.56, 0.64, 0.72, 0.8, 0.88]
-    .map((progress) => getOrbitalCardMotion({ ...orbitInput, progress }));
-  let tornadoSweep = 0;
-  for (let index = 1; index < tornadoSamples.length; index += 1) {
-    const previousAngle = Math.atan2(tornadoSamples[index - 1].y, tornadoSamples[index - 1].x);
-    const currentAngle = Math.atan2(tornadoSamples[index].y, tornadoSamples[index].x);
-    let angleDelta = currentAngle - previousAngle;
-    while (angleDelta > Math.PI) angleDelta -= Math.PI * 2;
-    while (angleDelta < -Math.PI) angleDelta += Math.PI * 2;
-    tornadoSweep += angleDelta;
-  }
-  assert.ok(tornadoSweep > Math.PI * 2, 'representative card must complete more than one tornado turn');
-
-  const middleQuadrants = new Set();
-  CARD_LAYOUT.forEach((layout, index) => {
-    const targetX = Number.parseFloat(layout.x) * 14.4;
-    const targetY = Number.parseFloat(layout.y) * 9;
-    const middle = getOrbitalCardMotion({
-      progress: 0.5,
-      index,
-      targetX,
-      targetY,
-      targetZ: layout.z,
-      targetRotate: Number.parseFloat(layout.rotate),
-      viewportWidth: 1440,
-      viewportHeight: 900,
+  for (const layoutSet of [CARD_LAYOUT, STATIC_CARD_LAYOUT]) {
+    layoutSet.forEach((layout, index) => {
+      const targetX = Number.parseFloat(layout.x) * 14.4;
+      const targetY = Number.parseFloat(layout.y) * 9;
+      const start = getHolographicCardMotion({
+        progress: 0,
+        index,
+        targetX,
+        targetY,
+        targetZ: layout.z,
+        targetRotate: Number.parseFloat(layout.rotate),
+        viewportHeight: 900,
+      });
+      const end = getHolographicCardMotion({
+        progress: 1,
+        index,
+        targetX,
+        targetY,
+        targetZ: layout.z,
+        targetRotate: Number.parseFloat(layout.rotate),
+        viewportHeight: 900,
+      });
+      assert.equal(start.x, targetX * 0.15, `card ${index} starts at 15% X`);
+      assert.equal(start.y, targetY * 0.15 + 900 * CARD_ENTRY_START_Y_OFFSET, `card ${index} starts below the stage`);
+      assert.equal(start.z, CARD_ENTRY_START_Z, `card ${index} starts behind the stage`);
+      assert.ok(Math.abs(end.x - targetX) < 0.0001, `card ${index} lands at target X`);
+      assert.ok(Math.abs(end.y - targetY) < 0.0001, `card ${index} lands at target Y`);
+      assert.ok(Math.abs(end.z - layout.z) < 0.0001, `card ${index} lands at target Z`);
+      assert.ok(Math.abs(end.rotate - Number.parseFloat(layout.rotate)) < 0.0001, `card ${index} keeps its final tilt`);
     });
-    const crossProduct = middle.x * targetY - middle.y * targetX;
+  }
 
-    assert.ok(Number.isFinite(middle.x));
-    assert.ok(Number.isFinite(middle.y));
-    assert.ok(Number.isFinite(middle.z));
-    assert.ok(Math.abs(crossProduct) > 1, `card ${index} must travel on a curved path`);
-    middleQuadrants.add(`${middle.x >= 0 ? 'right' : 'left'}-${middle.y >= 0 ? 'bottom' : 'top'}`);
-  });
-  assert.ok(middleQuadrants.size >= 3, 'tornado phase offsets must distribute cards around the axis');
+  const entrySamples = [0, 0.12, 0.24, 0.4, 0.64, 0.88, 1];
+  const motionSamples = entrySamples.map((progress) => getHolographicCardMotion({ ...motionInput, progress }));
+  for (let index = 1; index < motionSamples.length; index += 1) {
+    assert.ok(motionSamples[index].progress >= motionSamples[index - 1].progress);
+    assert.ok(motionSamples[index].z >= motionSamples[index - 1].z);
+    assert.ok(motionSamples[index].scale >= motionSamples[index - 1].scale);
+    assert.ok(motionSamples[index].blur <= motionSamples[index - 1].blur);
+  }
 
   const farMotion = getPointerCardMotion({
     baseX: 520,
