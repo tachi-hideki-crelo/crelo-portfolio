@@ -6,6 +6,7 @@ import {
   type ContentAssetKind,
 } from '../app/lib/content-assets.ts';
 import type { CaseStudy, SelfBuiltTool, SiteContent } from '../app/lib/types.ts';
+import type { WebTemplate } from '../app/components/site/web-template-gallery-data.ts';
 
 export type PublicAssetValidationResult = {
   ok: boolean;
@@ -16,7 +17,7 @@ type AssetCheck = {
   label: string;
   src: string;
   kind: ContentAssetKind;
-  directory: 'assets/cases' | 'assets/lab' | 'assets/profile';
+  directory: 'assets/cases' | 'assets/lab' | 'assets/profile' | 'assets/templates';
 };
 
 function isWithinDirectory(candidate: string, directory: string): boolean {
@@ -131,6 +132,18 @@ export function validateSelfBuiltToolAssets(
     kind: 'image',
     directory: 'assets/lab',
   }] : []);
+  const errors = checks.flatMap((check) => validateAssetFile(check, publicRoot));
+  return { ok: errors.length === 0, errors };
+}
+
+export function validateWebTemplateGalleryAssets(
+  templates: readonly WebTemplate[],
+  publicRoot: string,
+): PublicAssetValidationResult {
+  const checks = templates.flatMap((template): AssetCheck[] => [
+    ...(template.thumbnailSrc ? [{ label: `templates[${template.id}].thumbnailSrc`, src: template.thumbnailSrc, kind: 'image' as const, directory: 'assets/templates' as const }] : []),
+    ...(template.videoSrc ? [{ label: `templates[${template.id}].videoSrc`, src: template.videoSrc, kind: 'video' as const, directory: 'assets/templates' as const }] : []),
+  ]);
   const errors = checks.flatMap((check) => validateAssetFile(check, publicRoot));
   return { ok: errors.length === 0, errors };
 }

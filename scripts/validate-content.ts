@@ -4,7 +4,7 @@ import { assertProductionContent, validateProductionContent } from '../app/lib/c
 import { caseStudies, siteContent } from '../app/lib/content.ts';
 import { validateWebTemplateGalleryConfig, webTemplateGallery } from '../app/components/site/web-template-gallery-data.ts';
 import { selfBuiltTools, validateSelfBuiltTools } from '../app/components/site/self-development-data.ts';
-import { validatePublicContentAssets, validateSelfBuiltToolAssets } from './validate-public-assets.ts';
+import { validatePublicContentAssets, validateSelfBuiltToolAssets, validateWebTemplateGalleryAssets } from './validate-public-assets.ts';
 
 const isProduction = process.argv.includes('--production') || process.env.CONTENT_MODE === 'production';
 
@@ -17,6 +17,12 @@ if (!templateGalleryResult.ok) {
 const selfBuiltToolsResult = validateSelfBuiltTools(selfBuiltTools);
 if (!selfBuiltToolsResult.ok) {
   console.error(`SELF_BUILT_TOOLS_GATE_FAILED\n${selfBuiltToolsResult.errors.map((error) => `- ${error}`).join('\n')}`);
+  process.exit(1);
+}
+
+const templateAssets = validateWebTemplateGalleryAssets(webTemplateGallery.templates, resolve(process.cwd(), 'public'));
+if (!templateAssets.ok) {
+  console.error(`WEB_TEMPLATE_GALLERY_ASSET_GATE_FAILED\n${templateAssets.errors.map((error) => `- ${error}`).join('\n')}`);
   process.exit(1);
 }
 

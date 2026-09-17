@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 import {
-  getPendingTemplateMessage,
   isValidHttpsUrl,
   isValidLocalThumbnailPath,
+  isValidLocalTemplateVideoPath,
   validateWebTemplateGalleryConfig,
   webTemplateGallery,
 } from '../app/components/site/web-template-gallery-data.ts';
@@ -24,6 +25,7 @@ import {
   TEMPLATE_GALLERY_BURST_END,
   TEMPLATE_GALLERY_COMPACT_END,
 } from '../app/components/site/web-template-gallery-motion.ts';
+import { validateWebTemplateGalleryAssets } from '../scripts/validate-public-assets.ts';
 
 const homeSource = readFileSync(new URL('../app/components/site/HomeExperience.tsx', import.meta.url), 'utf8');
 const gallerySource = readFileSync(new URL('../app/components/site/WebTemplateGallery.tsx', import.meta.url), 'utf8');
@@ -93,28 +95,34 @@ test('HTTPS validation rejects credentials and local thumbnail validation is str
   assert.equal(isValidLocalThumbnailPath('/uploads/01.webp'), false);
   assert.equal(isValidLocalThumbnailPath('/assets/templates/../01.webp'), false);
   assert.equal(isValidLocalThumbnailPath('/assets/templates//01.webp'), false);
+  assert.equal(isValidLocalTemplateVideoPath('/assets/templates/01.mp4'), true);
+  assert.equal(isValidLocalTemplateVideoPath('https://example.com/01.mp4'), false);
+  assert.equal(isValidLocalTemplateVideoPath('/assets/templates/../01.mp4'), false);
 });
 
-test('gallery data has exactly fifteen ordered pending cards and passes the config gate', () => {
-  assert.equal(webTemplateGallery.galleryUrl, null);
+test('gallery data has fifteen published templates, exact destinations, and source thumbnails', () => {
+  assert.equal(webTemplateGallery.galleryUrl, 'https://template-gallery.crelo.dev/');
   assert.equal(webTemplateGallery.templates.length, 15);
-  assert.deepEqual(webTemplateGallery.templates.map((template) => template.title), Array.from({ length: 15 }, (_, index) => `Template ${String(index + 1).padStart(2, '0')}`));
+  assert.deepEqual(webTemplateGallery.templates.map((template) => template.title), ['モダン', 'プレミアム', 'マテリアル', 'エディトリアル', 'ペーパー', 'レトロ', 'ベントー', 'ブルータリズム', 'ネオン', 'グラスモーフィズム', 'エンタープライズ', 'イマーシブ', 'シネマティック', 'NOCTARIA', 'TERRISE']);
   assert.deepEqual(webTemplateGallery.templates.map((template) => template.order), Array.from({ length: 15 }, (_, index) => index + 1));
-  webTemplateGallery.templates.forEach((template) => {
-    assert.equal(template.url, null);
-    assert.equal(template.thumbnailSrc, null);
-    assert.equal(template.thumbnailAlt, null);
+  const expectedSlugs = ['modern', 'premium', 'material', 'editorial', 'paper', 'retro', 'bento', 'brutalism', 'neon', 'glassmorphism', 'enterprise', 'immersive', 'yunoa', 'noctaria', 'terrise'];
+  webTemplateGallery.templates.forEach((template, index) => {
+    assert.equal(template.url, `https://template-gallery.crelo.dev/templates/${expectedSlugs[index]}/`);
+    assert.equal(template.videoSrc, null);
+    assert.ok(template.thumbnailAlt && template.description && template.fit);
+    assert.match(template.thumbnailSrc, new RegExp(`^/assets/templates/${String(index + 1).padStart(2, '0')}\\.(?:jpg|webp)$`));
   });
   assert.equal(validateWebTemplateGalleryConfig(webTemplateGallery).ok, true);
-  assert.equal(getPendingTemplateMessage(webTemplateGallery.templates[0]), 'Template 01 のURLは準備中です。');
+  assert.equal(validateWebTemplateGalleryAssets(webTemplateGallery.templates, fileURLToPath(new URL('../public/', import.meta.url))).ok, true);
 });
 
 test('gallery config gate catches URL, duplicate order, and thumbnail/alt mistakes', () => {
   const invalid = structuredClone(webTemplateGallery);
   invalid.galleryUrl = 'https://user:secret@example.com/gallery';
   invalid.templates[1].order = invalid.templates[0].order;
-  invalid.templates[2].thumbnailSrc = '/assets/templates/03.webp';
+  invalid.templates[2].thumbnailAlt = null;
   invalid.templates[3].thumbnailSrc = '/assets/templates/../03.webp';
+  invalid.templates[4].videoSrc = 'javascript:alert(1)';
   const result = validateWebTemplateGalleryConfig(invalid);
   assert.equal(result.ok, false);
   if (result.ok) return;
@@ -122,6 +130,16 @@ test('gallery config gate catches URL, duplicate order, and thumbnail/alt mistak
   assert.ok(result.errors.some((error) => error.includes('order')));
   assert.ok(result.errors.some((error) => error.includes('thumbnailSrc and thumbnailAlt')));
   assert.ok(result.errors.some((error) => error.includes('local /assets/templates path')));
+  assert.ok(result.errors.some((error) => error.includes('videoSrc')));
+});
+
+test('missing or escaped template media fails the asset gate', () => {
+  const root = fileURLToPath(new URL('../public/', import.meta.url));
+  const missing = structuredClone(webTemplateGallery.templates);
+  missing[0].thumbnailSrc = '/assets/templates/does-not-exist.jpg';
+  const result = validateWebTemplateGalleryAssets(missing, root);
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((error) => error.includes('does not exist')));
 });
 
 test('template section replaces the old capability section and keeps CTA/link safety branches', () => {
@@ -137,7 +155,12 @@ test('template section replaces the old capability section and keeps CTA/link sa
   assert.match(gallerySource, /一覧URL準備中/);
   assert.match(gallerySource, /galleryUrl \?/);
   assert.match(gallerySource, /target="_blank" rel="noopener noreferrer"/);
-  assert.match(gallerySource, /role="status" data-pending-message="Template 01 のURLは準備中です。"/);
+  assert.match(gallerySource, /role="dialog"/);
+  assert.match(gallerySource, /aria-modal="true"/);
+  assert.match(gallerySource, /VIDEO \/ COMING SOON/);
+  assert.match(gallerySource, /handleCardClick\(event, template\)/);
+  assert.match(gallerySource, /'--template-accent': `rgb\(\$\{ACCENT_RGB\[selectedTemplate\.accent\]\}\)`/);
+  assert.doesNotMatch(gallerySource, /var\(--template-\$\{/);
   assert.doesNotMatch(gallerySource, /<button[^>]+className=\{styles\.cta\}/);
 });
 
@@ -186,7 +209,7 @@ test('responsive title and all fifteen action hit areas stay within their contra
   assert.equal(TEMPLATE_COUNT, 15);
   assert.ok(actionMinHeight * minimumRenderedCardScale >= 44);
   assert.ok(actionMinWidth * minimumRenderedCardScale >= 44);
-  assert.match(galleryStyles, /flex-shrink: 0/);
+  assert.match(galleryStyles, /\.cardAction \{[\s\S]*?inset: 0;/);
 });
 
 test('primary navigation includes the requested anchors including Personal Lab', () => {
