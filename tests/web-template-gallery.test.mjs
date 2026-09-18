@@ -204,6 +204,20 @@ test('gallery keeps native scroll while trackpad input moves cards with the gest
   assert.match(galleryStyles, /grid-template-columns: repeat\(2, minmax\(0, 1fr\)/);
 });
 
+test('a new card press opens detail after dragging or inertia without recentering on pointer focus', () => {
+  const pointerDown = gallerySource.slice(gallerySource.indexOf('const handlePointerDown'), gallerySource.indexOf('const handlePointerMove'));
+  const pointerMove = gallerySource.slice(gallerySource.indexOf('const handlePointerMove'), gallerySource.indexOf('const finishPointer'));
+  const pointerFinish = gallerySource.slice(gallerySource.indexOf('const finishPointer'), gallerySource.indexOf('const handleCardClick'));
+  const focus = gallerySource.slice(gallerySource.indexOf('const handleCardFocus'), gallerySource.indexOf('const handleCardKeyDown'));
+  assert.match(pointerDown, /clearClickSuppression\(\)/);
+  assert.match(pointerDown, /closest\('\[data-template-action\]'\)/);
+  assert.match(pointerDown, /field\.targetX = field\.x;\s*field\.targetY = field\.y/);
+  assert.match(pointerMove, /pointer\.didDrag = true/);
+  assert.match(pointerFinish, /pointer\.didDrag \|\| hasExceededDragThreshold/);
+  assert.match(focus, /if \(!event\.currentTarget\.matches\(':focus-visible'\)\) return/);
+  assert.match(gallerySource, /setSelectedTemplate\(template\)/);
+});
+
 test('responsive title and all fifteen action hit areas stay within their contracts', () => {
   const mobileContentWidth = 390 - (2 * 20);
   const mobileStartTitleSize = Math.min(1.85 * 16, 390 * 0.08, 3.2 * 16);
