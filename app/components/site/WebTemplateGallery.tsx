@@ -542,7 +542,10 @@ export default function WebTemplateGallery({ config = webTemplateGallery }: { co
                     <div><dt>表現の特徴</dt><dd>{selectedTemplate.traits}</dd></div>
                     <div><dt>向いている案件</dt><dd>{selectedTemplate.fit}</dd></div>
                   </dl>
-                  {getSafeTemplateUrl(selectedTemplate) ? <a className={styles.detailVisit} href={getSafeTemplateUrl(selectedTemplate)!} target="_blank" rel="noopener noreferrer">サイトを見る <span aria-hidden="true">↗</span></a> : <span className={styles.pendingLabel}>{getPendingTemplateMessage(selectedTemplate)}</span>}
+                  <div className={styles.detailActions}>
+                    {getSafeTemplateUrl(selectedTemplate) ? <a className={styles.detailVisit} href={getSafeTemplateUrl(selectedTemplate)!} target="_blank" rel="noopener noreferrer">サイトを見る <span aria-hidden="true">↗</span></a> : <span className={styles.pendingLabel}>{getPendingTemplateMessage(selectedTemplate)}</span>}
+                    {galleryUrl ? <a className={styles.detailGallery} href={galleryUrl} target="_blank" rel="noopener noreferrer">テンプレート一覧を見る <span aria-hidden="true">↗</span></a> : <span className={styles.pendingLabel}>一覧URL準備中</span>}
+                  </div>
                 </div>
               </motion.article>
             </motion.div>

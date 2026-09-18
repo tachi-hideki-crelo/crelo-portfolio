@@ -454,20 +454,23 @@
 .detailFacts dt { color: var(--template-accent); font-family: var(--font-mono); font-size: .7rem; letter-spacing: .1em; }
 .detailFacts dd { color: var(--muted); font-size: .95rem; line-height: 1.6; margin: 0; }
 
-.detailVisit {
+.detailActions { align-items: center; display: flex; flex-wrap: wrap; gap: .75rem; }
+
+.detailVisit, .detailGallery {
   align-items: center;
-  background: var(--template-accent);
-  color: #081013;
   display: inline-flex;
   font-size: .9rem;
   font-weight: 700;
-  gap: 1.8rem;
+  gap: 1rem;
   justify-content: space-between;
   min-height: 48px;
   padding: .7rem 1rem;
   text-decoration: none;
 }
-.detailVisit:hover, .detailVisit:focus-visible { background: var(--ink); outline: 2px solid var(--template-accent); outline-offset: 2px; }
+.detailVisit { background: var(--template-accent); color: #081013; }
+.detailGallery { border: 1px solid rgb(var(--template-accent-rgb) / 70%); color: var(--ink); }
+.detailVisit:hover, .detailVisit:focus-visible { background: var(--ink); color: #081013; outline: 2px solid var(--template-accent); outline-offset: 2px; }
+.detailGallery:hover, .detailGallery:focus-visible { background: rgb(var(--template-accent-rgb) / 16%); outline: 2px solid var(--template-accent); outline-offset: 2px; }
 
 .gallerySection[data-reduced-motion='true'] {
   min-height: auto;

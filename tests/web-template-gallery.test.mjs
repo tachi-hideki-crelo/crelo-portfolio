@@ -164,6 +164,19 @@ test('template section replaces the old capability section and keeps CTA/link sa
   assert.doesNotMatch(gallerySource, /<button[^>]+className=\{styles\.cta\}/);
 });
 
+test('template detail offers adjacent site and gallery links only for safe destinations', () => {
+  const actions = gallerySource.slice(
+    gallerySource.indexOf('<div className={styles.detailActions}>'),
+    gallerySource.indexOf('</div>', gallerySource.indexOf('<div className={styles.detailActions}>')),
+  );
+  assert.match(actions, /getSafeTemplateUrl\(selectedTemplate\)/);
+  assert.match(actions, /className=\{styles\.detailVisit\}[^>]*target="_blank" rel="noopener noreferrer">サイトを見る/);
+  assert.match(actions, /galleryUrl \? <a className=\{styles\.detailGallery\} href=\{galleryUrl\} target="_blank" rel="noopener noreferrer">テンプレート一覧を見る/);
+  assert.match(actions, /一覧URL準備中/);
+  assert.match(galleryStyles, /\.detailActions \{[^}]*flex-wrap: wrap/);
+  assert.match(galleryStyles, /\.detailVisit, \.detailGallery \{[^}]*min-height: 48px/);
+});
+
 test('gallery keeps native scroll while trackpad input moves cards with the gesture on both axes', () => {
   assert.match(gallerySource, /requestAnimationFrame/);
   assert.match(gallerySource, /event\.deltaX/);
