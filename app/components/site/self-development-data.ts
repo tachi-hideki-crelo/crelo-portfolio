@@ -5,7 +5,6 @@ export type SelfBuiltToolValidationResult = {
   errors: string[];
 };
 
-const PLACEHOLDER_SUMMARY = 'ツールの目的、解決したい課題、主な機能をここに掲載します。';
 const ACCENTS: readonly SelfBuiltToolAccent[] = ['mint', 'cyan', 'amber', 'violet'];
 const SAFE_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const SAFE_THUMBNAIL = /^\/assets\/lab\/[a-zA-Z0-9][a-zA-Z0-9._/-]*\.(?:avif|gif|jpe?g|png|webp)$/i;
@@ -50,34 +49,6 @@ export const selfBuiltTools: readonly SelfBuiltTool[] = [
       features: ['プロジェクトごとのタスク一覧', 'カレンダーによるスケジュール確認', 'チャットによるチーム共有', '担当者・優先度・期限・進捗の表示'],
       technologies: [],
     },
-  },
-  {
-    id: 'tool-slot-3',
-    order: 3,
-    title: '名称準備中',
-    category: 'PERSONAL LAB / SLOT',
-    summary: PLACEHOLDER_SUMMARY,
-    tags: [],
-    accent: ACCENTS[2],
-    status: 'placeholder',
-    slug: null,
-    thumbnailSrc: null,
-    thumbnailAlt: null,
-    detail: null,
-  },
-  {
-    id: 'tool-slot-4',
-    order: 4,
-    title: '名称準備中',
-    category: 'PERSONAL LAB / SLOT',
-    summary: PLACEHOLDER_SUMMARY,
-    tags: [],
-    accent: ACCENTS[3],
-    status: 'placeholder',
-    slug: null,
-    thumbnailSrc: null,
-    thumbnailAlt: null,
-    detail: null,
   },
 ];
 

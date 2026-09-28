@@ -429,20 +429,6 @@
 .detailVisual video { height: 100%; object-fit: cover; width: 100%; }
 .detailVisual::after { background: linear-gradient(180deg, transparent 55%, rgb(1 5 7 / 65%)); content: ''; inset: 0; pointer-events: none; position: absolute; }
 
-.videoPending {
-  background: rgb(3 8 11 / 80%);
-  border: 1px solid rgb(var(--template-accent-rgb) / 60%);
-  bottom: 1rem;
-  color: var(--template-accent);
-  font-family: var(--font-mono);
-  font-size: .65rem;
-  left: 1rem;
-  letter-spacing: .16em;
-  padding: .5rem .7rem;
-  position: absolute;
-  z-index: 1;
-}
-
 .detailBody { padding: clamp(1.25rem, 4vw, 2.5rem); }
 .detailCategory { color: var(--template-accent); font-family: var(--font-mono); font-size: .75rem; letter-spacing: .12em; margin: 0 0 .8rem; text-transform: uppercase; }
 .detailBody h3 { font-size: clamp(2.1rem, 7vw, 4rem); letter-spacing: -.06em; line-height: 1.12; margin: 0; overflow-wrap: anywhere; }

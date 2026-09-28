@@ -7,7 +7,7 @@ import { useReducedMotion } from 'motion/react';
 
 import type { SelfBuiltTool } from '../../lib/types';
 import { selfBuiltTools } from './self-development-data';
-import { getSelfDevelopmentItemTimeline, getSelfDevelopmentStageTimeline } from './self-development-motion';
+import { getSelfDevelopmentItemTimeline, getSelfDevelopmentStageTimeline, getSelfDevelopmentWindows } from './self-development-motion';
 import styles from './self-development-lab.module.css';
 
 type CSSVars = CSSProperties & Record<`--${string}`, string | number>;
@@ -38,6 +38,7 @@ export default function SelfDevelopmentLab({ tools = selfBuiltTools }: { tools?:
   useEffect(() => {
     const section = sectionRef.current;
     if (!section) return;
+    const windows = getSelfDevelopmentWindows(tools.length);
 
     const update = () => {
       frameRef.current = null;
@@ -45,7 +46,7 @@ export default function SelfDevelopmentLab({ tools = selfBuiltTools }: { tools?:
       const travel = Math.max(section.offsetHeight - window.innerHeight, 1);
       const rect = section.getBoundingClientRect();
       const progress = reduceMotion ? 1 : Math.min(Math.max(-rect.top / travel, 0), 1);
-      const stage = getSelfDevelopmentStageTimeline(progress, reduceMotion);
+      const stage = getSelfDevelopmentStageTimeline(progress, reduceMotion, tools.length);
       const mobile = window.innerWidth <= 720;
 
       section.dataset.labProgress = stage.progress.toFixed(4);
@@ -68,7 +69,7 @@ export default function SelfDevelopmentLab({ tools = selfBuiltTools }: { tools?:
 
       itemRefs.current.forEach((item, index) => {
         if (!item) return;
-        const timeline = getSelfDevelopmentItemTimeline(progress, index, reduceMotion);
+        const timeline = getSelfDevelopmentItemTimeline(progress, index, reduceMotion, tools.length);
         item.style.setProperty('--lab-x', `${(timeline.xVw * (mobile ? 0.32 : 1)).toFixed(3)}vw`);
         item.style.setProperty('--lab-y', `${timeline.yVh.toFixed(3)}vh`);
         item.style.setProperty('--lab-scale', timeline.scale.toFixed(4));
@@ -94,7 +95,7 @@ export default function SelfDevelopmentLab({ tools = selfBuiltTools }: { tools?:
 
       nodeRefs.current.forEach((node, index) => {
         if (!node) return;
-        node.dataset.active = progress >= (0.12 + (index * 0.18)) ? 'true' : 'false';
+        node.dataset.active = progress >= (windows[index]?.start ?? 1) ? 'true' : 'false';
       });
     };
 
@@ -195,6 +196,7 @@ export default function SelfDevelopmentLab({ tools = selfBuiltTools }: { tools?:
       data-lab-phase="intro"
       data-viewport-active="false"
       data-document-visible="true"
+      style={{ '--lab-tool-count': tools.length } as CSSVars}
     >
       <div className={styles.stickyStage}>
         <div className={styles.atmosphere} aria-hidden="true">
@@ -228,7 +230,7 @@ export default function SelfDevelopmentLab({ tools = selfBuiltTools }: { tools?:
         <div className={styles.signalRail} aria-hidden="true">
           <span className={styles.signalRailTrack} />
           <span className={styles.signalRailFill} />
-          {tools.map((tool, index) => <span ref={(node) => { nodeRefs.current[index] = node; }} className={styles.signalNode} style={{ '--node-top': `${13 + (index * 24)}%` } as CSSVars} data-active="false" key={tool.id} />)}
+          {tools.map((tool, index) => <span ref={(node) => { nodeRefs.current[index] = node; }} className={styles.signalNode} style={{ '--node-top': `${((index + 1) / (tools.length + 1)) * 100}%` } as CSSVars} data-active="false" key={tool.id} />)}
         </div>
 
         <div className={styles.toolStage} aria-label="自己開発ツール">

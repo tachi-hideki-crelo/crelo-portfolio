@@ -14,6 +14,7 @@ import { validateSelfBuiltToolAssets } from '../scripts/validate-public-assets.t
 import {
   getSelfDevelopmentItemTimeline,
   getSelfDevelopmentStageTimeline,
+  getSelfDevelopmentWindows,
   SELF_DEVELOPMENT_WINDOWS,
 } from '../app/components/site/self-development-motion.ts';
 
@@ -24,14 +25,14 @@ const homeSource = readFileSync(new URL('../app/components/site/HomeExperience.t
 const navSource = readFileSync(new URL('../app/components/site/SiteChrome.tsx', import.meta.url), 'utf8');
 const routeSource = readFileSync(new URL('../app/lab/[slug]/page.tsx', import.meta.url), 'utf8');
 
-test('personal lab publishes two ordered tools and keeps two honest placeholders', () => {
-  assert.equal(selfBuiltTools.length, 4);
-  assert.deepEqual(selfBuiltTools.map((tool) => tool.order), [1, 2, 3, 4]);
-  assert.deepEqual(selfBuiltTools.map((tool) => tool.accent), ['mint', 'cyan', 'amber', 'violet']);
-  assert.deepEqual(selfBuiltTools.slice(0, 2).map((tool) => tool.title), ['clipmory', 'kotoseto']);
-  assert.deepEqual(selfBuiltTools.slice(0, 2).map((tool) => tool.status), ['published', 'published']);
-  assert.deepEqual(selfBuiltTools.slice(0, 2).map((tool) => tool.slug), ['clipmory', 'kotoseto']);
-  assert.deepEqual(selfBuiltTools.slice(0, 2).map((tool) => tool.thumbnailSrc), [
+test('personal lab presents only the two published tools', () => {
+  assert.equal(selfBuiltTools.length, 2);
+  assert.deepEqual(selfBuiltTools.map((tool) => tool.order), [1, 2]);
+  assert.deepEqual(selfBuiltTools.map((tool) => tool.accent), ['mint', 'cyan']);
+  assert.deepEqual(selfBuiltTools.map((tool) => tool.title), ['clipmory', 'kotoseto']);
+  assert.deepEqual(selfBuiltTools.map((tool) => tool.status), ['published', 'published']);
+  assert.deepEqual(selfBuiltTools.map((tool) => tool.slug), ['clipmory', 'kotoseto']);
+  assert.deepEqual(selfBuiltTools.map((tool) => tool.thumbnailSrc), [
     '/assets/lab/clipmory-demo.jpg',
     '/assets/lab/kotoseto-demo.jpg',
   ]);
@@ -39,15 +40,7 @@ test('personal lab publishes two ordered tools and keeps two honest placeholders
   assert.equal(selfBuiltTools[1].summary, 'タスク・スケジュール・チームの進捗をひとつの画面で確認できるタスク管理ツール。プロジェクトごとのタスク一覧やカレンダー、チャットをまとめ、日々の作業と情報共有を支えます。');
   assert.deepEqual(selfBuiltTools[0].detail?.technologies, []);
   assert.deepEqual(selfBuiltTools[1].detail?.technologies, []);
-  selfBuiltTools.slice(2).forEach((tool) => {
-    assert.equal(tool.title, '名称準備中');
-    assert.equal(tool.summary, 'ツールの目的、解決したい課題、主な機能をここに掲載します。');
-    assert.equal(tool.status, 'placeholder');
-    assert.equal(tool.slug, null);
-    assert.equal(tool.thumbnailSrc, null);
-    assert.equal(tool.thumbnailAlt, null);
-    assert.equal(tool.detail, null);
-  });
+  assert.ok(selfBuiltTools.every((tool) => tool.status === 'published'));
   assert.deepEqual(getPublishedSelfBuiltTools().map((tool) => tool.slug), ['clipmory', 'kotoseto']);
   assert.equal(isValidSelfBuiltToolSlug('clipmory'), true);
   assert.equal(isValidSelfBuiltToolSlug('kotoseto'), true);
@@ -80,13 +73,18 @@ test('lab validation rejects unsafe slugs, duplicates, and incomplete media or d
   assert.ok(result.errors.some((error) => error.includes('thumbnailSrc and thumbnailAlt')));
 });
 
-test('four overlapping scroll windows rise from below, center, and exit above', () => {
+test('two overlapping scroll windows rise from below, center, and exit above', () => {
   assert.deepEqual(SELF_DEVELOPMENT_WINDOWS, [
-    { start: 0.12, end: 0.38 },
-    { start: 0.30, end: 0.56 },
-    { start: 0.48, end: 0.74 },
-    { start: 0.66, end: 0.92 },
+    { start: 0.12, end: 0.62 },
+    { start: 0.42, end: 0.92 },
   ]);
+  assert.deepEqual(getSelfDevelopmentWindows(2), SELF_DEVELOPMENT_WINDOWS);
+  const futureWindows = getSelfDevelopmentWindows(4);
+  assert.equal(futureWindows.length, 4);
+  assert.ok(Math.abs(futureWindows[0].start - 0.12) < 0.001);
+  assert.ok(Math.abs(futureWindows[3].end - 0.92) < 0.001);
+  assert.equal(getSelfDevelopmentStageTimeline(0.72, false, 4).phase, 'tool-4');
+  assert.ok(getSelfDevelopmentItemTimeline(0.72, 3, false, 4).opacity > 0);
   SELF_DEVELOPMENT_WINDOWS.forEach((window, index) => {
     const before = getSelfDevelopmentItemTimeline(window.start - 0.01, index);
     const gradualEntry = getSelfDevelopmentItemTimeline(window.start + ((window.end - window.start) * 0.20), index);
@@ -103,7 +101,7 @@ test('four overlapping scroll windows rise from below, center, and exit above', 
     assert.equal(after.interactive, false);
   });
   const leftArrival = getSelfDevelopmentItemTimeline(0.14, 0);
-  const rightArrival = getSelfDevelopmentItemTimeline(0.32, 1);
+  const rightArrival = getSelfDevelopmentItemTimeline(0.44, 1);
   assert.ok(leftArrival.xVw < 0);
   assert.ok(rightArrival.xVw > 0);
 
@@ -120,9 +118,9 @@ test('stage reveals the title, activates tools, and ends with the profile cue', 
   assert.equal(getSelfDevelopmentStageTimeline(0).titleReveal, 0);
   assert.equal(getSelfDevelopmentStageTimeline(0.12).bodyReveal, 1);
   assert.equal(getSelfDevelopmentStageTimeline(0.18).phase, 'tool-1');
-  assert.equal(getSelfDevelopmentStageTimeline(0.36).phase, 'tool-2');
-  assert.equal(getSelfDevelopmentStageTimeline(0.54).phase, 'tool-3');
-  assert.equal(getSelfDevelopmentStageTimeline(0.72).phase, 'tool-4');
+  assert.equal(getSelfDevelopmentStageTimeline(0.36).phase, 'tool-1');
+  assert.equal(getSelfDevelopmentStageTimeline(0.54).phase, 'tool-2');
+  assert.equal(getSelfDevelopmentStageTimeline(0.72).phase, 'tool-2');
   assert.equal(getSelfDevelopmentStageTimeline(0.96).phase, 'outro');
   assert.ok(getSelfDevelopmentStageTimeline(0.96).outro > 0);
 });
@@ -145,7 +143,7 @@ test('lab source keeps semantic placeholders, offscreen pausing, and future deta
   assert.match(componentSource, /tool\.tags\.length \? 'FEATURES' : 'STACK'/);
   assert.match(componentSource, /tool\.status === 'published' \? 'PERSONAL LAB \/ TOOL' : 'PERSONAL PROTOTYPE SLOT'/);
   assert.match(componentSource, /<Image className=\{styles\.thumbnail\}[\s\S]*style=\{\{ objectFit: 'contain' \}\}/);
-  assert.match(styles, /min-height: 500vh/);
+  assert.match(styles, /min-height: calc\(100vh \+ \(var\(--lab-tool-count\) \* 120vh\)\)/);
   assert.match(styles, /position: sticky/);
   assert.match(styles, /data-side='right'/);
   assert.match(styles, /\.thumbnail \{[^}]*object-fit: contain/);

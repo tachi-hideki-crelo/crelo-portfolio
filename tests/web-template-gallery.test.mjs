@@ -157,7 +157,8 @@ test('template section replaces the old capability section and keeps CTA/link sa
   assert.match(gallerySource, /target="_blank" rel="noopener noreferrer"/);
   assert.match(gallerySource, /role="dialog"/);
   assert.match(gallerySource, /aria-modal="true"/);
-  assert.match(gallerySource, /VIDEO \/ COMING SOON/);
+  assert.doesNotMatch(gallerySource, /VIDEO \/ COMING SOON|videoPending/);
+  assert.doesNotMatch(galleryStyles, /\.videoPending/);
   assert.match(gallerySource, /handleCardClick\(event, template\)/);
   assert.match(gallerySource, /'--template-accent': `rgb\(\$\{ACCENT_RGB\[selectedTemplate\.accent\]\}\)`/);
   assert.doesNotMatch(gallerySource, /var\(--template-\$\{/);

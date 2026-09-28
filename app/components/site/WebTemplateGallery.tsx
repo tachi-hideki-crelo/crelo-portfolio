@@ -550,7 +550,6 @@ export default function WebTemplateGallery({ config = webTemplateGallery }: { co
                   ) : getSafeTemplateThumbnail(selectedTemplate) ? (
                     <Image src={getSafeTemplateThumbnail(selectedTemplate)!} alt={selectedTemplate.thumbnailAlt ?? selectedTemplate.title} fill sizes="(max-width: 720px) calc(100vw - 3rem), 44rem" />
                   ) : null}
-                  {!getSafeTemplateVideo(selectedTemplate) && <span className={styles.videoPending}>VIDEO / COMING SOON</span>}
                 </div>
                 <div className={styles.detailBody}>
                   <p className={styles.detailCategory}>{selectedTemplate.category}</p>

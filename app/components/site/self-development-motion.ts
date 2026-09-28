@@ -1,4 +1,4 @@
-export type SelfDevelopmentPhase = 'intro' | 'tool-1' | 'tool-2' | 'tool-3' | 'tool-4' | 'outro';
+export type SelfDevelopmentPhase = 'intro' | `tool-${number}` | 'outro';
 
 export type SelfDevelopmentStageTimeline = {
   progress: number;
@@ -29,11 +29,18 @@ export type SelfDevelopmentItemTimeline = {
 };
 
 export const SELF_DEVELOPMENT_WINDOWS = [
-  { start: 0.12, end: 0.38 },
-  { start: 0.30, end: 0.56 },
-  { start: 0.48, end: 0.74 },
-  { start: 0.66, end: 0.92 },
+  { start: 0.12, end: 0.62 },
+  { start: 0.42, end: 0.92 },
 ] as const;
+
+export function getSelfDevelopmentWindows(toolCount: number): readonly { start: number; end: number }[] {
+  const count = Math.max(1, Math.floor(toolCount));
+  const span = 0.8 / (1 + ((count - 1) * 0.6));
+  return Array.from({ length: count }, (_, index) => {
+    const start = 0.12 + (index * span * 0.6);
+    return { start, end: index === count - 1 ? 0.92 : start + span };
+  });
+}
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
@@ -53,17 +60,18 @@ function lerp(start: number, end: number, amount: number): number {
   return start + ((end - start) * amount);
 }
 
-export function selfDevelopmentPhaseAt(progress: number): SelfDevelopmentPhase {
+export function selfDevelopmentPhaseAt(progress: number, toolCount: number = SELF_DEVELOPMENT_WINDOWS.length): SelfDevelopmentPhase {
   const value = clamp01(progress);
-  if (value < SELF_DEVELOPMENT_WINDOWS[0].start) return 'intro';
-  if (value < SELF_DEVELOPMENT_WINDOWS[1].start) return 'tool-1';
-  if (value < SELF_DEVELOPMENT_WINDOWS[2].start) return 'tool-2';
-  if (value < SELF_DEVELOPMENT_WINDOWS[3].start) return 'tool-3';
-  if (value < 0.92) return 'tool-4';
-  return 'outro';
+  const windows = getSelfDevelopmentWindows(toolCount);
+  if (value < windows[0].start) return 'intro';
+  if (value >= windows[windows.length - 1].end) return 'outro';
+  for (let index = windows.length - 1; index >= 0; index -= 1) {
+    if (value >= windows[index].start) return `tool-${index + 1}`;
+  }
+  return 'intro';
 }
 
-export function getSelfDevelopmentStageTimeline(progress: number, reduceMotion = false): SelfDevelopmentStageTimeline {
+export function getSelfDevelopmentStageTimeline(progress: number, reduceMotion = false, toolCount: number = SELF_DEVELOPMENT_WINDOWS.length): SelfDevelopmentStageTimeline {
   const value = clamp01(progress);
   if (reduceMotion) {
     return { progress: value, phase: 'outro', titleReveal: 1, bodyReveal: 1, titleLiftVh: 0, titleScale: 1, titleOpacity: 1, railProgress: 1, atmosphere: 1, outro: 1 };
@@ -74,7 +82,7 @@ export function getSelfDevelopmentStageTimeline(progress: number, reduceMotion =
   const outro = segment(value, 0.92, 1);
   return {
     progress: value,
-    phase: selfDevelopmentPhaseAt(value),
+    phase: selfDevelopmentPhaseAt(value, toolCount),
     titleReveal,
     bodyReveal,
     titleLiftVh: lerp(0, -13, compact),
@@ -86,9 +94,10 @@ export function getSelfDevelopmentStageTimeline(progress: number, reduceMotion =
   };
 }
 
-export function getSelfDevelopmentItemTimeline(progress: number, index: number, reduceMotion = false): SelfDevelopmentItemTimeline {
-  const safeIndex = Math.min(Math.max(Math.round(index), 0), SELF_DEVELOPMENT_WINDOWS.length - 1);
-  const window = SELF_DEVELOPMENT_WINDOWS[safeIndex];
+export function getSelfDevelopmentItemTimeline(progress: number, index: number, reduceMotion = false, toolCount: number = SELF_DEVELOPMENT_WINDOWS.length): SelfDevelopmentItemTimeline {
+  const windows = getSelfDevelopmentWindows(toolCount);
+  const safeIndex = Math.min(Math.max(Math.round(index), 0), windows.length - 1);
+  const window = windows[safeIndex];
   if (reduceMotion) {
     return { localProgress: 1, xVw: 0, yVh: 0, scale: 1, opacity: 1, blurPx: 0, rotateDeg: 0, cardReveal: 1, copyReveal: 1, portal: 0, afterimage: 0, interactive: true };
   }
