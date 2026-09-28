@@ -11,7 +11,7 @@
     "build": "vinext build",
     "build:cloudflare": "CONTENT_MODE=preview CRELO_DEPLOY_TARGET=cloudflare npm run build",
     "build:production": "CONTENT_MODE=production npm run build",
-    "deploy:cloudflare": "npm run build:cloudflare && WRANGLER_WRITE_LOGS=false WRANGLER_LOG_PATH=.wrangler/logs wrangler deploy",
+    "deploy:cloudflare": "npm run build:cloudflare && WRANGLER_WRITE_LOGS=false WRANGLER_LOG_PATH=.wrangler/logs wrangler deploy --config dist/server/wrangler.json",
     "start": "vinext start",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "typecheck": "tsc --noEmit",

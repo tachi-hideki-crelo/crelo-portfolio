@@ -16,13 +16,13 @@
 
 ## 問い合わせフォームの有効化
 
-現在のowner-only・noindex Previewでは、Privacyの実運用情報と送信設定が未完成のため、入力欄と送信を停止しています。案件内容が未公開でも、以下が揃えば問い合わせだけを安全に有効化できます。
+現在のnoindex Previewでは、Privacyの実運用情報と送信設定が未完成のため、入力欄と送信を停止しています。既存のCodex Sites Previewはowner-onlyですが、個人Cloudflareアカウントの`workers.dev`版はURLを知る人なら閲覧できます。`noindex`はアクセス制御ではありません。案件内容が未公開でも、以下が揃えば問い合わせだけを安全に有効化できます。
 
 1. 下記Privacy情報を実際の運用に合わせて承認し、`app/lib/content.ts`へ登録する。
 2. `crelo.dev`等の送信ドメインをResendで認証し、そのドメインの送信元アドレスを`CONTACT_FROM_EMAIL`へ登録する。受信先は`CONTACT_TO_EMAIL=info@crelo.dev`に固定する。
 3. Turnstileでプレビューのホスト名を許可し、公開site keyを`NEXT_PUBLIC_TURNSTILE_SITE_KEY`へ、secret keyを`TURNSTILE_SECRET_KEY`へ登録する。
-4. `RESEND_API_KEY`と32文字以上のランダムな`CONTACT_HASH_SECRET`をSitesの秘密環境変数として登録する。`SITE_ORIGIN`は現在のプレビューURLと完全一致させる。
-5. D1の`contact_requests`テーブルを確認し、owner-onlyのまま新バージョンをデプロイする。実メールを伴う最終E2Eは送信先・内容を提示し、実行直前の確認後に行う。
+4. `RESEND_API_KEY`と32文字以上のランダムな`CONTACT_HASH_SECRET`を配信先の秘密環境変数として登録する。`SITE_ORIGIN`は配信先のURLと完全一致させる。
+5. D1の`contact_requests`テーブルを確認してから新バージョンをデプロイする。Cloudflare版ではD1 binding・環境変数・Secretを別途設定する。実メールを伴う最終E2Eは送信先・内容を提示し、実行直前の確認後に行う。
 
 秘密鍵やトークンをこのリポジトリ、チャット、ログへ貼り付けないでください。
 
@@ -68,7 +68,7 @@
 
 ## Production gate
 
-`npm run build` とローカル開発は、未承認4枠をredactionしたowner-only previewを許可し、承認済みcaseの媒体assetだけを検証します。
+`npm run build` とローカル開発は、未承認4枠をredactionしたpreviewを許可し、承認済みcaseの媒体assetだけを検証します。公開URLを持つCloudflare版にowner-onlyのアクセス制御はなく、検索インデックスを拒否した状態でのみ公開します。
 `npm run build:production` は、5件すべてが `approved: true` と有効な案件承認日を持つこと、必須項目・承認済み媒体の安全なasset metadata・実名Profile（顔写真の公開承認日を含む）・実運用Privacy（取得項目、目的、保存期間、委託先、国外移転、権利請求窓口を含む）・本番環境変数が揃うことを検証します。さらに `public/` 配下へ安全に解決できる通常ファイルの存在、画像／動画／字幕の拡張子をbuild前に検証し、揃わない場合は理由を列挙して失敗します。
 
 本番 `SITE_ORIGIN` は `https://` のURLに限定し、`localhost`／`127.0.0.1`／`[::1]` のみローカル検証用に `http://` を許可します。問い合わせの任意 `requestId` はResendの `Idempotency-Key` とD1の再試行識別に使うためUUID形式で指定します。省略時はサーバーがUUIDを生成します。Turnstile Siteverify は毎回新しいtokenを検証し、Resend用のrequestIdをSiteverifyのidempotency keyへ流用しません。

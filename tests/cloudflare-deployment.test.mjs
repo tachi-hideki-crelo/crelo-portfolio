@@ -16,7 +16,7 @@ test('personal Cloudflare deployment stays noindex and contact-disabled until op
   assert.equal(config.d1_databases, undefined);
   assert.equal(config.vars, undefined);
   assert.match(scripts['build:cloudflare'], /CONTENT_MODE=preview CRELO_DEPLOY_TARGET=cloudflare npm run build/);
-  assert.match(scripts['deploy:cloudflare'], /npm run build:cloudflare && WRANGLER_WRITE_LOGS=false WRANGLER_LOG_PATH=\.wrangler\/logs wrangler deploy/);
+  assert.match(scripts['deploy:cloudflare'], /npm run build:cloudflare && WRANGLER_WRITE_LOGS=false WRANGLER_LOG_PATH=\.wrangler\/logs wrangler deploy --config dist\/server\/wrangler\.json/);
   assert.match(viteSource, /!deployToPersonalCloudflare \? \[sites\(\)\] : \[\]/);
   assert.match(viteSource, /config: localBindingConfig/);
   assert.match(nextConfigSource, /source: '\/\(\.\*\)'/);

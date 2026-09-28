@@ -34,6 +34,17 @@ test('keeps fingerprint reusable after the duplicate window by avoiding a unique
   assert.doesNotMatch(source, /fingerprintIndex:\s*uniqueIndex\(/);
 });
 
+test('bounds duplicate lookup in SQL before limiting results, including the future boundary', async () => {
+  const source = await readFile(new URL('../db/contact-store.ts', import.meta.url), 'utf8');
+  const lookup = source.split('const duplicateCandidates = await db')[1]?.split('const hasRecentDuplicate =')[0];
+  assert.ok(lookup, 'duplicate lookup must exist');
+  assert.match(lookup, /eq\(contactRequests\.fingerprintHash, input\.fingerprintHash\)/);
+  assert.match(lookup, /gte\(contactRequests\.createdAt, input\.now - CONTACT_DUPLICATE_WINDOW_MS\)/);
+  assert.match(lookup, /lte\(contactRequests\.createdAt, input\.now\)/);
+  assert.match(lookup, /\.limit\(1\)/);
+  assert.doesNotMatch(lookup, /\.limit\(50\)/);
+});
+
 test('applies duplicate status/window and rate-limit policies with real time boundaries', () => {
   const now = 10_000_000;
   for (const status of ['sent', 'rejected', 'pending', 'failed']) {

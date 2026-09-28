@@ -1,4 +1,4 @@
-import { and, eq, gt, ne } from 'drizzle-orm';
+import { and, eq, gt, gte, lte, ne } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
 import { contactRequests } from './schema.ts';
 
@@ -158,13 +158,18 @@ export function createD1ContactStore(database: D1Database): ContactStore {
 
       const duplicateCandidates = await db
         .select({
-          requestId: contactRequests.requestId,
           status: contactRequests.status,
           createdAt: contactRequests.createdAt,
         })
         .from(contactRequests)
-        .where(eq(contactRequests.fingerprintHash, input.fingerprintHash))
-        .limit(50);
+        .where(
+          and(
+            eq(contactRequests.fingerprintHash, input.fingerprintHash),
+            gte(contactRequests.createdAt, input.now - CONTACT_DUPLICATE_WINDOW_MS),
+            lte(contactRequests.createdAt, input.now),
+          ),
+        )
+        .limit(1);
       const hasRecentDuplicate = hasRecentContactDuplicate(duplicateCandidates, input.now);
       if (hasRecentDuplicate) return { kind: 'duplicate' };
 
