@@ -131,7 +131,8 @@ test('preview data fails production gate with explicit reasons', () => {
   assert.ok(result.errors.every((error) => !error.includes('approved must be true')));
   assert.ok(result.errors.every((error) => !error.includes('profile.name is missing')));
   assert.ok(result.errors.some((error) => error.includes('privacy.operator is missing')));
-  assert.ok(result.errors.some((error) => error.includes('contactEmail is missing or invalid')));
+  assert.equal(siteContent.contactEmail, 'info@crelo.dev');
+  assert.ok(result.errors.every((error) => !error.includes('contactEmail is missing or invalid')));
 });
 
 test('production build script cannot bypass the content and asset gate', () => {

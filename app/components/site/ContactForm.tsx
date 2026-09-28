@@ -36,20 +36,19 @@ function validate(fields: Fields): ValidationError | null {
   return null;
 }
 
-export default function ContactForm({ publicBuild }: { publicBuild: boolean }) {
-  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+export default function ContactForm({ enabled, turnstileSiteKey }: { enabled: boolean; turnstileSiteKey: string | null }) {
   const [fields, setFields] = useState(initialFields);
   const [formState, setFormState] = useState<FormState>('idle');
   const [notice, setNotice] = useState('');
   const [turnstileToken, setTurnstileToken] = useState('');
-  const [turnstileStatus, setTurnstileStatus] = useState<TurnstileStatus>(publicBuild && turnstileSiteKey ? 'loading' : 'disabled');
+  const [turnstileStatus, setTurnstileStatus] = useState<TurnstileStatus>(enabled && turnstileSiteKey ? 'loading' : 'disabled');
   const [invalidField, setInvalidField] = useState<FieldKey | null>(null);
   const turnstileRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | undefined>(undefined);
   const requestIdRef = useRef('');
 
   useEffect(() => {
-    if (!publicBuild || !turnstileSiteKey || !turnstileRef.current) return;
+    if (!enabled || !turnstileSiteKey || !turnstileRef.current) return;
     let active = true;
     const fail = () => {
       if (!active) return;
@@ -115,7 +114,7 @@ export default function ContactForm({ publicBuild }: { publicBuild: boolean }) {
       script?.removeEventListener('error', handleError);
       window.clearTimeout(timeoutId);
     };
-  }, [publicBuild, turnstileSiteKey]);
+  }, [enabled, turnstileSiteKey]);
 
   const fieldIds: Record<FieldKey, string> = {
     name: 'contact-name',
@@ -133,7 +132,7 @@ export default function ContactForm({ publicBuild }: { publicBuild: boolean }) {
   };
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (formState === 'pending') return;
+    if (formState === 'pending' || !enabled) return;
     setNotice('');
     setInvalidField(null);
     const validationError = validate(fields);
@@ -144,9 +143,9 @@ export default function ContactForm({ publicBuild }: { publicBuild: boolean }) {
       focusField(validationError.field);
       return;
     }
-    if (!publicBuild || !turnstileSiteKey) {
+    if (!turnstileSiteKey) {
       setFormState('error');
-      setNotice('Preview modeでは送信を停止しています。公開用の認証設定後に利用できます。');
+      setNotice('認証設定を確認できません。時間をおいてもう一度お試しください。');
       return;
     }
     if (turnstileStatus === 'loading') {
@@ -190,6 +189,7 @@ export default function ContactForm({ publicBuild }: { publicBuild: boolean }) {
 
   return (
     <form className="contact-form" onSubmit={submit} noValidate aria-busy={formState === 'pending'}>
+      <fieldset className="contact-form__fieldset" disabled={!enabled}>
       <div className="contact-form__grid">
         <label><span>NAME <b aria-hidden="true">*</b></span><input id="contact-name" name="name" value={fields.name} onChange={(event) => update('name', event.target.value)} autoComplete="name" required aria-describedby="contact-form-notice" aria-invalid={invalidField === 'name'} /></label>
         <label><span>COMPANY <b aria-hidden="true">*</b></span><input id="contact-company" name="company" value={fields.company} onChange={(event) => update('company', event.target.value)} autoComplete="organization" required aria-describedby="contact-form-notice" aria-invalid={invalidField === 'company'} /></label>
@@ -200,7 +200,9 @@ export default function ContactForm({ publicBuild }: { publicBuild: boolean }) {
       <label className="contact-form__honeypot" aria-hidden="true"><span>WEBSITE</span><input tabIndex={-1} autoComplete="off" name="honeypot" value={fields.honeypot} onChange={(event) => update('honeypot', event.target.value)} /></label>
       <label className="contact-form__consent"><input id="contact-consent" type="checkbox" name="consent" checked={fields.consent} onChange={(event) => update('consent', event.target.checked)} aria-describedby="contact-form-notice" aria-invalid={invalidField === 'consent'} /><span><a href="/privacy">Privacy notice</a>を確認し、相談内容の取り扱いに同意します。<b aria-hidden="true">*</b></span></label>
       <div ref={turnstileRef} className="turnstile-widget" aria-label="Turnstile verification" />
-      <div className="contact-form__actions"><button className="button button--solid" type="submit" disabled={formState === 'pending'}>{formState === 'pending' ? 'Sending…' : '相談を送る'} <span aria-hidden="true">↗</span></button><span className="contact-form__hint">{!publicBuild || !turnstileSiteKey ? 'PREVIEW GATE / TURNSTILE REQUIRED' : turnstileStatus === 'error' ? 'TURNSTILE / LOAD ERROR' : 'SECURE FORM / TURNSTILE'}</span></div>
+      </fieldset>
+      <div className="contact-form__actions"><button className="button button--solid" type="submit" disabled={!enabled || formState === 'pending'} data-pending={formState === 'pending'}>{formState === 'pending' ? 'Sending…' : '相談を送る'} <span aria-hidden="true">↗</span></button><span className="contact-form__hint">{!enabled ? 'FORM / PREPARING' : turnstileStatus === 'error' ? 'TURNSTILE / LOAD ERROR' : 'SECURE FORM / TURNSTILE'}</span></div>
+      {!enabled && <p className="contact-form__unavailable" role="status">お問い合わせフォームは準備中です。現在、入力・送信はできません。</p>}
       <p id="contact-form-notice" className={`form-notice form-notice--${formState}`} role={formState === 'error' ? 'alert' : 'status'} aria-live="polite">{notice}</p>
     </form>
   );

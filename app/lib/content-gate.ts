@@ -245,7 +245,7 @@ function inspectCaseStudy(caseStudy: CaseStudy, index: number): string[] {
   return errors;
 }
 
-function inspectPrivacy(content: SiteContent): string[] {
+export function inspectPrivacy(content: SiteContent): string[] {
   const errors: string[] = [];
   const privacy = content.privacy;
   if (!privacy) return ['privacy is missing'];

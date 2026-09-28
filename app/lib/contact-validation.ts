@@ -76,8 +76,8 @@ export function validateContactInput(value: unknown): ContactValidationResult {
 
   const textValues = [name, company, email, message, turnstileToken];
   if (textValues.some(hasControlCharacters)) return { ok: false, reason: 'control_character' };
-  if (!validLength(name, CONTACT_LIMITS.name)) return { ok: false, reason: 'name_length' };
-  if (!validLength(company, CONTACT_LIMITS.company)) return { ok: false, reason: 'company_length' };
+  if (!name || !validLength(name, CONTACT_LIMITS.name)) return { ok: false, reason: 'name_length' };
+  if (!company || !validLength(company, CONTACT_LIMITS.company)) return { ok: false, reason: 'company_length' };
   if (!validLength(email, CONTACT_LIMITS.email) || !EMAIL_PATTERN.test(email)) {
     return { ok: false, reason: 'email_invalid' };
   }

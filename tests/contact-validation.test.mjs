@@ -23,6 +23,8 @@ test('accepts and normalizes a valid request', () => {
 });
 
 test('rejects invalid email, consent, control characters, and oversized fields', () => {
+  assert.equal(validateContactInput({ ...valid, name: '   ' }).ok, false);
+  assert.equal(validateContactInput({ ...valid, company: '\n' }).ok, false);
   assert.equal(validateContactInput({ ...valid, email: 'not-an-email' }).ok, false);
   assert.equal(validateContactInput({ ...valid, consent: false }).ok, false);
   assert.equal(validateContactInput({ ...valid, message: `hello\u0000there` }).ok, false);

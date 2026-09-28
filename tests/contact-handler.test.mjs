@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { handleContactRequest } from '../app/lib/contact-handler.ts';
+import { handleContactRequest as handleContactRequestCore } from '../app/lib/contact-handler.ts';
 import { createDefaultContactLogger } from '../app/lib/contact-logger.ts';
 
 const env = {
@@ -24,6 +24,20 @@ const basePayload = {
   turnstileToken: 'turnstile-token',
   requestId: '550e8400-e29b-41d4-a716-446655440000',
 };
+
+function handleContactRequest(request, dependencies) {
+  return handleContactRequestCore(request, { contactAvailable: true, ...dependencies });
+}
+
+test('keeps the API closed while privacy notice or runtime setup is incomplete', async () => {
+  const response = await handleContactRequestCore(makeRequest(), {
+    env,
+    store: makeStore(),
+    contactAvailable: false,
+  });
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).errorCode, 'SERVICE_UNAVAILABLE');
+});
 
 function makeRequest(payload = basePayload, headers = {}) {
   return new Request('https://crelo.example/api/contact', {

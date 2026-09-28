@@ -11,7 +11,7 @@
 .hero h1 { font-size: clamp(4rem, 9vw, 9rem); letter-spacing: -.09em; line-height: .84; margin: 1rem 0 0; }
 .lead { color: var(--muted); line-height: 1.9; margin: 1.6rem 0 0; max-width: 35rem; }
 .visual { aspect-ratio: 1.4; background: linear-gradient(145deg, color-mix(in srgb, var(--lab-detail-accent) 11%, transparent), rgb(5 11 15 / 96%)); border: 1px solid color-mix(in srgb, var(--lab-detail-accent) 52%, transparent); min-height: 17rem; overflow: hidden; position: relative; }
-.visual img { height: 100%; object-fit: cover; width: 100%; }
+.visual img { height: 100%; object-fit: contain; width: 100%; }
 .details { display: grid; gap: 1px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .details article { background: rgb(8 15 18 / 82%); border: 1px solid var(--line); min-height: 14rem; padding: 1.5rem; }
 .details span { color: var(--lab-detail-accent); font-family: var(--font-mono); font-size: .53rem; letter-spacing: .11em; text-transform: uppercase; }

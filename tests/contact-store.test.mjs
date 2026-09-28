@@ -7,7 +7,13 @@ import {
   hasRecentContactDuplicate,
   isContactRateLimited,
   classifyContactConflict,
+  matchesContactRequestFingerprint,
 } from '../db/contact-store.ts';
+
+test('request IDs only retry the exact original inquiry', () => {
+  assert.equal(matchesContactRequestFingerprint('same-hash', 'same-hash'), true);
+  assert.equal(matchesContactRequestFingerprint('first-hash', 'other-hash'), false);
+});
 
 test('classifies token uniqueness races as token_reused before fingerprint duplicates', () => {
   assert.deepEqual(classifyContactConflict({ tokenExists: true, fingerprintExists: true }), {

@@ -12,6 +12,20 @@
 - 問い合わせ返信時に利用する送信元アドレス
 - 顔写真は `/assets/profile/` 配下の公開用ローカルassetだけを登録します。外部URL、`..`、バックスラッシュ、クエリ付きURLは不可です。
 
+受信用アドレスは `info@crelo.dev` として登録済みです。これは送信元アドレスの認証を意味しません。
+
+## 問い合わせフォームの有効化
+
+現在のowner-only・noindex Previewでは、Privacyの実運用情報と送信設定が未完成のため、入力欄と送信を停止しています。案件内容が未公開でも、以下が揃えば問い合わせだけを安全に有効化できます。
+
+1. 下記Privacy情報を実際の運用に合わせて承認し、`app/lib/content.ts`へ登録する。
+2. `crelo.dev`等の送信ドメインをResendで認証し、そのドメインの送信元アドレスを`CONTACT_FROM_EMAIL`へ登録する。受信先は`CONTACT_TO_EMAIL=info@crelo.dev`に固定する。
+3. Turnstileでプレビューのホスト名を許可し、公開site keyを`NEXT_PUBLIC_TURNSTILE_SITE_KEY`へ、secret keyを`TURNSTILE_SECRET_KEY`へ登録する。
+4. `RESEND_API_KEY`と32文字以上のランダムな`CONTACT_HASH_SECRET`をSitesの秘密環境変数として登録する。`SITE_ORIGIN`は現在のプレビューURLと完全一致させる。
+5. D1の`contact_requests`テーブルを確認し、owner-onlyのまま新バージョンをデプロイする。実メールを伴う最終E2Eは送信先・内容を提示し、実行直前の確認後に行う。
+
+秘密鍵やトークンをこのリポジトリ、チャット、ログへ貼り付けないでください。
+
 ## Privacy（公開運用情報）
 
 次の項目は、プレビュー用の仮文面ではなく、実際の公開運用に承認された情報を記入してください。

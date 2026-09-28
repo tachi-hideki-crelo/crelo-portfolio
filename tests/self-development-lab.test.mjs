@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 import {
@@ -9,6 +10,7 @@ import {
   selfBuiltTools,
   validateSelfBuiltTools,
 } from '../app/components/site/self-development-data.ts';
+import { validateSelfBuiltToolAssets } from '../scripts/validate-public-assets.ts';
 import {
   getSelfDevelopmentItemTimeline,
   getSelfDevelopmentStageTimeline,
@@ -17,15 +19,27 @@ import {
 
 const componentSource = readFileSync(new URL('../app/components/site/SelfDevelopmentLab.tsx', import.meta.url), 'utf8');
 const styles = readFileSync(new URL('../app/components/site/self-development-lab.module.css', import.meta.url), 'utf8');
+const detailStyles = readFileSync(new URL('../app/lab/[slug]/self-built-tool-detail.module.css', import.meta.url), 'utf8');
 const homeSource = readFileSync(new URL('../app/components/site/HomeExperience.tsx', import.meta.url), 'utf8');
 const navSource = readFileSync(new URL('../app/components/site/SiteChrome.tsx', import.meta.url), 'utf8');
 const routeSource = readFileSync(new URL('../app/lab/[slug]/page.tsx', import.meta.url), 'utf8');
 
-test('personal lab starts with four honest, ordered, non-routable placeholders', () => {
+test('personal lab publishes two ordered tools and keeps two honest placeholders', () => {
   assert.equal(selfBuiltTools.length, 4);
   assert.deepEqual(selfBuiltTools.map((tool) => tool.order), [1, 2, 3, 4]);
   assert.deepEqual(selfBuiltTools.map((tool) => tool.accent), ['mint', 'cyan', 'amber', 'violet']);
-  selfBuiltTools.forEach((tool) => {
+  assert.deepEqual(selfBuiltTools.slice(0, 2).map((tool) => tool.title), ['clipmory', 'kotoseto']);
+  assert.deepEqual(selfBuiltTools.slice(0, 2).map((tool) => tool.status), ['published', 'published']);
+  assert.deepEqual(selfBuiltTools.slice(0, 2).map((tool) => tool.slug), ['clipmory', 'kotoseto']);
+  assert.deepEqual(selfBuiltTools.slice(0, 2).map((tool) => tool.thumbnailSrc), [
+    '/assets/lab/clipmory-demo.jpg',
+    '/assets/lab/kotoseto-demo.jpg',
+  ]);
+  assert.equal(selfBuiltTools[0].summary, 'コピーしたテキスト・リンク・画像・ファイルを履歴としてまとめるコピペツール。検索や「よく使う」項目から必要な内容を見つけ、繰り返し使う情報を手軽に呼び出せます。');
+  assert.equal(selfBuiltTools[1].summary, 'タスク・スケジュール・チームの進捗をひとつの画面で確認できるタスク管理ツール。プロジェクトごとのタスク一覧やカレンダー、チャットをまとめ、日々の作業と情報共有を支えます。');
+  assert.deepEqual(selfBuiltTools[0].detail?.technologies, []);
+  assert.deepEqual(selfBuiltTools[1].detail?.technologies, []);
+  selfBuiltTools.slice(2).forEach((tool) => {
     assert.equal(tool.title, '名称準備中');
     assert.equal(tool.summary, 'ツールの目的、解決したい課題、主な機能をここに掲載します。');
     assert.equal(tool.status, 'placeholder');
@@ -34,7 +48,12 @@ test('personal lab starts with four honest, ordered, non-routable placeholders',
     assert.equal(tool.thumbnailAlt, null);
     assert.equal(tool.detail, null);
   });
-  assert.equal(getPublishedSelfBuiltTools().length, 0);
+  assert.deepEqual(getPublishedSelfBuiltTools().map((tool) => tool.slug), ['clipmory', 'kotoseto']);
+  assert.equal(isValidSelfBuiltToolSlug('clipmory'), true);
+  assert.equal(isValidSelfBuiltToolSlug('kotoseto'), true);
+  assert.equal(existsSync(new URL('../public/assets/lab/clipmory-demo.jpg', import.meta.url)), true);
+  assert.equal(existsSync(new URL('../public/assets/lab/kotoseto-demo.jpg', import.meta.url)), true);
+  assert.equal(validateSelfBuiltToolAssets(selfBuiltTools, fileURLToPath(new URL('../public/', import.meta.url))).ok, true);
   assert.deepEqual(validateSelfBuiltTools(selfBuiltTools), { ok: true, errors: [] });
 });
 
@@ -52,6 +71,7 @@ test('lab validation rejects unsafe slugs, duplicates, and incomplete media or d
   invalid[0].slug = 'Unsafe Slug';
   invalid[0].thumbnailSrc = '/assets/lab/missing.webp';
   invalid[0].thumbnailAlt = null;
+  invalid[0].detail = null;
   const result = validateSelfBuiltTools(invalid);
   assert.equal(result.ok, false);
   assert.ok(result.errors.some((error) => error.includes('.id')));
@@ -119,10 +139,17 @@ test('lab source keeps semantic placeholders, offscreen pausing, and future deta
   assert.match(componentSource, /IntersectionObserver/);
   assert.match(componentSource, /visibilitychange/);
   assert.match(componentSource, /item\.inert/);
+  assert.match(componentSource, /tabIndex=\{reduceMotion \? 0 : -1\}/);
+  assert.match(componentSource, /data-active="false"[\s\S]*inert=\{!reduceMotion\}/);
   assert.match(componentSource, /pointerType === 'touch'/);
+  assert.match(componentSource, /tool\.tags\.length \? 'FEATURES' : 'STACK'/);
+  assert.match(componentSource, /tool\.status === 'published' \? 'PERSONAL LAB \/ TOOL' : 'PERSONAL PROTOTYPE SLOT'/);
+  assert.match(componentSource, /<Image className=\{styles\.thumbnail\}[\s\S]*style=\{\{ objectFit: 'contain' \}\}/);
   assert.match(styles, /min-height: 500vh/);
   assert.match(styles, /position: sticky/);
   assert.match(styles, /data-side='right'/);
+  assert.match(styles, /\.thumbnail \{[^}]*object-fit: contain/);
+  assert.match(detailStyles, /\.visual img \{[^}]*object-fit: contain/);
   assert.match(styles, /data-reduced-motion='true'/);
   assert.match(styles, /animation-play-state: paused/);
 });
@@ -135,5 +162,8 @@ test('home, navigation, and future detail route use the requested structure', ()
   assert.match(routeSource, /export const dynamicParams = false/);
   assert.match(routeSource, /getPublishedSelfBuiltTools/);
   assert.match(routeSource, /if \(!tool \|\| !tool\.detail\) notFound\(\)/);
+  assert.match(routeSource, /tool\.detail\.technologies\.length > 0/);
+  assert.match(routeSource, /<main id="main-content" tabIndex=\{-1\}/);
+  assert.match(routeSource, /<Image src=\{tool\.thumbnailSrc\}[\s\S]*style=\{\{ objectFit: 'contain' \}\}/);
   assert.match(routeSource, /socialImage \?/);
 });

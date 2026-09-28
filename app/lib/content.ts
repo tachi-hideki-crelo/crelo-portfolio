@@ -291,5 +291,5 @@ export const siteContent: SiteContent = {
     overseasTransfer: null,
     rightsContact: null,
   },
-  contactEmail: null,
+  contactEmail: 'info@crelo.dev',
 };

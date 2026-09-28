@@ -38,6 +38,13 @@ export type ContactDuplicateCandidate = {
   createdAt: number;
 };
 
+export function matchesContactRequestFingerprint(
+  existingFingerprintHash: string,
+  retryFingerprintHash: string,
+): boolean {
+  return existingFingerprintHash === retryFingerprintHash;
+}
+
 export function hasRecentContactDuplicate(
   candidates: readonly ContactDuplicateCandidate[],
   now: number,
@@ -78,11 +85,21 @@ export function createD1ContactStore(database: D1Database): ContactStore {
   return {
     async reserve(input) {
       const existingRequest = await db
-        .select({ requestId: contactRequests.requestId, status: contactRequests.status })
+        .select({
+          requestId: contactRequests.requestId,
+          status: contactRequests.status,
+          fingerprintHash: contactRequests.fingerprintHash,
+        })
         .from(contactRequests)
         .where(eq(contactRequests.requestId, input.requestId))
         .limit(1);
       const requestRow = existingRequest[0];
+      // A request ID is the identity of one immutable inquiry. Reusing it for
+      // changed content could otherwise show a false success for the new text,
+      // while Resend replays the original idempotent email.
+      if (requestRow && !matchesContactRequestFingerprint(requestRow.fingerprintHash, input.fingerprintHash)) {
+        return { kind: 'duplicate' };
+      }
       if (requestRow?.status === 'sent') return { kind: 'already_sent' };
       if (requestRow && (requestRow.status === 'pending' || requestRow.status === 'failed')) {
         // A retry may arrive with a fresh token, but a token already reserved

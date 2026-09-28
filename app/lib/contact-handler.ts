@@ -30,6 +30,7 @@ export type ContactRuntimeEnv = {
 
 export type ContactHandlerDependencies = {
   env: ContactRuntimeEnv;
+  contactAvailable: boolean;
   store?: ContactStore;
   fetchImpl?: typeof fetch;
   now?: () => number;
@@ -72,7 +73,7 @@ function isValidRuntimeEmail(value: string | undefined): value is string {
   return typeof value === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
-function requiredRuntimeConfig(env: ContactRuntimeEnv): boolean {
+export function hasContactRuntimeConfig(env: ContactRuntimeEnv): boolean {
   if (
     !env.SITE_ORIGIN ||
     !env.CONTACT_TO_EMAIL ||
@@ -246,7 +247,7 @@ export async function handleContactRequest(
   if (contentType !== 'application/json') {
     return errorResponse('CONTENT_TYPE_REQUIRED', 415);
   }
-  if (!requiredRuntimeConfig(dependencies.env) || !dependencies.store) {
+  if (!dependencies.contactAvailable || !hasContactRuntimeConfig(dependencies.env) || !dependencies.store) {
     log({
       event: 'contact.service_unavailable',
       stage: 'config',

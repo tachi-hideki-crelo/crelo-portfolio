@@ -160,7 +160,7 @@ export default function SelfDevelopmentLab({ tools = selfBuiltTools }: { tools?:
         <div className={styles.cardTopline}><span>TOOL {number}</span><span>{tool.status === 'published' ? 'LAB FILE / LIVE' : 'LAB FILE / PENDING'}</span></div>
         <div className={styles.cardViewport}>
           {tool.thumbnailSrc && tool.thumbnailAlt ? (
-            <Image className={styles.thumbnail} src={tool.thumbnailSrc} alt={tool.thumbnailAlt} fill sizes="(max-width: 720px) 88vw, 42vw" />
+            <Image className={styles.thumbnail} src={tool.thumbnailSrc} alt={tool.thumbnailAlt} fill sizes="(max-width: 720px) 88vw, 42vw" style={{ objectFit: 'contain' }} />
           ) : (
             <div className={styles.schematic} aria-hidden="true">
               <span className={styles.schematicGrid} />
@@ -173,13 +173,13 @@ export default function SelfDevelopmentLab({ tools = selfBuiltTools }: { tools?:
             </div>
           )}
         </div>
-        <div className={styles.cardBottomline}><span>PERSONAL PROTOTYPE SLOT</span><strong>{tool.status === 'published' ? 'VIEW TOOL FILE ↗' : 'DETAIL PREPARING'}</strong></div>
+        <div className={styles.cardBottomline}><span>{tool.status === 'published' ? 'PERSONAL LAB / TOOL' : 'PERSONAL PROTOTYPE SLOT'}</span><strong>{tool.status === 'published' ? 'VIEW TOOL FILE ↗' : 'DETAIL PREPARING'}</strong></div>
         <i className={`${styles.corner} ${styles.cornerTl}`} aria-hidden="true" /><i className={`${styles.corner} ${styles.cornerTr}`} aria-hidden="true" /><i className={`${styles.corner} ${styles.cornerBl}`} aria-hidden="true" /><i className={`${styles.corner} ${styles.cornerBr}`} aria-hidden="true" />
       </div>
     );
 
     if (tool.status === 'published' && tool.slug) {
-      return <a className={styles.cardLink} data-lab-detail-link href={`/lab/${tool.slug}`} aria-label={`${tool.title}の詳細を見る`} onPointerMove={handlePointerMove} onPointerLeave={(event) => resetPointer(event.currentTarget.closest<HTMLElement>('[data-lab-tool]') ?? event.currentTarget)}>{cardContent}</a>;
+      return <a className={styles.cardLink} data-lab-detail-link href={`/lab/${tool.slug}`} aria-label={`${tool.title}の詳細を見る`} tabIndex={reduceMotion ? 0 : -1} onPointerMove={handlePointerMove} onPointerLeave={(event) => resetPointer(event.currentTarget.closest<HTMLElement>('[data-lab-tool]') ?? event.currentTarget)}>{cardContent}</a>;
     }
     return <div className={styles.cardSurface} onPointerMove={handlePointerMove} onPointerLeave={(event) => resetPointer(event.currentTarget.closest<HTMLElement>('[data-lab-tool]') ?? event.currentTarget)}>{cardContent}</div>;
   };
@@ -254,6 +254,7 @@ export default function SelfDevelopmentLab({ tools = selfBuiltTools }: { tools?:
                 data-side={index % 2 === 0 ? 'left' : 'right'}
                 data-status={tool.status}
                 data-active="false"
+                inert={!reduceMotion}
                 aria-labelledby={`lab-tool-${number}`}
                 style={itemStyle}
                 key={tool.id}
@@ -270,7 +271,7 @@ export default function SelfDevelopmentLab({ tools = selfBuiltTools }: { tools?:
                   </p>
                   <dl className={styles.toolMeta}>
                     <div><dt>STATUS</dt><dd>{published ? 'PUBLISHED' : 'DETAIL PREPARING'}</dd></div>
-                    <div><dt>STACK</dt><dd>{tool.tags.length ? tool.tags.join(' / ') : 'DETAILS PENDING'}</dd></div>
+                    <div><dt>{tool.tags.length ? 'FEATURES' : 'STACK'}</dt><dd>{tool.tags.length ? tool.tags.join(' / ') : 'DETAILS PENDING'}</dd></div>
                   </dl>
                 </div>
               </article>

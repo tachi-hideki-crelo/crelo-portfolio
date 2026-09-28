@@ -60,7 +60,7 @@ export default async function LabDetailPage({ params }: LabDetailPageProps) {
   const accent = ACCENTS[tool.accent];
 
   return (
-    <main className={styles.page} style={{ '--lab-detail-accent': accent } as CSSProperties & Record<'--lab-detail-accent', string>}>
+    <main id="main-content" tabIndex={-1} className={styles.page} style={{ '--lab-detail-accent': accent } as CSSProperties & Record<'--lab-detail-accent', string>}>
       <div className={styles.grid} aria-hidden="true" />
       <header className={styles.header}>
         <a className={styles.brand} href="/" aria-label="Crelo home"><Image src="/assets/crelo-logo.png" alt="Crelo" width={32} height={32} priority /><span>Crelo / Personal Lab</span></a>
@@ -75,13 +75,13 @@ export default async function LabDetailPage({ params }: LabDetailPageProps) {
             <p className={styles.lead}>{tool.summary}</p>
           </div>
           <div className={styles.visual}>
-            {tool.thumbnailSrc && tool.thumbnailAlt ? <Image src={tool.thumbnailSrc} alt={tool.thumbnailAlt} fill sizes="(max-width: 720px) 100vw, 46vw" /> : null}
+            {tool.thumbnailSrc && tool.thumbnailAlt ? <Image src={tool.thumbnailSrc} alt={tool.thumbnailAlt} fill sizes="(max-width: 720px) 100vw, 46vw" style={{ objectFit: 'contain' }} /> : null}
           </div>
         </section>
         <section className={styles.details} aria-label="Tool details">
           {[['概要', tool.detail.overview], ['課題', tool.detail.problem], ['アプローチ', tool.detail.approach]].map(([label, value]) => <article key={label}><span>{label}</span><p>{value}</p></article>)}
           <article><span>主な機能</span><ul>{tool.detail.features.map((feature) => <li key={feature}>{feature}</li>)}</ul></article>
-          <article><span>使用技術</span><ul>{tool.detail.technologies.map((technology) => <li key={technology}>{technology}</li>)}</ul></article>
+          {tool.detail.technologies.length > 0 ? <article><span>使用技術</span><ul>{tool.detail.technologies.map((technology) => <li key={technology}>{technology}</li>)}</ul></article> : null}
         </section>
         <a className={styles.back} href="/#lab">← 自己開発一覧へ戻る</a>
       </div>
