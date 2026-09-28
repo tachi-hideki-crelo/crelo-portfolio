@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useRef, useState } from 'react';
+import { buildContactSubmissionKey } from './contact-form-state';
 
 type TurnstileOptions = {
   sitekey: string;
@@ -46,6 +47,8 @@ export default function ContactForm({ enabled, turnstileSiteKey }: { enabled: bo
   const turnstileRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | undefined>(undefined);
   const requestIdRef = useRef('');
+  const submittedKeyRef = useRef<string | null>(null);
+  const fieldsRef = useRef(fields);
 
   useEffect(() => {
     if (!enabled || !turnstileSiteKey || !turnstileRef.current) return;
@@ -128,7 +131,9 @@ export default function ContactForm({ enabled, turnstileSiteKey }: { enabled: bo
   };
   const update = (key: keyof Fields, value: string | boolean) => {
     setInvalidField(null);
-    setFields((current) => ({ ...current, [key]: value }));
+    const next = { ...fieldsRef.current, [key]: value };
+    fieldsRef.current = next;
+    setFields(next);
   };
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -163,22 +168,40 @@ export default function ContactForm({ enabled, turnstileSiteKey }: { enabled: bo
       setNotice('送信前に認証チェックを完了してください。');
       return;
     }
-    if (!requestIdRef.current) requestIdRef.current = window.crypto.randomUUID();
+    const submissionKey = buildContactSubmissionKey(fields);
+    if (!requestIdRef.current || submittedKeyRef.current !== submissionKey) {
+      requestIdRef.current = window.crypto.randomUUID();
+      submittedKeyRef.current = submissionKey;
+    }
+    const requestId = requestIdRef.current;
     setFormState('pending');
     try {
       const response = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ ...fields, requestId: requestIdRef.current, turnstileToken }),
+        body: JSON.stringify({ ...fields, requestId, turnstileToken }),
       });
       const result = (await response.json().catch(() => null)) as { ok?: boolean; errorCode?: string } | null;
       if (!response.ok || !result?.ok) throw new Error(result?.errorCode || 'REQUEST_FAILED');
-      setFormState('success');
-      setNotice('お問い合わせを受け付けました。確認のうえご連絡します。');
-      setFields(initialFields);
+      const stillSameSubmission =
+        requestIdRef.current === requestId &&
+        submittedKeyRef.current === submissionKey &&
+        buildContactSubmissionKey(fieldsRef.current) === submissionKey;
+      if (stillSameSubmission) {
+        setFormState('success');
+        setNotice('お問い合わせを受け付けました。確認のうえご連絡します。');
+        fieldsRef.current = initialFields;
+        setFields(initialFields);
+      } else {
+        setFormState('error');
+        setNotice('送信中に入力内容が変更されたため、変更後の内容は送信されていません。');
+      }
       setTurnstileToken('');
-      requestIdRef.current = '';
-      if (widgetIdRef.current) window.turnstile?.reset(widgetIdRef.current);
+      if (requestIdRef.current === requestId) {
+        requestIdRef.current = '';
+        submittedKeyRef.current = null;
+        if (widgetIdRef.current) window.turnstile?.reset(widgetIdRef.current);
+      }
     } catch {
       setFormState('error');
       setNotice('送信に失敗しました。時間をおいてもう一度お試しください。');
@@ -189,7 +212,7 @@ export default function ContactForm({ enabled, turnstileSiteKey }: { enabled: bo
 
   return (
     <form className="contact-form" onSubmit={submit} noValidate aria-busy={formState === 'pending'}>
-      <fieldset className="contact-form__fieldset" disabled={!enabled}>
+      <fieldset className="contact-form__fieldset" disabled={!enabled || formState === 'pending'}>
       <div className="contact-form__grid">
         <label><span>NAME <b aria-hidden="true">*</b></span><input id="contact-name" name="name" value={fields.name} onChange={(event) => update('name', event.target.value)} autoComplete="name" required aria-describedby="contact-form-notice" aria-invalid={invalidField === 'name'} /></label>
         <label><span>COMPANY <b aria-hidden="true">*</b></span><input id="contact-company" name="company" value={fields.company} onChange={(event) => update('company', event.target.value)} autoComplete="organization" required aria-describedby="contact-form-notice" aria-invalid={invalidField === 'company'} /></label>
