@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "crelo-fde-portfolio-preview",
-  "account_id": "307868d79788d55ad4e71c4063a83e61",
+  "account_id": "3190db9afa5dd4f904afce396da579d8",
   "main": "vinext/server/app-router-entry",
   "compatibility_date": "2026-09-18",
   "compatibility_flags": ["nodejs_compat"],

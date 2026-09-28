@@ -9,6 +9,7 @@ const nextConfigSource = readFileSync(new URL('../next.config.ts', import.meta.u
 
 test('personal Cloudflare deployment stays noindex and contact-disabled until operational setup', () => {
   assert.equal(config.name, 'crelo-fde-portfolio-preview');
+  assert.equal(config.account_id, '3190db9afa5dd4f904afce396da579d8');
   assert.equal(config.main, 'vinext/server/app-router-entry');
   assert.equal(config.workers_dev, true);
   assert.equal(config.compatibility_date, '2026-09-18');
