@@ -33,6 +33,13 @@ test('accepts the approved notice but still requires all operational settings', 
   assert.equal(isContactAvailable({ ...env, RESEND_API_KEY: undefined }, true, siteContent), false);
 });
 
+test('privacy notice does not promise a fixed one-month Gmail deletion', () => {
+  assert.match(siteContent.privacy.retentionPeriod, /必要な期間保存/);
+  assert.match(siteContent.privacy.retentionPeriod, /一律の1か月の保存期限は設けていません/);
+  assert.match(siteContent.privacy.retentionPeriod, /D1.*30日経過後に日次削除/);
+  assert.doesNotMatch(siteContent.privacy.retentionPeriod, /受信から1か月で削除/);
+});
+
 test('requires approved privacy, full runtime setup, D1, and the requested recipient', () => {
   assert.equal(isContactAvailable(env, true, approvedContent), true);
   assert.equal(isContactAvailable(env, false, approvedContent), false);

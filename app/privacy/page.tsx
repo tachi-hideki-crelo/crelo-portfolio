@@ -30,7 +30,7 @@ export default function PrivacyPage() {
             <div className="legal-page__sections">
               <section><span>01 / DATA CONTROLLER</span><h2>運用主体</h2><p>{privacy.operator}</p></section>
               <section><span>02 / COLLECTED &amp; PURPOSE</span><h2>取得項目と目的</h2><p>{privacy.collectedItems.join('、')}。{privacy.purposes.join('、')}。</p></section>
-              <section><span>03 / RETENTION &amp; PROCESSORS</span><h2>保存と委託</h2><p>保存期間: {privacy.retentionPeriod}。委託先: {privacy.processors}。国外移転: {privacy.overseasTransfer}。</p></section>
+              <section><span>03 / RETENTION &amp; PROCESSORS</span><h2>保存と委託</h2><p>保存方針: {privacy.retentionPeriod}。委託先: {privacy.processors}。国外移転: {privacy.overseasTransfer}。</p></section>
               <section><span>04 / RIGHTS CONTACT</span><h2>開示・削除窓口</h2><p>{privacy.rightsContact}</p></section>
             </div>
           </>

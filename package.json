@@ -40,6 +40,7 @@
     "@types/three": "0.182.0",
     "@vitejs/plugin-react": "6.0.2",
     "@vitejs/plugin-rsc": "0.5.34",
+    "braces": "file:./vendor/braces",
     "drizzle-kit": "0.31.10",
     "eslint": "9.39.4",
     "eslint-config-next": "16.3.8",
@@ -52,6 +53,7 @@
     "wrangler": "4.147.0"
   },
   "overrides": {
+    "braces": "$braces",
     "@esbuild-kit/core-utils": {
       "esbuild": "0.25.12"
     }
