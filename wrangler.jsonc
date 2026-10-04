@@ -2,8 +2,23 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "crelo-fde-portfolio-preview",
   "account_id": "3190db9afa5dd4f904afce396da579d8",
-  "main": "vinext/server/app-router-entry",
+  "main": "./worker-entry.ts",
   "compatibility_date": "2026-09-18",
   "compatibility_flags": ["nodejs_compat"],
-  "workers_dev": true
+  "workers_dev": true,
+  "vars": {
+    "SITE_ORIGIN": "https://crelo-fde-portfolio-preview.crelo1119.workers.dev",
+    "CONTACT_TO_EMAIL": "info@crelo.dev",
+    "CONTACT_FROM_EMAIL": "contact@crelo.dev",
+    "NEXT_PUBLIC_TURNSTILE_SITE_KEY": "0x4AAAAAAFM5_8jUB8wFVC99"
+  },
+  "triggers": { "crons": ["0 3 * * *"] },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "crelo-portfolio-contact",
+      "database_id": "a03899d2-8ea1-4b5e-a63b-78a06519475e",
+      "migrations_dir": "drizzle"
+    }
+  ]
 }

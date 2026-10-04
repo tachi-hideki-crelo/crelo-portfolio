@@ -17,6 +17,7 @@ export const contactRequests = sqliteTable(
     fingerprintIndex: index('contact_requests_fingerprint_idx').on(table.fingerprintHash),
     tokenIndex: uniqueIndex('contact_requests_token_idx').on(table.tokenHash),
     ipCreatedIndex: index('contact_requests_ip_created_idx').on(table.ipHash, table.createdAt),
+    createdAtIndex: index('contact_requests_created_at_idx').on(table.createdAt),
   }),
 );
 

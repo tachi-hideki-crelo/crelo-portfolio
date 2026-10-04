@@ -10,7 +10,7 @@ import FdeMethod from './FdeMethod';
 import HeroExperience from './HeroExperience';
 import SelfDevelopmentLab from './SelfDevelopmentLab';
 import SiteChrome from './SiteChrome';
-import { getSiteModeCopy } from './site-mode';
+import { getContactPolicyCopy, getSiteModeCopy } from './site-mode';
 import WebTemplateGallery from './WebTemplateGallery';
 import IntroExperience from '../visual/IntroExperience';
 import SelectedWork from '../work/selected-work';
@@ -106,7 +106,7 @@ export default function HomeExperience({ publicBuild, contactAvailable, turnstil
 
         <section id="contact" className="contact-section" aria-labelledby="contact-title">
           <div className="section-marker"><span>07</span><span>CONTACT / START A FIELD LOOP</span></div>
-          <div className="contact-section__grid"><div className="contact-copy"><p className="eyebrow eyebrow--mint">Let&apos;s work from the field</p><h2 id="contact-title"><span className="contact-heading-line">まずはお気軽に</span><br /><span className="contact-heading-line"><em>お悩み</em>をご相談</span><br /><span className="contact-heading-line">ください。</span></h2><p>まだ要件になっていなくても大丈夫です。現場で起きていること、変えたいこと、制約を教えてください。</p><aside className="contact-copy__availability" aria-label="営業連絡への返信について"><span>SALES INQUIRIES / NO REPLY</span><p>営業に関するご連絡には返信できません。あらかじめご了承ください。</p></aside><div className="contact-copy__meta"><span>{modeCopy.contactPolicy}</span><span>{contactAvailable ? 'SECURE FORM / TURNSTILE' : 'FORM / PREPARING'}</span></div></div><ContactForm enabled={contactAvailable} turnstileSiteKey={turnstileSiteKey} /></div>
+          <div className="contact-section__grid"><div className="contact-copy"><p className="eyebrow eyebrow--mint">Let&apos;s work from the field</p><h2 id="contact-title"><span className="contact-heading-line">まずはお気軽に</span><br /><span className="contact-heading-line"><em>お悩み</em>をご相談</span><br /><span className="contact-heading-line">ください。</span></h2><p>まだ要件になっていなくても大丈夫です。現場で起きていること、変えたいこと、制約を教えてください。</p><aside className="contact-copy__availability" aria-label="営業連絡への返信について"><span>SALES INQUIRIES / NO REPLY</span><p>営業に関するご連絡には返信できません。あらかじめご了承ください。</p></aside><div className="contact-copy__meta"><span>{getContactPolicyCopy(contactAvailable)}</span><span>{contactAvailable ? 'SECURE FORM / TURNSTILE' : 'FORM / PREPARING'}</span></div></div><ContactForm enabled={contactAvailable} turnstileSiteKey={turnstileSiteKey} /></div>
         </section>
       </main>
 

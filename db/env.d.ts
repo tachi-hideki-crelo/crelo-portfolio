@@ -1,5 +1,6 @@
 declare namespace Cloudflare {
   interface Env {
+    ASSETS?: { fetch(request: Request): Promise<Response> | Response };
     DB: D1Database;
     SITE_ORIGIN: string;
     CONTACT_TO_EMAIL: string;

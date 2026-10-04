@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { projectProfileForClient } from '../app/components/site/profile-projection.ts';
-import { getSiteModeCopy } from '../app/components/site/site-mode.ts';
+import { getContactPolicyCopy, getSiteModeCopy } from '../app/components/site/site-mode.ts';
 
 test('public UI mode contains no preview or pending labels', () => {
   const copy = getSiteModeCopy(true);
@@ -14,6 +14,11 @@ test('public UI mode contains no preview or pending labels', () => {
 test('preview UI mode remains explicit about unpublished state', () => {
   const copy = getSiteModeCopy(false);
   assert.match(Object.values(copy).join(' '), /PREVIEW|PENDING|TO BE CONFIRMED/i);
+});
+
+test('contact status reflects actual runtime availability instead of the build mode', () => {
+  assert.equal(getContactPolicyCopy(true), 'CONTACT / ACCEPTING INQUIRIES');
+  assert.equal(getContactPolicyCopy(false), 'CONTACT / PREPARING');
 });
 
 test('preview profile projection strips unapproved identity drafts before serialization', () => {

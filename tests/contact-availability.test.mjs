@@ -28,8 +28,9 @@ const approvedContent = {
   },
 };
 
-test('keeps contact closed with the real, unfinished privacy notice', () => {
-  assert.equal(isContactAvailable(env, true, siteContent), false);
+test('accepts the approved notice but still requires all operational settings', () => {
+  assert.equal(isContactAvailable(env, true, siteContent), true);
+  assert.equal(isContactAvailable({ ...env, RESEND_API_KEY: undefined }, true, siteContent), false);
 });
 
 test('requires approved privacy, full runtime setup, D1, and the requested recipient', () => {
