@@ -36,6 +36,8 @@ test('accepts the approved notice but still requires all operational settings', 
 test('privacy notice does not promise a fixed one-month Gmail deletion', () => {
   assert.match(siteContent.privacy.retentionPeriod, /必要な期間保存/);
   assert.match(siteContent.privacy.retentionPeriod, /一律の1か月の保存期限は設けていません/);
+  assert.match(siteContent.privacy.retentionPeriod, /受信メールの自動削除は行わず/);
+  assert.match(siteContent.privacy.retentionPeriod, /手動で整理/);
   assert.match(siteContent.privacy.retentionPeriod, /D1.*30日経過後に日次削除/);
   assert.doesNotMatch(siteContent.privacy.retentionPeriod, /受信から1か月で削除/);
 });

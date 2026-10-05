@@ -6,8 +6,12 @@
   "compatibility_date": "2026-09-18",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
+  "routes": [
+    { "pattern": "crelo.dev", "custom_domain": true }
+  ],
   "vars": {
-    "SITE_ORIGIN": "https://crelo-fde-portfolio-preview.crelo1119.workers.dev",
+    "CONTENT_MODE": "production",
+    "SITE_ORIGIN": "https://crelo.dev",
     "CONTACT_TO_EMAIL": "info@crelo.dev",
     "CONTACT_FROM_EMAIL": "contact@crelo.dev",
     "NEXT_PUBLIC_TURNSTILE_SITE_KEY": "0x4AAAAAAFM5_8jUB8wFVC99"

@@ -45,7 +45,11 @@ if (!isProduction) {
   process.exit(0);
 }
 
-const result = validateProductionContent(undefined, undefined, undefined, { requireHttps: true });
+// Cloudflare runtime Secrets are not readable from the build process. Validate
+// public configuration here and verify the Secret names on the Worker before
+// deployment; the contact endpoint also fails closed if any Secret is absent.
+const productionOptions = { requireHttps: true, requireRuntimeSecrets: false };
+const result = validateProductionContent(undefined, undefined, undefined, productionOptions);
 if (result.ok) {
   const assets = validatePublicContentAssets(caseStudies, siteContent, resolve(process.cwd(), 'public'));
   if (!assets.ok) {
@@ -57,7 +61,7 @@ if (result.ok) {
 }
 
 try {
-  assertProductionContent(undefined, undefined, undefined, { requireHttps: true });
+  assertProductionContent(undefined, undefined, undefined, productionOptions);
 } catch (error) {
   console.error(error instanceof Error ? error.message : 'PRODUCTION_CONTENT_GATE_FAILED');
 }

@@ -12,6 +12,7 @@ test('personal Cloudflare deployment uses the dedicated contact DB and daily cle
   assert.equal(config.account_id, '3190db9afa5dd4f904afce396da579d8');
   assert.equal(config.main, './worker-entry.ts');
   assert.equal(config.workers_dev, true);
+  assert.deepEqual(config.routes, [{ pattern: 'crelo.dev', custom_domain: true }]);
   assert.equal(config.compatibility_date, '2026-09-18');
   assert.deepEqual(config.compatibility_flags, ['nodejs_compat']);
   assert.deepEqual(config.d1_databases, [{
@@ -22,12 +23,13 @@ test('personal Cloudflare deployment uses the dedicated contact DB and daily cle
   }]);
   assert.deepEqual(config.triggers.crons, ['0 3 * * *']);
   assert.deepEqual(config.vars, {
-    SITE_ORIGIN: 'https://crelo-fde-portfolio-preview.crelo1119.workers.dev',
+    CONTENT_MODE: 'production',
+    SITE_ORIGIN: 'https://crelo.dev',
     CONTACT_TO_EMAIL: 'info@crelo.dev',
     CONTACT_FROM_EMAIL: 'contact@crelo.dev',
     NEXT_PUBLIC_TURNSTILE_SITE_KEY: '0x4AAAAAAFM5_8jUB8wFVC99',
   });
-  assert.match(scripts['build:cloudflare'], /CONTENT_MODE=preview CRELO_DEPLOY_TARGET=cloudflare npm run build/);
+  assert.equal(scripts['build:cloudflare'], 'node scripts/build-cloudflare.mjs');
   assert.match(scripts['deploy:cloudflare'], /npm run build:cloudflare && WRANGLER_WRITE_LOGS=false WRANGLER_LOG_PATH=\.wrangler\/logs wrangler deploy --config dist\/server\/wrangler\.json/);
   assert.match(viteSource, /!deployToPersonalCloudflare \? \[sites\(\)\] : \[\]/);
   assert.match(viteSource, /config: localBindingConfig/);

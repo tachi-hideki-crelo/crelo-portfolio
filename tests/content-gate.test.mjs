@@ -125,14 +125,12 @@ test('provides five explicitly approved cases', () => {
   assert.equal(caseStudies[4].media[0]?.kind, 'image');
 });
 
-test('preview data fails production gate with explicit reasons', () => {
+test('approved visible case content passes production without unpublished metadata', () => {
   const result = validateProductionContent(caseStudies, siteContent, productionEnv);
-  assert.equal(result.ok, false);
-  assert.ok(result.errors.every((error) => !error.includes('approved must be true')));
-  assert.ok(result.errors.every((error) => !error.includes('profile.name is missing')));
-  assert.ok(result.errors.every((error) => !error.includes('privacy.')));
+  assert.equal(result.ok, true, result.errors.join('\n'));
+  assert.equal(caseStudies[0].industry, null);
+  assert.equal(caseStudies[0].periodLabel, null);
   assert.equal(siteContent.contactEmail, 'info@crelo.dev');
-  assert.ok(result.errors.every((error) => !error.includes('contactEmail is missing or invalid')));
 });
 
 test('production build script cannot bypass the content and asset gate', () => {
@@ -175,7 +173,25 @@ test('production gate catches duplicate slugs, placeholders, missing alt, and en
   assert.ok(approvalDateResult.errors.includes('caseStudies[0](field-signal).approvedAt must be a valid YYYY-MM-DD date'));
 });
 
-test('production gate validates optional approved case detail copy', () => {
+test('production gate requires the detail and media shown on public cards', () => {
+  const records = approvedRecords();
+  records[0].detail = null;
+  records[0].media = [];
+  const result = validateProductionContent(records, approvedContent, productionEnv);
+  assert.ok(result.errors.includes('caseStudies[0](field-signal).detail is missing'));
+  assert.ok(result.errors.includes('caseStudies[0](field-signal).media must contain at least one approved asset'));
+});
+
+test('optional internal case fields remain checked when publication data is supplied', () => {
+  const records = structuredClone(caseStudies);
+  records[0].industry = 'TODO';
+  records[0].tags = ['公開承認待ち'];
+  const result = validateProductionContent(records, siteContent, productionEnv);
+  assert.ok(result.errors.includes('caseStudies[0](field-signal).industry contains placeholder content'));
+  assert.ok(result.errors.includes('caseStudies[0](field-signal).tags[0] contains placeholder content'));
+});
+
+test('production gate validates approved case detail copy', () => {
   const records = approvedRecords();
   records[0].detail = {
     projectName: '',
@@ -207,6 +223,22 @@ test('production gate rejects ASCII and full-width quantitative outcomes but per
   periodOnly[0].periodLabel = '2026年度';
   const periodResult = validateProductionContent(periodOnly, approvedContent, productionEnv);
   assert.equal(periodResult.errors.some((error) => error.includes('qualitativeOutcome contains quantitative KPI')), false);
+});
+
+test('production build can validate public fields without reading Cloudflare Secrets', () => {
+  const publicEnvironment = {
+    SITE_ORIGIN: 'https://crelo.dev',
+    CONTACT_TO_EMAIL: 'info@crelo.dev',
+    CONTACT_FROM_EMAIL: 'contact@crelo.dev',
+    NEXT_PUBLIC_TURNSTILE_SITE_KEY: 'site-key',
+  };
+  const buildResult = validateProductionContent(caseStudies, siteContent, publicEnvironment, { requireRuntimeSecrets: false });
+  assert.equal(buildResult.ok, true, buildResult.errors.join('\n'));
+
+  const runtimeResult = validateProductionContent(caseStudies, siteContent, publicEnvironment);
+  assert.ok(runtimeResult.errors.includes('RESEND_API_KEY is missing'));
+  assert.ok(runtimeResult.errors.includes('TURNSTILE_SECRET_KEY is missing'));
+  assert.ok(runtimeResult.errors.includes('CONTACT_HASH_SECRET is missing'));
 });
 
 test('production gate validates SITE_ORIGIN scheme and HTTPS policy', () => {

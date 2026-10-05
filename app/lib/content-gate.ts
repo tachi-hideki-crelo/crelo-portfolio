@@ -3,12 +3,13 @@ import { hasSufficientContactHashSecret } from './contact-crypto.ts';
 import { isAllowedContentAssetExtension, type ContentAssetKind } from './content-assets.ts';
 import type { CaseStudy, SiteContent } from './types.ts';
 
-const REQUIRED_CASE_FIELDS = [
-  'title',
+// The public cards require a title and role. The remaining legacy case-study
+// fields are not displayed and must not force invented content into a release.
+const REQUIRED_CASE_FIELDS = ['title', 'role'] as const satisfies readonly (keyof CaseStudy)[];
+const OPTIONAL_CASE_FIELDS = [
   'industry',
   'periodLabel',
   'challenge',
-  'role',
   'discovery',
   'design',
   'implementation',
@@ -47,6 +48,8 @@ export type ProductionGateResult = {
 export type ProductionGateOptions = {
   /** Require HTTPS for non-local production origins. Defaults to true. */
   requireHttps?: boolean;
+  /** Secret presence is checked against Cloudflare at deploy time, not in a build process. */
+  requireRuntimeSecrets?: boolean;
 };
 
 function isNonEmpty(value: string | null | undefined): value is string {
@@ -141,23 +144,29 @@ function inspectCaseStudy(caseStudy: CaseStudy, index: number): string[] {
     } else if (PLACEHOLDER_PATTERN.test(value as string)) {
       errors.push(`${prefix}.${field} contains placeholder content`);
     }
-    if (
-      field === 'qualitativeOutcome' &&
-      isNonEmpty(value as string | null) &&
-      QUANTITATIVE_OUTCOME_PATTERN.test(value as string)
-    ) {
+  }
+
+  for (const field of OPTIONAL_CASE_FIELDS) {
+    const value = caseStudy[field];
+    if (!isNonEmpty(value)) continue;
+    if (PLACEHOLDER_PATTERN.test(value)) errors.push(`${prefix}.${field} contains placeholder content`);
+    if (field === 'qualitativeOutcome' && QUANTITATIVE_OUTCOME_PATTERN.test(value)) {
       errors.push(`${prefix}.qualitativeOutcome contains quantitative KPI content`);
     }
   }
-
-  if (caseStudy.constraints.length === 0) errors.push(`${prefix}.constraints is empty`);
-  if (caseStudy.technologies.length === 0) errors.push(`${prefix}.technologies is empty`);
-  if (caseStudy.tags.length === 0) errors.push(`${prefix}.tags is empty`);
+  for (const field of ['constraints', 'technologies', 'tags'] as const) {
+    for (const [itemIndex, value] of caseStudy[field].entries()) {
+      if (!isNonEmpty(value)) errors.push(`${prefix}.${field}[${itemIndex}] is empty`);
+      else if (PLACEHOLDER_PATTERN.test(value)) errors.push(`${prefix}.${field}[${itemIndex}] contains placeholder content`);
+    }
+  }
   if (!isNonEmpty(caseStudy.theme) || PLACEHOLDER_PATTERN.test(caseStudy.theme)) {
     errors.push(`${prefix}.theme is invalid`);
   }
 
-  if (caseStudy.detail) {
+  if (!caseStudy.detail) {
+    errors.push(`${prefix}.detail is missing`);
+  } else {
     for (const field of ['projectName', 'overview'] as const) {
       const value = caseStudy.detail[field];
       if (!isNonEmpty(value)) errors.push(`${prefix}.detail.${field} is missing`);
@@ -188,6 +197,7 @@ function inspectCaseStudy(caseStudy: CaseStudy, index: number): string[] {
     errors.push(`${prefix}.media must be an array`);
     return errors;
   }
+  if (caseStudy.media.length === 0) errors.push(`${prefix}.media must contain at least one approved asset`);
 
   for (const [mediaIndex, media] of caseStudy.media.entries()) {
     const mediaPrefix = `${prefix}.media[${mediaIndex}]`;
@@ -353,15 +363,14 @@ export function validateProductionContent(
     'SITE_ORIGIN',
     'CONTACT_TO_EMAIL',
     'CONTACT_FROM_EMAIL',
-    'RESEND_API_KEY',
     'NEXT_PUBLIC_TURNSTILE_SITE_KEY',
-    'TURNSTILE_SECRET_KEY',
-    'CONTACT_HASH_SECRET',
+    ...(options.requireRuntimeSecrets === false ? [] : ['RESEND_API_KEY', 'TURNSTILE_SECRET_KEY', 'CONTACT_HASH_SECRET'] as const),
   ];
   for (const key of requiredEnvironment) {
     if (!isNonEmpty(environment[key])) errors.push(`${key} is missing`);
   }
   if (
+    options.requireRuntimeSecrets !== false &&
     isNonEmpty(environment.CONTACT_HASH_SECRET) &&
     !hasSufficientContactHashSecret(environment.CONTACT_HASH_SECRET)
   ) {
