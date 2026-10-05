@@ -118,6 +118,29 @@ test('diagonal mobile drags and their inertia preserve all four finger direction
   assert.equal(templateDragYInertia(-10, 'touch', 1440), 0.12);
 });
 
+test('one uninterrupted touch can turn from vertical movement to horizontal movement', () => {
+  const moves = [[0, -126], [38, -9], [46, 0], [-27, 12]];
+  let x = 0;
+  let y = 0;
+  for (const [deltaX, deltaY] of moves) {
+    x += templateDragXDelta(deltaX, 390, 'touch');
+    y += templateDragYDelta(deltaY, 844, 'touch', 390);
+  }
+  assert.ok(x > 0, 'horizontal movement starts without ending the vertical gesture');
+  assert.ok(y < 0, 'vertical movement keeps its finger-following direction');
+
+  const touchMove = gallerySource.slice(gallerySource.indexOf('const handleTouchMove'), gallerySource.indexOf('const finishTouch'));
+  assert.match(touchMove, /templateDragXDelta\(deltaX, width, 'touch'\)/);
+  assert.match(touchMove, /templateDragYDelta\(deltaY, height, 'touch', window\.innerWidth\)/);
+  assert.doesNotMatch(touchMove, /axis === 'vertical'|pointer\.axis/);
+  assert.match(gallerySource, /onTouchStart=\{handleTouchStart\}/);
+  assert.match(gallerySource, /onTouchMove=\{handleTouchMove\}/);
+  assert.match(gallerySource, /onTouchEnd=\{finishTouch\}/);
+  assert.match(gallerySource, /onTouchCancel=\{finishTouch\}/);
+  assert.match(gallerySource, /if \(touchRef\.current\.identifier !== null\)[\s\S]*?usedNativeScroll = true/);
+  assert.match(gallerySource, /if \(!gesture\.usedNativeScroll\)[\s\S]*?templateDragYInertia/);
+});
+
 test('mobile native vertical scroll moves the field in the opposite direction', () => {
   assert.ok(MOBILE_SCROLL_SENSITIVITY > 0.00075);
   assert.ok(mobileTemplateScrollYDelta(300) < 0);
@@ -248,6 +271,7 @@ test('gallery keeps native scroll while trackpad input moves cards with the gest
   assert.match(galleryStyles, /min-height: 300vh/);
   assert.match(galleryStyles, /translate3d\([\s\S]*-50%/);
   assert.match(galleryStyles, /grid-template-columns: repeat\(2, minmax\(0, 1fr\)/);
+  assert.doesNotMatch(galleryStyles, /\.field::before|repeating-conic-gradient/);
 });
 
 test('a new card press opens detail after dragging or inertia without recentering on pointer focus', () => {
