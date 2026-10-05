@@ -541,11 +541,21 @@
   .intro {
     --gallery-compact-title-size: 1.8rem;
     --gallery-title-size: clamp(1.85rem, 8vw, 3.2rem);
+    isolation: isolate;
     max-width: none;
     left: calc(50% - ((50% - 1.25rem) * var(--gallery-compact)));
     top: calc(9.5rem - (2rem * var(--gallery-compact)));
     transform: translateX(calc(-50% + (50% * var(--gallery-compact))));
     width: calc(100% - 2.5rem);
+  }
+  .intro::before {
+    background: linear-gradient(180deg, rgb(4 8 11 / 94%), rgb(4 8 11 / 78%) 75%, transparent);
+    content: '';
+    inset: -1.1rem -1rem -1.5rem;
+    opacity: var(--gallery-burst);
+    pointer-events: none;
+    position: absolute;
+    z-index: -1;
   }
   .intro h2 { white-space: normal; }
   .titleLine { white-space: nowrap; }
@@ -553,12 +563,15 @@
   .description { font-size: .82rem; line-height: 1.8; }
   .ctaBlock { align-items: flex-start; margin-top: 1.25rem; }
   .interactionCue { align-items: flex-start; flex-direction: column; gap: .55rem; left: 1.25rem; right: 1.25rem; }
-  .card { height: 12.5rem; width: clamp(9.2rem, 42vw, 13rem); }
-  .cardSurface { padding: .7rem; }
-  .thumbnail { margin: .5rem 0; min-height: 3rem; }
-  .cardAction { font-size: .44rem; }
+  .card { height: clamp(8.8rem, 20vh, 9.75rem); width: clamp(7.3rem, 34vw, 9.2rem); }
+  .cardSurface { padding: .5rem; }
+  .cardTopline { font-size: .58rem; line-height: 1.25; }
+  .thumbnail { margin: .38rem 0; min-height: 3rem; }
+  .cardStatus { display: none; }
+  .cardArrow { font-size: 1rem; }
   .gallerySection[data-reduced-motion='true'] { padding-left: 1.25rem; padding-right: 1.25rem; }
-  .gallerySection[data-reduced-motion='true'] .field { grid-template-columns: 1fr; }
+  .gallerySection[data-reduced-motion='true'] .field { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .gallerySection[data-reduced-motion='true'] .card { height: 9.75rem; }
   .detailOverlay { padding: .5rem; }
   .detailPanel { max-height: calc(100svh - 1rem); }
   .detailBody { padding: 1.1rem; }

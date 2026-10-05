@@ -29,7 +29,11 @@ import {
   getTemplateBurstTransform,
   getTemplatePlacement,
   hasExceededDragThreshold,
+  MOBILE_TEMPLATE_BREAKPOINT,
+  mobileTemplateScrollYDelta,
   NORMALIZED_TEMPLATE_PLACEMENTS,
+  templateDragXDelta,
+  templateDragXInertia,
   wrapNormalized,
 } from './web-template-gallery-field';
 import { getTemplateGalleryTimeline } from './web-template-gallery-motion';
@@ -191,11 +195,33 @@ export default function WebTemplateGallery({ config = webTemplateGallery }: { co
     writeTimeline();
     if (reduceMotion) return undefined;
 
-    window.addEventListener('scroll', requestTimelineUpdate, { passive: true });
-    window.addEventListener('resize', requestTimelineUpdate, { passive: true });
+    let previousScrollY = window.scrollY;
+    const onScroll = () => {
+      const scrollY = window.scrollY;
+      const deltaY = scrollY - previousScrollY;
+      previousScrollY = scrollY;
+
+      // Mobile vertical swipes belong to native page scrolling. Mirror that
+      // scroll into the gallery only after the cards have finished arriving.
+      if (window.innerWidth <= MOBILE_TEMPLATE_BREAKPOINT && deltaY !== 0) {
+        const rect = section.getBoundingClientRect();
+        const travel = Math.max(section.offsetHeight - window.innerHeight, 1);
+        const progress = Math.min(Math.max(-rect.top / travel, 0), 1);
+        if (rect.top <= 0 && rect.bottom >= window.innerHeight && getTemplateGalleryTimeline(progress).burst >= 1) {
+          fieldRef.current.targetY += mobileTemplateScrollYDelta(deltaY);
+        }
+      }
+      requestTimelineUpdate();
+    };
+    const onResize = () => {
+      previousScrollY = window.scrollY;
+      requestTimelineUpdate();
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onResize, { passive: true });
     return () => {
-      window.removeEventListener('scroll', requestTimelineUpdate);
-      window.removeEventListener('resize', requestTimelineUpdate);
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onResize);
       if (timelineFrameRef.current !== null) window.cancelAnimationFrame(timelineFrameRef.current);
     };
   }, [reduceMotion, writeTimeline]);
@@ -270,9 +296,10 @@ export default function WebTemplateGallery({ config = webTemplateGallery }: { co
 
     const onWheel = (event: WheelEvent) => {
       // This listener is intentionally passive: the page keeps its native
-      // vertical scroll while deltaX/deltaY steer the field camera.
+      // vertical scroll. Mobile Y motion follows the resulting scroll event
+      // instead, so wheel-capable narrow viewports do not apply it twice.
       fieldRef.current.targetX -= event.deltaX * 0.0014;
-      fieldRef.current.targetY -= event.deltaY * 0.00075;
+      if (window.innerWidth > MOBILE_TEMPLATE_BREAKPOINT) fieldRef.current.targetY -= event.deltaY * 0.00075;
     };
     stage.addEventListener('wheel', onWheel, { passive: true });
     return () => stage.removeEventListener('wheel', onWheel);
@@ -341,7 +368,7 @@ export default function WebTemplateGallery({ config = webTemplateGallery }: { co
     pointer.velocityY = deltaY;
     const width = Math.max(event.currentTarget.clientWidth, 1);
     const height = Math.max(event.currentTarget.clientHeight, 1);
-    fieldRef.current.targetX -= deltaX / width;
+    fieldRef.current.targetX += templateDragXDelta(deltaX, width, event.pointerType);
     fieldRef.current.targetY -= deltaY / height;
   }, [reduceMotion]);
 
@@ -362,7 +389,7 @@ export default function WebTemplateGallery({ config = webTemplateGallery }: { co
         suppressClickRef.current = false;
         suppressClickTimerRef.current = null;
       }, 350);
-      fieldRef.current.targetX -= pointer.velocityX * 0.012;
+      fieldRef.current.targetX += templateDragXInertia(pointer.velocityX, pointer.pointerType, window.innerWidth);
       fieldRef.current.targetY -= pointer.velocityY * 0.012;
     }
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
@@ -451,7 +478,7 @@ export default function WebTemplateGallery({ config = webTemplateGallery }: { co
             <span aria-hidden="true">{String(template.order).padStart(2, '0')}</span>
           </div>
           <div className={styles.thumbnail}>
-            {safeThumbnail ? <Image className={styles.thumbnailImage} src={safeThumbnail} alt={thumbnailAlt} fill sizes="(max-width: 720px) 42vw, 18vw" /> : <span className={styles.thumbnailPlaceholder} aria-hidden="true">WEB / TEMPLATE</span>}
+            {safeThumbnail ? <Image className={styles.thumbnailImage} src={safeThumbnail} alt={thumbnailAlt} fill sizes="(max-width: 720px) 34vw, 18vw" /> : <span className={styles.thumbnailPlaceholder} aria-hidden="true">WEB / TEMPLATE</span>}
           </div>
           <div className={styles.cardFooter}>
             <span className={styles.cardStatus}>VIEW DETAILS</span>

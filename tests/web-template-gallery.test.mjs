@@ -15,9 +15,14 @@ import {
   DRAG_CLICK_SUPPRESSION_THRESHOLD,
   getTemplateBurstTransform,
   hasExceededDragThreshold,
+  MOBILE_SCROLL_SENSITIVITY,
+  MOBILE_TEMPLATE_BREAKPOINT,
+  mobileTemplateScrollYDelta,
   modulo,
   NORMALIZED_TEMPLATE_PLACEMENTS,
   TEMPLATE_COUNT,
+  templateDragXDelta,
+  templateDragXInertia,
   wrapNormalized,
 } from '../app/components/site/web-template-gallery-field.ts';
 import {
@@ -82,6 +87,25 @@ test('damping is bounded and drag suppression starts at eight pixels', () => {
   assert.ok(damp(0, 1, 8, 0.1) > 0 && damp(0, 1, 8, 0.1) < 1);
   assert.equal(hasExceededDragThreshold(0, 0, 8, 0), true);
   assert.equal(hasExceededDragThreshold(0, 0, 7.99, 0), false);
+});
+
+test('mobile touch swipes move with the finger while desktop drag direction is unchanged', () => {
+  assert.equal(MOBILE_TEMPLATE_BREAKPOINT, 720);
+  assert.equal(templateDragXDelta(-78, 390, 'touch'), -0.2);
+  assert.equal(templateDragXDelta(78, 390, 'touch'), 0.2);
+  assert.equal(templateDragXDelta(-78, 390, 'mouse'), 0.2);
+  assert.equal(templateDragXDelta(-144, 1440, 'touch'), 0.1);
+  assert.equal(templateDragXInertia(-10, 'touch', 390), -0.12);
+  assert.equal(templateDragXInertia(-10, 'mouse', 390), 0.12);
+  assert.equal(templateDragXInertia(-10, 'touch', 1440), 0.12);
+  assert.ok(wrapNormalized(0.05 + templateDragXDelta(-78, 390, 'touch')) > 0.8);
+});
+
+test('mobile native vertical scroll moves the field in the opposite direction', () => {
+  assert.ok(MOBILE_SCROLL_SENSITIVITY > 0.00075);
+  assert.ok(mobileTemplateScrollYDelta(300) < 0);
+  assert.ok(mobileTemplateScrollYDelta(-300) > 0);
+  assert.equal(mobileTemplateScrollYDelta(0), 0);
 });
 
 test('HTTPS validation rejects credentials and local thumbnail validation is strict', () => {
@@ -187,7 +211,11 @@ test('gallery keeps native scroll while trackpad input moves cards with the gest
   assert.doesNotMatch(wheelSource, /preventDefault/);
   assert.match(wheelSource, /targetX\s*-=\s*event\.deltaX\s*\*\s*0\.0014/);
   assert.match(wheelSource, /targetY\s*-=\s*event\.deltaY\s*\*\s*0\.00075/);
+  assert.match(wheelSource, /window\.innerWidth > MOBILE_TEMPLATE_BREAKPOINT/);
   assert.doesNotMatch(wheelSource, /targetY\s*\+=\s*event\.deltaY/);
+  assert.match(gallerySource, /fieldRef\.current\.targetY \+= mobileTemplateScrollYDelta\(deltaY\)/);
+  assert.match(gallerySource, /window\.addEventListener\('scroll', onScroll, \{ passive: true \}\)/);
+  assert.match(gallerySource, /getTemplateGalleryTimeline\(progress\)\.burst >= 1/);
   assert.match(galleryStyles, /touch-action: pan-y/);
   assert.match(gallerySource, /IntersectionObserver/);
   assert.match(gallerySource, /visibilitychange/);
@@ -214,7 +242,9 @@ test('a new card press opens detail after dragging or inertia without recenterin
   assert.match(pointerDown, /closest\('\[data-template-action\]'\)/);
   assert.match(pointerDown, /field\.targetX = field\.x;\s*field\.targetY = field\.y/);
   assert.match(pointerMove, /pointer\.didDrag = true/);
+  assert.match(pointerMove, /templateDragXDelta\(deltaX, width, event\.pointerType\)/);
   assert.match(pointerFinish, /pointer\.didDrag \|\| hasExceededDragThreshold/);
+  assert.match(pointerFinish, /templateDragXInertia\(pointer\.velocityX, pointer\.pointerType, window\.innerWidth\)/);
   assert.match(focus, /if \(!event\.currentTarget\.matches\(':focus-visible'\)\) return/);
   assert.match(gallerySource, /setSelectedTemplate\(template\)/);
 });
@@ -230,6 +260,8 @@ test('responsive title and all fifteen action hit areas stay within their contra
   assert.equal(getTemplateGalleryTimeline(0.35).compact, 0);
   assert.equal(getTemplateGalleryTimeline(0.6).compact, 1);
   assert.match(galleryStyles, /\.titleLine \{ display: block; white-space: nowrap; \}/);
+  assert.match(galleryStyles, /\.card \{ height: clamp\(8\.8rem, 20vh, 9\.75rem\); width: clamp\(7\.3rem, 34vw, 9\.2rem\); \}/);
+  assert.match(galleryStyles, /\.gallerySection\[data-reduced-motion='true'\] \.field \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \}/);
 
   const actionMinHeight = Number(galleryStyles.match(/\.cardAction \{[\s\S]*?min-height: (\d+)px/)?.[1] ?? 0);
   const actionMinWidth = Number(galleryStyles.match(/\.cardAction \{[\s\S]*?min-width: (\d+)px/)?.[1] ?? 0);

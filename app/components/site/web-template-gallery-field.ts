@@ -37,6 +37,22 @@ export const NORMALIZED_TEMPLATE_PLACEMENTS: readonly NormalizedTemplatePlacemen
 
 export const TEMPLATE_COUNT = NORMALIZED_TEMPLATE_PLACEMENTS.length;
 export const DRAG_CLICK_SUPPRESSION_THRESHOLD = 8;
+export const MOBILE_TEMPLATE_BREAKPOINT = 720;
+export const MOBILE_SCROLL_SENSITIVITY = 0.0011;
+
+/** Touch drags follow the finger; desktop mouse drags keep the existing camera direction. */
+export function templateDragXDelta(deltaX: number, width: number, pointerType: string): number {
+  return (pointerType === 'touch' && width <= MOBILE_TEMPLATE_BREAKPOINT ? 1 : -1) * deltaX / Math.max(width, 1);
+}
+
+export function templateDragXInertia(velocityX: number, pointerType: string, viewportWidth: number): number {
+  return (pointerType === 'touch' && viewportWidth <= MOBILE_TEMPLATE_BREAKPOINT ? 1 : -1) * velocityX * 0.012;
+}
+
+/** A native downward page scroll moves the mobile gallery upward, without preventing scrolling. */
+export function mobileTemplateScrollYDelta(deltaScrollY: number): number {
+  return deltaScrollY === 0 ? 0 : -deltaScrollY * MOBILE_SCROLL_SENSITIVITY;
+}
 
 /** Positive modulo used for both camera offsets and toroidal field wrapping. */
 export function modulo(value: number, modulus: number): number {
