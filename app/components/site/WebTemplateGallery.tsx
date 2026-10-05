@@ -34,6 +34,8 @@ import {
   NORMALIZED_TEMPLATE_PLACEMENTS,
   templateDragXDelta,
   templateDragXInertia,
+  templateDragYDelta,
+  templateDragYInertia,
   wrapNormalized,
 } from './web-template-gallery-field';
 import { getTemplateGalleryTimeline } from './web-template-gallery-motion';
@@ -369,7 +371,7 @@ export default function WebTemplateGallery({ config = webTemplateGallery }: { co
     const width = Math.max(event.currentTarget.clientWidth, 1);
     const height = Math.max(event.currentTarget.clientHeight, 1);
     fieldRef.current.targetX += templateDragXDelta(deltaX, width, event.pointerType);
-    fieldRef.current.targetY -= deltaY / height;
+    fieldRef.current.targetY += templateDragYDelta(deltaY, height, event.pointerType, window.innerWidth);
   }, [reduceMotion]);
 
   const finishPointer = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
@@ -390,7 +392,7 @@ export default function WebTemplateGallery({ config = webTemplateGallery }: { co
         suppressClickTimerRef.current = null;
       }, 350);
       fieldRef.current.targetX += templateDragXInertia(pointer.velocityX, pointer.pointerType, window.innerWidth);
-      fieldRef.current.targetY -= pointer.velocityY * 0.012;
+      fieldRef.current.targetY += templateDragYInertia(pointer.velocityY, pointer.pointerType, window.innerWidth);
     }
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
     pointerRef.current = { ...INITIAL_POINTER_STATE };

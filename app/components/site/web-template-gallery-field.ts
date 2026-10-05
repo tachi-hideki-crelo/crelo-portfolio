@@ -45,8 +45,17 @@ export function templateDragXDelta(deltaX: number, width: number, pointerType: s
   return (pointerType === 'touch' && width <= MOBILE_TEMPLATE_BREAKPOINT ? 1 : -1) * deltaX / Math.max(width, 1);
 }
 
+/** Keep the vertical component of a diagonal mobile drag moving with the finger. */
+export function templateDragYDelta(deltaY: number, height: number, pointerType: string, viewportWidth: number): number {
+  return (pointerType === 'touch' && viewportWidth <= MOBILE_TEMPLATE_BREAKPOINT ? 1 : -1) * deltaY / Math.max(height, 1);
+}
+
 export function templateDragXInertia(velocityX: number, pointerType: string, viewportWidth: number): number {
   return (pointerType === 'touch' && viewportWidth <= MOBILE_TEMPLATE_BREAKPOINT ? 1 : -1) * velocityX * 0.012;
+}
+
+export function templateDragYInertia(velocityY: number, pointerType: string, viewportWidth: number): number {
+  return (pointerType === 'touch' && viewportWidth <= MOBILE_TEMPLATE_BREAKPOINT ? 1 : -1) * velocityY * 0.012;
 }
 
 /** A native downward page scroll moves the mobile gallery upward, without preventing scrolling. */

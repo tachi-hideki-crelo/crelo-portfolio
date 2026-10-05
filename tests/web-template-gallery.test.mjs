@@ -23,6 +23,8 @@ import {
   TEMPLATE_COUNT,
   templateDragXDelta,
   templateDragXInertia,
+  templateDragYDelta,
+  templateDragYInertia,
   wrapNormalized,
 } from '../app/components/site/web-template-gallery-field.ts';
 import {
@@ -99,6 +101,21 @@ test('mobile touch swipes move with the finger while desktop drag direction is u
   assert.equal(templateDragXInertia(-10, 'mouse', 390), 0.12);
   assert.equal(templateDragXInertia(-10, 'touch', 1440), 0.12);
   assert.ok(wrapNormalized(0.05 + templateDragXDelta(-78, 390, 'touch')) > 0.8);
+});
+
+test('diagonal mobile drags and their inertia preserve all four finger directions', () => {
+  for (const [dx, dy] of [[78, -84], [-78, -84], [78, 84], [-78, 84]]) {
+    const fieldX = templateDragXDelta(dx, 390, 'touch');
+    const fieldY = templateDragYDelta(dy, 844, 'touch', 390);
+    assert.equal(Math.sign(fieldX), Math.sign(dx));
+    assert.equal(Math.sign(fieldY), Math.sign(dy));
+    assert.equal(Math.sign(templateDragXInertia(dx, 'touch', 390)), Math.sign(dx));
+    assert.equal(Math.sign(templateDragYInertia(dy, 'touch', 390)), Math.sign(dy));
+  }
+  assert.equal(templateDragYDelta(-84, 844, 'mouse', 390), 84 / 844);
+  assert.equal(templateDragYDelta(-84, 844, 'touch', 1440), 84 / 844);
+  assert.equal(templateDragYInertia(-10, 'mouse', 390), 0.12);
+  assert.equal(templateDragYInertia(-10, 'touch', 1440), 0.12);
 });
 
 test('mobile native vertical scroll moves the field in the opposite direction', () => {
@@ -243,8 +260,10 @@ test('a new card press opens detail after dragging or inertia without recenterin
   assert.match(pointerDown, /field\.targetX = field\.x;\s*field\.targetY = field\.y/);
   assert.match(pointerMove, /pointer\.didDrag = true/);
   assert.match(pointerMove, /templateDragXDelta\(deltaX, width, event\.pointerType\)/);
+  assert.match(pointerMove, /templateDragYDelta\(deltaY, height, event\.pointerType, window\.innerWidth\)/);
   assert.match(pointerFinish, /pointer\.didDrag \|\| hasExceededDragThreshold/);
   assert.match(pointerFinish, /templateDragXInertia\(pointer\.velocityX, pointer\.pointerType, window\.innerWidth\)/);
+  assert.match(pointerFinish, /templateDragYInertia\(pointer\.velocityY, pointer\.pointerType, window\.innerWidth\)/);
   assert.match(focus, /if \(!event\.currentTarget\.matches\(':focus-visible'\)\) return/);
   assert.match(gallerySource, /setSelectedTemplate\(template\)/);
 });
