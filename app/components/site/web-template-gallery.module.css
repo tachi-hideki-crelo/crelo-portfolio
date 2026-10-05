@@ -48,7 +48,7 @@
   z-index: 7;
 }
 
-.intro > p:first-child {
+.introHeading > p:first-child {
   color: var(--amber);
   margin: 0 0 1.1rem;
   opacity: var(--gallery-body-opacity);
@@ -167,6 +167,8 @@
   --template-burst-z: -180px;
   --template-field-x: .5;
   --template-field-y: .5;
+  --template-field-span-x: 118vw;
+  --template-field-span-y: 86vh;
   --template-rotate: 0deg;
   --template-scale: 1;
   --template-z: 0px;
@@ -179,8 +181,8 @@
   top: 50%;
   transform:
     translate3d(
-      calc(-50% + (((var(--template-field-x) - .5) * var(--template-burst-progress) + var(--template-burst-x)) * 118vw)),
-      calc(-50% + (((var(--template-field-y) - .5) * var(--template-burst-progress) + var(--template-burst-y)) * 86vh)),
+      calc(-50% + (((var(--template-field-x) - .5) * var(--template-burst-progress) + var(--template-burst-x)) * var(--template-field-span-x))),
+      calc(-50% + (((var(--template-field-y) - .5) * var(--template-burst-progress) + var(--template-burst-y)) * var(--template-field-span-y))),
       var(--template-burst-z)
     )
     rotateZ(var(--template-burst-rotate))
@@ -472,6 +474,12 @@
   width: 100%;
 }
 
+.gallerySection[data-reduced-motion='true'] .introHeading {
+  max-height: none;
+  opacity: 1;
+  overflow: visible;
+}
+
 .gallerySection[data-reduced-motion='true'] .description {
   max-height: none;
   max-width: 42rem;
@@ -529,22 +537,50 @@
     transform: translateX(calc(-50% + (50% * var(--gallery-compact))));
     width: calc(100% - 2.5rem);
   }
+  .introHeading {
+    max-height: calc(10rem * (1 - var(--gallery-compact)));
+    opacity: calc(1 - var(--gallery-compact));
+    overflow: hidden;
+  }
   .intro::before {
     background: linear-gradient(180deg, rgb(4 8 11 / 94%), rgb(4 8 11 / 78%) 75%, transparent);
     content: '';
     inset: -1.1rem -1rem -1.5rem;
-    opacity: var(--gallery-burst);
+    opacity: calc(var(--gallery-burst) * (1 - var(--gallery-compact)));
     pointer-events: none;
     position: absolute;
     z-index: -1;
   }
   .intro h2 { white-space: normal; }
   .titleLine { white-space: nowrap; }
-  .introLower { display: block; margin-top: 1.35rem; }
-  .description { font-size: .82rem; line-height: 1.8; }
-  .ctaBlock { align-items: flex-start; margin-top: 1.25rem; }
+  .introLower { display: block; margin-top: calc(1.35rem * (1 - var(--gallery-compact))); }
+  .description {
+    font-size: .82rem;
+    line-height: 1.8;
+    max-width: none;
+  }
+  .ctaBlock {
+    align-items: flex-end;
+    gap: calc(.8rem * (1 - var(--gallery-compact)));
+    margin-top: calc(1.25rem * (1 - var(--gallery-compact)));
+  }
+  .ctaLabel {
+    max-height: calc(1rem * (1 - var(--gallery-compact)));
+    opacity: calc(1 - var(--gallery-compact));
+    overflow: hidden;
+  }
+  .cta {
+    font-size: calc(1rem - (.22rem * var(--gallery-compact)));
+    min-height: 44px;
+    padding: calc(.75rem - (.15rem * var(--gallery-compact))) calc(1.15rem - (.35rem * var(--gallery-compact)));
+  }
   .interactionCue { align-items: flex-start; flex-direction: column; gap: .55rem; left: 1.25rem; right: 1.25rem; }
-  .card { height: clamp(8.8rem, 20vh, 9.75rem); width: clamp(7.3rem, 34vw, 9.2rem); }
+  .card {
+    --template-field-span-x: 154vw;
+    --template-field-span-y: 108vh;
+    height: clamp(8.8rem, 20vh, 9.75rem);
+    width: clamp(7.3rem, 34vw, 9.2rem);
+  }
   .cardSurface { padding: .5rem; }
   .cardTopline { font-size: .58rem; line-height: 1.25; }
   .thumbnail { margin: .38rem 0; min-height: 3rem; }

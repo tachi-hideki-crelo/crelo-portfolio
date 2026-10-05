@@ -600,8 +600,10 @@ export default function WebTemplateGallery({ config = webTemplateGallery }: { co
         <div className={`section-marker ${styles.marker}`}><span>04</span><span>WEB TEMPLATE GALLERY</span></div>
 
         <header className={styles.intro}>
-          <p className="eyebrow eyebrow--amber">START SMALL / CHOOSE A DIRECTION</p>
-          <h2 id="templates-title" aria-label="まずは簡単なWEBサイトから。"><span className={styles.titleLine}>まずは簡単な</span><span className={styles.titleLine}>WEBサイトから。</span></h2>
+          <div className={styles.introHeading}>
+            <p className="eyebrow eyebrow--amber">START SMALL / CHOOSE A DIRECTION</p>
+            <h2 id="templates-title" aria-label="まずは簡単なWEBサイトから。"><span className={styles.titleLine}>まずは簡単な</span><span className={styles.titleLine}>WEBサイトから。</span></h2>
+          </div>
           <div className={styles.introLower}>
             <p className={styles.description}>大がかりな開発でなくても構いません。まずはお気軽に、シンプルなWebサイトの制作だけお受けすることも可能です。公開済みのテンプレートから、目的や雰囲気に合うものを選んで始められます。</p>
             <div className={styles.ctaBlock}>

@@ -302,8 +302,20 @@ test('responsive title and all fifteen action hit areas stay within their contra
   assert.equal(getTemplateGalleryTimeline(0).compact, 0);
   assert.equal(getTemplateGalleryTimeline(0.35).compact, 0);
   assert.equal(getTemplateGalleryTimeline(0.6).compact, 1);
+  const mobileGalleryStyles = galleryStyles.slice(galleryStyles.indexOf('@media (max-width: 720px)'));
+  assert.match(gallerySource, /<div className=\{styles\.introHeading\}>[\s\S]*?まずは簡単なWEBサイトから。/);
+  assert.match(galleryStyles, /\.introHeading > p:first-child/);
+  assert.match(galleryStyles, /--template-field-span-x: 118vw/);
+  assert.match(galleryStyles, /--template-field-span-y: 86vh/);
+  assert.match(mobileGalleryStyles, /--template-field-span-x: 154vw/);
+  assert.match(mobileGalleryStyles, /--template-field-span-y: 108vh/);
+  assert.match(mobileGalleryStyles, /\.introHeading \{[\s\S]*?max-height: calc\(10rem \* \(1 - var\(--gallery-compact\)\)\)/);
+  assert.match(mobileGalleryStyles, /\.description \{[\s\S]*?max-width: none/);
+  assert.match(mobileGalleryStyles, /\.ctaLabel \{[\s\S]*?max-height: calc\(1rem \* \(1 - var\(--gallery-compact\)\)\)/);
+  assert.match(mobileGalleryStyles, /\.cta \{[\s\S]*?font-size: calc\(1rem - \(\.22rem \* var\(--gallery-compact\)\)\)[\s\S]*?min-height: 44px/);
+  assert.match(mobileGalleryStyles, /opacity: calc\(var\(--gallery-burst\) \* \(1 - var\(--gallery-compact\)\)\)/);
   assert.match(galleryStyles, /\.titleLine \{ display: block; white-space: nowrap; \}/);
-  assert.match(galleryStyles, /\.card \{ height: clamp\(8\.8rem, 20vh, 9\.75rem\); width: clamp\(7\.3rem, 34vw, 9\.2rem\); \}/);
+  assert.match(galleryStyles, /--template-field-span-x: 154vw;[\s\S]*?height: clamp\(8\.8rem, 20vh, 9\.75rem\);[\s\S]*?width: clamp\(7\.3rem, 34vw, 9\.2rem\);/);
   assert.match(galleryStyles, /\.gallerySection\[data-reduced-motion='true'\] \.field \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \}/);
 
   const actionMinHeight = Number(galleryStyles.match(/\.cardAction \{[\s\S]*?min-height: (\d+)px/)?.[1] ?? 0);
