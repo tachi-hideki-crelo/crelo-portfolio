@@ -46,7 +46,8 @@ test('StaticCosmos uses one capped DPR for backing size and transform', () => {
 });
 
 test('HeroCosmosCanvas renders the field from the shared tier budget', () => {
-  assert.match(cosmos, /const config = tier === 'static' \? null : FIELD_TIERS\[tier\]/);
+  assert.match(cosmos, /const config = isStatic \? null : FIELD_TIERS\[tier\]/);
+  assert.match(cosmos, /new ResizeObserver\(draw\)/);
   // The phone tier must start where the Hero CSS switches to its phone layout.
   assert.match(cosmos, /if \(width > 720\) return 'tablet'/);
   assert.match(styles, /@media \(max-width: 720px\)/);
@@ -87,7 +88,7 @@ test('Hero cosmos forms from an empty first frame after the intro handoff', () =
   assert.match(cosmos, /uniforms\.uRowReveal\.value = formation\.rowReveal/);
   assert.match(cosmos, /uniforms\.uLight\.value = formation\.fieldLight/);
   assert.match(cosmos, /const renderTier = capabilityReady \?/);
-  assert.match(cosmos, /\{!capabilityReady \? null : isStatic \|\| !config \?/);
+  assert.match(cosmos, /\{!capabilityReady \? null : config \? <HeroCosmosR3F/);
   const staticSource = fieldDraw.slice(fieldDraw.indexOf('export function drawStaticField'));
   assert.doesNotMatch(staticSource, /formationProgress/);
 });

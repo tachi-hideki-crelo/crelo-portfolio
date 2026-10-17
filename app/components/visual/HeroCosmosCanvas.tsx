@@ -119,9 +119,15 @@ function StaticCosmos({ config }: { config: FieldGridConfig }) {
     };
     draw();
     void document.fonts?.ready.then(draw);
+    // The condensed layout lands after this effect (the parent applies
+    // data-static on re-render); the Hero's height change re-measures it.
+    const hero = canvas.closest('.hero-story');
+    const layoutObserver = hero ? new ResizeObserver(draw) : null;
+    if (hero) layoutObserver?.observe(hero);
     window.addEventListener('resize', draw, { passive: true });
     return () => {
       disposed = true;
+      layoutObserver?.disconnect();
       window.removeEventListener('resize', draw);
       if (frame !== null) window.cancelAnimationFrame(frame);
     };
@@ -361,7 +367,7 @@ export default function HeroCosmosCanvas({ progress, formationProgress, forceSta
     setTier('static');
   }, []);
   const isStatic = forceStatic || tier === 'static' || !webglAvailable;
-  const config = tier === 'static' ? null : FIELD_TIERS[tier];
+  const config = isStatic ? null : FIELD_TIERS[tier];
   const renderTier = capabilityReady ? (isStatic ? 'static' : tier) : 'pending';
   const fallbackMode = capabilityReady ? (isStatic ? 'canvas2d' : 'webgl2') : 'pending';
 
@@ -414,12 +420,12 @@ export default function HeroCosmosCanvas({ progress, formationProgress, forceSta
       className="hero-cosmos"
       data-render-tier={renderTier}
       data-config-tier={tier}
-      data-points={isStatic || !config ? STATIC_FIELD_GRID.columns * STATIC_FIELD_GRID.rows : config.columns * config.rows}
+      data-points={config ? config.columns * config.rows : STATIC_FIELD_GRID.columns * STATIC_FIELD_GRID.rows}
       data-fallback={fallbackMode}
       data-paused={paused ? 'true' : 'false'}
       aria-hidden="true"
     >
-      {!capabilityReady ? null : isStatic || !config ? <StaticCosmos config={STATIC_FIELD_GRID} /> : <HeroCosmosR3F config={config} progress={progress} formationProgress={formationProgress} paused={paused} onContextLost={handleContextLost} />}
+      {!capabilityReady ? null : config ? <HeroCosmosR3F config={config} progress={progress} formationProgress={formationProgress} paused={paused} onContextLost={handleContextLost} /> : <StaticCosmos config={STATIC_FIELD_GRID} />}
     </div>
   );
 }

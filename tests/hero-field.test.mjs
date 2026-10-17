@@ -192,4 +192,10 @@ test('the static poster stays in the free band below the condensed copy', async 
   assert.ok(phone.top > 486);
   assert.ok(phone.bottom < 687);
   assert.ok(phone.bottom - phone.top > 60);
+  // The band clears the statement's shield and the labels above far-row tags.
+  assert.ok(wide.top > 695 + 30);
+  assert.equal(staticFieldPlacement(375, 812, { statementBottom: 486, ctaTop: 687, ctaRight: 270 }, state).compact, true);
+  assert.equal(staticFieldPlacement(1440, 900, { statementBottom: 695, ctaTop: 802, ctaRight: 360 }, state).compact, false);
+  // No band left (statement reaches the bottom edge): nothing usable to draw.
+  assert.ok(staticFieldPlacement(1280, 560, { statementBottom: 560, ctaTop: 540, ctaRight: 300 }, state).scale < 140);
 });

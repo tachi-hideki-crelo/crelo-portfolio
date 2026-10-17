@@ -124,12 +124,23 @@ export function drawFieldAnnotations(context: CanvasRenderingContext2D, view: Fi
 /** Progress used for the condensed, non-scrolling Hero: structured field, finished route. */
 export const STATIC_FIELD_PROGRESS = 0.8;
 
-export type StaticFieldPlacement = { offsetX: number; offsetY: number; scale: number };
+export type StaticFieldPlacement = {
+  offsetX: number;
+  offsetY: number;
+  scale: number;
+  /** The phone layout: a full-width CTA closes the band, so it is short. */
+  compact: boolean;
+};
 
 /** Where the condensed copy sits, in CSS px relative to the static canvas. */
 export type StaticCopyBounds = { statementBottom: number; ctaTop: number; ctaRight: number };
 
 const STATIC_MARGIN = 16;
+// Below the statement the band must also clear its blurred ::before shield
+// (~0.95rem) and the OBS labels drawn up to ~18px above far-row tags.
+const STATIC_TOP_CLEARANCE = 40;
+// Below this the band is too short to read as a field; draw nothing instead.
+const MIN_STATIC_SCALE = 140;
 
 /** Used before layout can be measured: copy roughly where the wide layout puts it. */
 function fallbackCopyBounds(width: number, height: number): StaticCopyBounds {
@@ -163,27 +174,29 @@ function fieldExtentsPerScale(state: HeroTimelineState) {
 export function staticFieldPlacement(width: number, height: number, copy: StaticCopyBounds, state: HeroTimelineState = getHeroTimeline(STATIC_FIELD_PROGRESS)): StaticFieldPlacement {
   const extents = fieldExtentsPerScale(state);
   const ctaBlocksBand = copy.ctaRight > width * 0.55;
-  const bandTop = copy.statementBottom + STATIC_MARGIN;
+  const bandTop = copy.statementBottom + STATIC_TOP_CLEARANCE;
   const bandBottom = ctaBlocksBand ? copy.ctaTop - STATIC_MARGIN : height * 1.04;
   const byHeight = Math.max(0, bandBottom - bandTop) / (extents.above + extents.below);
   const byWidth = (width * (ctaBlocksBand ? 1 : 0.33)) / extents.side;
   const scale = Math.min(byHeight, byWidth);
   const centreX = ctaBlocksBand ? width / 2 : copy.ctaRight + STATIC_MARGIN * 2 + extents.side * scale;
-  return { offsetX: centreX / width - 0.5, offsetY: (bandTop + extents.above * scale) / height, scale };
+  return { offsetX: centreX / width - 0.5, offsetY: (bandTop + extents.above * scale) / height, scale, compact: ctaBlocksBand };
 }
 
 export function drawStaticField(context: CanvasRenderingContext2D, width: number, height: number, dpr: number, fontFamily: string, copy: StaticCopyBounds | null, grid: FieldGridConfig = STATIC_FIELD_GRID) {
   const state = getHeroTimeline(STATIC_FIELD_PROGRESS);
+  const { compact, ...placement } = staticFieldPlacement(width, height, copy ?? fallbackCopyBounds(width, height), state);
   const view: FieldView = {
     width,
     height,
-    ...staticFieldPlacement(width, height, copy ?? fallbackCopyBounds(width, height), state),
+    ...placement,
     pitch: state.cameraPitch,
     yaw: state.cameraYaw,
     distance: state.cameraDistance,
   };
   context.setTransform(dpr, 0, 0, dpr, 0, 0);
   context.clearRect(0, 0, width, height);
+  if (view.scale < MIN_STATIC_SCALE) return;
   for (let row = 0; row < grid.rows; row += 1) {
     for (let column = 0; column < grid.columns; column += 1) {
       const x = fieldGridCoordinate(column, grid.columns);
@@ -196,5 +209,6 @@ export function drawStaticField(context: CanvasRenderingContext2D, width: number
       context.fillRect(point.x - size / 2, point.y - size / 2, size, size);
     }
   }
-  drawFieldAnnotations(context, view, state, { columns: grid.columns, rows: grid.rows, time: 0, labels: grid.labels, fontFamily });
+  // Like the scrolling mobile tier, the short phone band drops the labels.
+  drawFieldAnnotations(context, view, state, { columns: grid.columns, rows: grid.rows, time: 0, labels: grid.labels && !compact, fontFamily });
 }
