@@ -429,7 +429,7 @@ button { color: inherit; }
   .site-nav { gap: 1.2rem; }
   /* The size cap keeps today's copy on one line; if the copy grows, wrap
      inside the gutters instead of running off the left edge. */
-  .hero-story__statement { max-width: calc(100vw - 2 * clamp(1.25rem, 8.5vw, 9rem)); }
+  .hero-story__statement { max-width: calc(100% - 2 * clamp(1.25rem, 8.5vw, 9rem)); }
   .hero-story__statement p { text-wrap: balance; white-space: normal; }
   .site-nav a, .site-nav__replay { font-size: .51rem; }
   .hero-story__copy { width: 100%; }

@@ -154,6 +154,6 @@ test('the right-aligned Hero statement fits between the gutters at tablet widths
   assert.match(styles, /\.hero-story__statement \{[^}]*font-size: min\(clamp\(2\.35rem, 2\.75vw, 4rem\), 4\.1vw\)/);
   assert.match(styles, /@media \(max-width: 1000px\) \{\s*\.header-status \{ display: none; \}/);
   // Safety net if the copy grows: wrap inside the gutters below 1000px.
-  assert.match(styles, /\.hero-story__statement \{ max-width: calc\(100vw - 2 \* clamp\(1\.25rem, 8\.5vw, 9rem\)\); \}/);
+  assert.match(styles, /\.hero-story__statement \{ max-width: calc\(100% - 2 \* clamp\(1\.25rem, 8\.5vw, 9rem\)\); \}/);
   assert.match(styles, /\.hero-story__statement p \{ text-wrap: balance; white-space: normal; \}/);
 });
