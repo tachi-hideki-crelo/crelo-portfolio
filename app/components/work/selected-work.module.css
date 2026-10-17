@@ -145,11 +145,8 @@
 }
 
 .slice[data-active='true'] {
-  outline-color: rgb(var(--slice-acc) / 50%);
-}
-
-.slice[data-active='true'] {
   flex-grow: var(--slice-grow, 7);
+  outline-color: rgb(var(--slice-acc) / 50%);
 }
 
 .sliceButton {
@@ -998,7 +995,8 @@
   }
 
   .slice:not([data-active='true']) .sliceField {
-    mask-image: linear-gradient(90deg, transparent 34%, #000 80%);
+    -webkit-mask-image: linear-gradient(90deg, transparent 42%, #000 92%);
+    mask-image: linear-gradient(90deg, transparent 42%, #000 92%);
   }
 
   .slice[data-active='true'] {
@@ -1050,6 +1048,11 @@
   .sliceName {
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .sliceName,
+  .sliceMeta {
+    text-shadow: 0 0 2px #070c0f, 0 0 10px #070c0f;
   }
 
   .sliceMeta {

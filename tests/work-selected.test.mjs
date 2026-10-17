@@ -453,7 +453,8 @@ test('each case slice carries its theme signal colour shared with its detail dia
   assert.match(selectedWorkStyles, /\.band \{[\s\S]*gap: var\(--band-gap, 6px\)/);
   assert.match(selectedWorkStyles, /\.summaryRole \{\s*color: rgb\(var\(--active-acc, 166 255 219\)\)/);
   assert.match(selectedWorkStyles, /max-width: 768px\)[\s\S]*\.band \{[\s\S]*gap: 0\.5rem/);
-  assert.match(selectedWorkStyles, /max-width: 768px\)[\s\S]*\.slice:not\(\[data-active='true'\]\) \.sliceField \{\s*mask-image: linear-gradient\(90deg, transparent 34%, #000 80%\)/);
+  assert.match(selectedWorkStyles, /max-width: 768px\)[\s\S]*\.slice:not\(\[data-active='true'\]\) \.sliceField \{\s*-webkit-mask-image: linear-gradient\(90deg, transparent 42%, #000 92%\);\s*mask-image: linear-gradient\(90deg, transparent 42%, #000 92%\)/);
+  assert.match(selectedWorkSource, /const mediaKind = previewVideo \? 'MOTION' : previewImage \? 'STILL' : 'PRIVATE';/);
   assert.match(selectedWorkStyles, /max-width: 768px\)[\s\S]*\.sliceIndex \{[\s\S]*border-right: 1px solid rgb\(var\(--slice-acc\) \/ 28%\)/);
 
   const sliceMarkup = selectedWorkSource.slice(selectedWorkSource.indexOf('function ResolveSlice'), selectedWorkSource.indexOf('function ExpandedCaseDialog'));

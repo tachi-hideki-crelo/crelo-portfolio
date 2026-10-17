@@ -322,8 +322,9 @@ function getSummaryOutcomes(caseStudy: PublicCaseStudy): string[] {
 }
 
 /**
- * Draws the case media as a calm mint halftone, the same point language as the
- * hero field. Unapproved slots fall back to the bare grid.
+ * Draws the case media as a calm halftone in the case's signal colour (`rgb`),
+ * the same point language as the hero field. The sample is auto-levelled so dark
+ * media still reads as a field; unapproved slots fall back to the bare grid.
  */
 function HalftoneField({ src, rgb, className }: { src: string | null; rgb: string; className: string }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -469,6 +470,7 @@ function ResolveSlice({
   const order = String(caseStudy.displayOrder).padStart(2, '0');
   const previewVideo = getVideoMedia(caseStudy, 'preview');
   const previewImage = getImageMedia(caseStudy);
+  const mediaKind = previewVideo ? 'MOTION' : previewImage ? 'STILL' : 'PRIVATE';
 
   return (
     <li
@@ -535,13 +537,13 @@ function ResolveSlice({
         </span>
         <span className={styles.sliceTitle} aria-hidden="true">
           <span className={styles.sliceName}>{title}</span>
-          <span className={styles.sliceMeta}>CASE {order} · {previewVideo ? 'MOTION' : 'STILL'}</span>
+          <span className={styles.sliceMeta}>CASE {order} · {mediaKind}</span>
         </span>
         <span className={styles.sliceIndex} aria-hidden="true"><i />{order}</span>
         <span className={styles.sliceChevron} aria-hidden="true">＋</span>
         <span className={styles.sliceHud} aria-hidden="true">
           <span className={styles.sliceTag}>
-            CASE <b>{order}</b> / {String(caseCount).padStart(2, '0')} · {previewVideo ? 'MOTION' : 'STILL'}
+            CASE <b>{order}</b> / {String(caseCount).padStart(2, '0')} · {mediaKind}
           </span>
           <span className={styles.sliceOpen}>詳細を見る<span>↗</span></span>
         </span>

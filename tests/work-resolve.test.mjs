@@ -55,7 +55,7 @@ test('luminance lift keeps dark case media visible as a field without blowing ou
 test('luminance levels stretch a dark image to the full range and ignore stray highlights', () => {
   const dark = Float32Array.from({ length: 100 }, (_, index) => (index < 99 ? 0.05 + (index % 10) * 0.01 : 1));
   const levels = getLuminanceLevels(dark);
-  assert.ok(levels.low <= 0.06 && levels.low >= 0.05);
+  assert.ok(levels.low >= 0.04 && levels.low <= 0.06);
   assert.ok(levels.high < 0.2, 'a single 1.0 outlier does not set the white point');
   assert.equal(levels.normalize(levels.low), 0);
   assert.equal(levels.normalize(levels.high), 1);

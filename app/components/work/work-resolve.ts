@@ -70,6 +70,7 @@ export function liftLuminance(luminance: number): number {
 /**
  * Auto-levels for a sampled image: maps the 2nd–98th percentile luminance to
  * 0–1 so dark media (dashboards, night shots) still produce a readable field.
+ * Uses a 256-bin histogram (O(n)) because it runs on every canvas redraw.
  * Nearly flat images are left unchanged.
  */
 export function getLuminanceLevels(samples: Float32Array): {
@@ -78,9 +79,19 @@ export function getLuminanceLevels(samples: Float32Array): {
   normalize: (luminance: number) => number;
 } {
   if (samples.length === 0) return { low: 0, high: 1, normalize: (luminance) => luminance };
-  const sorted = Float32Array.from(samples).sort();
-  const low = sorted[Math.floor((sorted.length - 1) * 0.02)];
-  const high = sorted[Math.floor((sorted.length - 1) * 0.98)];
+  const bins = new Uint32Array(256);
+  for (const sample of samples) bins[Math.min(255, Math.max(0, Math.floor(sample * 255)))] += 1;
+  const percentile = (fraction: number) => {
+    const target = (samples.length - 1) * fraction;
+    let seen = 0;
+    for (let bin = 0; bin < bins.length; bin += 1) {
+      seen += bins[bin];
+      if (seen > target) return bin / 255;
+    }
+    return 1;
+  };
+  const low = percentile(0.02);
+  const high = percentile(0.98);
   if (high - low < 0.05) return { low, high, normalize: (luminance) => luminance };
   return {
     low,
