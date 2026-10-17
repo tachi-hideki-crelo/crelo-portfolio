@@ -165,12 +165,31 @@ test('the vertex shader mirrors the TypeScript field math', () => {
   });
 });
 
-test('the static poster keeps the field clear of the condensed copy', async () => {
-  const { staticFieldPlacement } = await import('../app/components/visual/hero-field-draw.ts');
-  const wide = staticFieldPlacement(1440, 900);
-  const phone = staticFieldPlacement(375, 812);
-  // Wide layout: the statement ends near 77% of the height.
-  assert.ok(wide.offsetY >= 0.85);
-  // Phone layout: between the statement (~60%) and the CTA (~85%).
-  assert.ok(phone.offsetY > 0.65 && phone.offsetY < 0.8);
+test('the static poster stays in the free band below the condensed copy', async () => {
+  const { staticFieldPlacement, STATIC_FIELD_PROGRESS } = await import('../app/components/visual/hero-field-draw.ts');
+  const state = getHeroTimeline(STATIC_FIELD_PROGRESS);
+  const footprint = (width, height, copy) => {
+    const placement = staticFieldPlacement(width, height, copy, state);
+    const view = { width, height, ...placement, pitch: state.cameraPitch, yaw: state.cameraYaw, distance: state.cameraDistance };
+    const corners = [[-1, -1], [-1, 1], [1, -1], [1, 1]].map(([x, z]) => projectFieldPoint(x, 0, z, view));
+    return {
+      top: Math.min(...corners.map((point) => point.y)),
+      bottom: Math.max(...corners.map((point) => point.y)),
+      left: Math.min(...corners.map((point) => point.x)),
+    };
+  };
+  // Wide layout measured at 1440x900: statement ends at 695, CTA at the left.
+  const wide = footprint(1440, 900, { statementBottom: 695, ctaTop: 802, ctaRight: 360 });
+  assert.ok(wide.top > 695);
+  assert.ok(wide.left > 360);
+  // A 740px viewport still uses the wide CSS layout; the old fixed 768px
+  // switch put the field under the statement here.
+  const narrowWide = footprint(740, 900, { statementBottom: 700, ctaTop: 802, ctaRight: 300 });
+  assert.ok(narrowWide.top > 700);
+  assert.ok(narrowWide.left > 300);
+  // Phone layout measured at 375x812: the full-width CTA closes the band.
+  const phone = footprint(375, 812, { statementBottom: 486, ctaTop: 687, ctaRight: 270 });
+  assert.ok(phone.top > 486);
+  assert.ok(phone.bottom < 687);
+  assert.ok(phone.bottom - phone.top > 60);
 });

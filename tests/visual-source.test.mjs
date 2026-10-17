@@ -40,13 +40,18 @@ test('HeroCosmosCanvas pauses while either offscreen or hidden', () => {
 
 test('StaticCosmos uses one capped DPR for backing size and transform', () => {
   assert.match(cosmos, /const dpr = Math\.min\(window\.devicePixelRatio \|\| 1, config\.dpr\)/);
-  assert.match(cosmos, /drawStaticField\(context, width, height, dpr, fontFamily, config\)/);
+  assert.match(cosmos, /drawStaticField\(context, width, height, dpr, fontFamily, readStaticCopyBounds\(canvas\), config\)/);
   assert.match(fieldDraw, /export function drawStaticField\([\s\S]*dpr: number/);
   assert.doesNotMatch(fieldDraw, /window\.devicePixelRatio/);
 });
 
 test('HeroCosmosCanvas renders the field from the shared tier budget', () => {
-  assert.match(cosmos, /const config = FIELD_TIERS\[tier\]/);
+  assert.match(cosmos, /const config = tier === 'static' \? null : FIELD_TIERS\[tier\]/);
+  // The phone tier must start where the Hero CSS switches to its phone layout.
+  assert.match(cosmos, /if \(width > 720\) return 'tablet'/);
+  assert.match(styles, /@media \(max-width: 720px\)/);
+  assert.match(cosmos, /webgl2SupportRef\.current \?\?= probeWebgl2\(\)/);
+  assert.match(cosmos, /webgl2SupportRef\.current = null;/);
   assert.match(cosmos, /createFieldGeometry\(config\.columns, config\.rows\)/);
   assert.match(cosmos, /frameloop=\{paused \? 'never' : 'always'\}/);
   assert.match(cosmos, /data-points=/);
@@ -82,7 +87,7 @@ test('Hero cosmos forms from an empty first frame after the intro handoff', () =
   assert.match(cosmos, /uniforms\.uRowReveal\.value = formation\.rowReveal/);
   assert.match(cosmos, /uniforms\.uLight\.value = formation\.fieldLight/);
   assert.match(cosmos, /const renderTier = capabilityReady \?/);
-  assert.match(cosmos, /\{!capabilityReady \? null : isStatic \?/);
+  assert.match(cosmos, /\{!capabilityReady \? null : isStatic \|\| !config \?/);
   const staticSource = fieldDraw.slice(fieldDraw.indexOf('export function drawStaticField'));
   assert.doesNotMatch(staticSource, /formationProgress/);
 });

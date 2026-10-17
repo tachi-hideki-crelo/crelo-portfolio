@@ -33,13 +33,19 @@ export const FIELD_TAGS: ReadonlyArray<readonly [number, number]> = [
 ];
 
 export type HeroFieldTier = 'pc' | 'tablet' | 'mobile' | 'static';
+export type ScrollFieldTier = Exclude<HeroFieldTier, 'static'>;
 
-export type FieldTierConfig = {
+/** Grid density and annotation settings shared by every rendering path. */
+export type FieldGridConfig = {
   columns: number;
   rows: number;
   dpr: number;
   /** Draw OBS labels next to the tag crosshairs. */
   labels: boolean;
+};
+
+/** A scroll-driven tier: grid settings plus how the timeline frames it. */
+export type FieldTierConfig = FieldGridConfig & {
   /** Multiplier on the timeline's lateral travel. */
   travel: number;
   scaleByHeight: number;
@@ -48,14 +54,14 @@ export type FieldTierConfig = {
   horizonShift: number;
 };
 
-export const FIELD_TIERS: Record<HeroFieldTier, FieldTierConfig> = {
+export const FIELD_TIERS: Record<ScrollFieldTier, FieldTierConfig> = {
   pc: { columns: 132, rows: 72, dpr: 1.6, labels: true, travel: 1, scaleByHeight: 1.05, scaleByWidth: 0.62, horizonShift: 0 },
   tablet: { columns: 96, rows: 54, dpr: 1.3, labels: true, travel: 0.8, scaleByHeight: 1, scaleByWidth: 0.72, horizonShift: 0.03 },
   mobile: { columns: 64, rows: 44, dpr: 1, labels: false, travel: 0.35, scaleByHeight: 0.82, scaleByWidth: 1.1, horizonShift: 0.1 },
-  // The static poster is placed by staticFieldPlacement, not by the scroll
-  // travel or scale below.
-  static: { columns: 72, rows: 40, dpr: 1, labels: true, travel: 0, scaleByHeight: 1, scaleByWidth: 0, horizonShift: 0 },
 };
+
+/** The static poster's grid; its placement comes from staticFieldPlacement. */
+export const STATIC_FIELD_GRID: FieldGridConfig = { columns: 72, rows: 40, dpr: 1, labels: true };
 
 export type FieldView = {
   width: number;

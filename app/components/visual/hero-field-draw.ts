@@ -1,15 +1,15 @@
 import { clamp01, getHeroTimeline, type HeroTimelineState } from '../site/hero-timeline.ts';
 import {
   buildFieldRoute,
-  FIELD_TIERS,
   fieldCellSeed,
   fieldGridCoordinate,
   fieldPointHeight,
+  type FieldGridConfig,
   fieldTagCells,
-  type FieldTierConfig,
   type FieldView,
   projectFieldPoint,
   type ProjectedFieldPoint,
+  STATIC_FIELD_GRID,
 } from './hero-field.ts';
 
 type AnnotationOptions = {
@@ -126,33 +126,68 @@ export const STATIC_FIELD_PROGRESS = 0.8;
 
 export type StaticFieldPlacement = { offsetX: number; offsetY: number; scale: number };
 
-/**
- * Where the condensed Hero's field sits. Its copy fills the upper and left
- * areas (title from ~29%, statement ~66–77% on wide screens; ~29–60% on
- * phones), so the field takes the free band below it and never runs under
- * the text.
- */
-export function staticFieldPlacement(width: number, height: number): StaticFieldPlacement {
-  if (width >= 768) return { offsetX: 0.13, offsetY: 0.9, scale: Math.min(width * 0.58, height * 0.95) };
-  return { offsetX: 0, offsetY: 0.73, scale: Math.min(width * 1.12, height * 0.52) };
+/** Where the condensed copy sits, in CSS px relative to the static canvas. */
+export type StaticCopyBounds = { statementBottom: number; ctaTop: number; ctaRight: number };
+
+const STATIC_MARGIN = 16;
+
+/** Used before layout can be measured: copy roughly where the wide layout puts it. */
+function fallbackCopyBounds(width: number, height: number): StaticCopyBounds {
+  return { statementBottom: height * 0.78, ctaTop: height * 0.9, ctaRight: width * 0.25 };
 }
 
-export function drawStaticField(context: CanvasRenderingContext2D, width: number, height: number, dpr: number, fontFamily: string, tier: FieldTierConfig = FIELD_TIERS.static) {
+/** How far the flat field reaches above, below and beside its centre per unit of scale. */
+function fieldExtentsPerScale(state: HeroTimelineState) {
+  const view: FieldView = { width: 0, height: 0, scale: 1, offsetX: 0, offsetY: 0, pitch: state.cameraPitch, yaw: state.cameraYaw, distance: state.cameraDistance };
+  let above = 0;
+  let below = 0;
+  let side = 0;
+  for (const x of [-1, 1]) {
+    for (const z of [-1, 1]) {
+      const point = projectFieldPoint(x, 0, z, view);
+      if (!point) continue;
+      above = Math.max(above, -point.y);
+      below = Math.max(below, point.y);
+      side = Math.max(side, Math.abs(point.x));
+    }
+  }
+  return { above, below, side };
+}
+
+/**
+ * Places the condensed Hero's field in the free band below its statement.
+ * A CTA that reaches past the centre (the phone layout) closes that band from
+ * below; a short CTA at the left (the wide layout) only pushes the field to
+ * its right, and the field may bleed off the bottom edge.
+ */
+export function staticFieldPlacement(width: number, height: number, copy: StaticCopyBounds, state: HeroTimelineState = getHeroTimeline(STATIC_FIELD_PROGRESS)): StaticFieldPlacement {
+  const extents = fieldExtentsPerScale(state);
+  const ctaBlocksBand = copy.ctaRight > width * 0.55;
+  const bandTop = copy.statementBottom + STATIC_MARGIN;
+  const bandBottom = ctaBlocksBand ? copy.ctaTop - STATIC_MARGIN : height * 1.04;
+  const byHeight = Math.max(0, bandBottom - bandTop) / (extents.above + extents.below);
+  const byWidth = (width * (ctaBlocksBand ? 1 : 0.33)) / extents.side;
+  const scale = Math.min(byHeight, byWidth);
+  const centreX = ctaBlocksBand ? width / 2 : copy.ctaRight + STATIC_MARGIN * 2 + extents.side * scale;
+  return { offsetX: centreX / width - 0.5, offsetY: (bandTop + extents.above * scale) / height, scale };
+}
+
+export function drawStaticField(context: CanvasRenderingContext2D, width: number, height: number, dpr: number, fontFamily: string, copy: StaticCopyBounds | null, grid: FieldGridConfig = STATIC_FIELD_GRID) {
   const state = getHeroTimeline(STATIC_FIELD_PROGRESS);
   const view: FieldView = {
     width,
     height,
-    ...staticFieldPlacement(width, height),
+    ...staticFieldPlacement(width, height, copy ?? fallbackCopyBounds(width, height), state),
     pitch: state.cameraPitch,
     yaw: state.cameraYaw,
     distance: state.cameraDistance,
   };
   context.setTransform(dpr, 0, 0, dpr, 0, 0);
   context.clearRect(0, 0, width, height);
-  for (let row = 0; row < tier.rows; row += 1) {
-    for (let column = 0; column < tier.columns; column += 1) {
-      const x = fieldGridCoordinate(column, tier.columns);
-      const z = fieldGridCoordinate(row, tier.rows);
+  for (let row = 0; row < grid.rows; row += 1) {
+    for (let column = 0; column < grid.columns; column += 1) {
+      const x = fieldGridCoordinate(column, grid.columns);
+      const z = fieldGridCoordinate(row, grid.rows);
       const point = projectFieldPoint(x, fieldPointHeight(x, z, 0, state.order, 0, 0), z, view);
       if (!point) continue;
       const depth = clamp01(1.4 - point.depth * 0.3);
@@ -161,5 +196,5 @@ export function drawStaticField(context: CanvasRenderingContext2D, width: number
       context.fillRect(point.x - size / 2, point.y - size / 2, size, size);
     }
   }
-  drawFieldAnnotations(context, view, state, { columns: tier.columns, rows: tier.rows, time: 0, labels: tier.labels, fontFamily });
+  drawFieldAnnotations(context, view, state, { columns: grid.columns, rows: grid.rows, time: 0, labels: grid.labels, fontFamily });
 }
