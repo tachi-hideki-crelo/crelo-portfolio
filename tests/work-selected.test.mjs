@@ -329,8 +329,14 @@ test('selected work resolves cases in a halftone band with a static reduced-moti
   assert.match(selectedWorkSource, /active && !reduceMotion \? <span className=\{styles\.sliceScan\}/);
   assert.match(selectedWorkSource, /getSliceWidths\(\{ bandWidth, count: caseCount, gap: BAND_GAP \}\)/);
   assert.match(selectedWorkSource, /'--plate-width'/);
+  assert.match(selectedWorkSource, /key=\{`\$\{outcomeIndex\}-\$\{outcome\}`\}/);
   assert.match(selectedWorkSource, /<path key=\{activeIndex\} d=\{leadPath\} pathLength=\{1\} \/>/);
-  assert.match(selectedWorkSource, /className=\{styles\.infoRow\} aria-live="polite"/);
+  assert.doesNotMatch(selectedWorkSource, /aria-live/);
+  assert.match(selectedWorkSource, /aria-describedby=\{active \? SUMMARY_ID : undefined\}/);
+  assert.match(selectedWorkSource, /clearHoverIntent\(\);\n    const selectedIndex = clampIndex\(index, caseCount\);/);
+  assert.match(selectedWorkSource, /attachedRef\.current = false;\n  \}, \[video\]\);/);
+  const sliceSource = selectedWorkSource.slice(selectedWorkSource.indexOf('function ResolveSlice'), selectedWorkSource.indexOf('function ExpandedCaseDialog'));
+  assert.doesNotMatch(sliceSource, /<WorkVisual/);
   assert.match(selectedWorkSource, /className=\{styles\.sliceSummary\}/);
   assert.match(selectedWorkSource, /function ExpandedCaseDialog/);
   assert.match(selectedWorkSource, /className=\{styles\.expandedVisual\}/);
@@ -349,7 +355,12 @@ test('selected work resolves cases in a halftone band with a static reduced-moti
   assert.match(selectedWorkStyles, /\.introCopy[\s\S]*max-width: 42rem/);
   assert.match(selectedWorkStyles, /\.introCopyChunk[\s\S]*display: inline-block[\s\S]*white-space: nowrap/);
 
-  assert.match(selectedWorkStyles, /\.slice\[data-active='true'\] \{\s*flex-grow: 7;/);
+  assert.match(selectedWorkStyles, /\.slice\[data-active='true'\] \{\s*flex-grow: var\(--slice-grow, 7\);/);
+  assert.match(selectedWorkSource, /'--slice-grow': RESOLVE_GROW/);
+  assert.match(selectedWorkSource, /className=\{styles\.resolve\} style=\{resolveStyle\}/);
+  assert.match(selectedWorkStyles, /\.infoRow \{[\s\S]*padding-top: var\(--lead-depth, 56px\)/);
+  assert.match(selectedWorkStyles, /\.lead \{[\s\S]*height: var\(--lead-depth, 56px\)/);
+  assert.match(selectedWorkStyles, /\.slice\[data-has-media='false'\] \.sliceField \{\s*opacity: 1;/);
   assert.match(selectedWorkStyles, /\.slicePlate[\s\S]*width: var\(--plate-width, 100%\)/);
   assert.match(selectedWorkStyles, /\.sliceMedia \{[\s\S]*clip-path: inset\(0 100% 0 0\)/);
   assert.match(selectedWorkStyles, /\.sliceTitle \{[\s\S]*writing-mode: vertical-rl/);

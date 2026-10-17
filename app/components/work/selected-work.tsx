@@ -13,7 +13,7 @@ import Image from 'next/image';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 
 import { WorkVisual } from './work-visual';
-import { getHalftoneDot, getLeadPath, getSliceWidths } from './work-resolve';
+import { RESOLVE_GROW, getHalftoneDot, getLeadPath, getSliceWidths } from './work-resolve';
 import type {
   PublicCaseStudy,
   PublicCaseStudyImageMedia,
@@ -108,6 +108,10 @@ function CasePreviewVideo({
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const attachedRef = useRef(false);
+
+  useEffect(() => {
+    attachedRef.current = false;
+  }, [video]);
 
   useEffect(() => {
     const element = videoRef.current;
@@ -293,6 +297,9 @@ function isFinePointer(): boolean {
 const BAND_GAP = 1;
 const HOVER_INTENT_MS = 110;
 const MOBILE_QUERY = '(max-width: 768px)';
+const SUMMARY_ID = 'selected-work-active-summary';
+const LEAD_DEPTH = 56;
+const LEAD_INSET = 24;
 
 function getFieldSource(caseStudy: PublicCaseStudy): string | null {
   const previewVideo = getVideoMedia(caseStudy, 'preview');
@@ -410,7 +417,7 @@ function CaseSummary({ caseStudy, compact = false }: { caseStudy: PublicCaseStud
       </div>
       <ol className={styles.summaryOutcomes}>
         {outcomes.map((outcome, outcomeIndex) => (
-          <li key={outcome}>
+          <li key={`${outcomeIndex}-${outcome}`}>
             <span>{compact ? '' : 'OUTCOME '}{String(outcomeIndex + 1).padStart(2, '0')}</span>
             {outcome}
           </li>
@@ -453,6 +460,7 @@ function ResolveSlice({
       className={styles.slice}
       role="listitem"
       data-active={active}
+      data-has-media={previewVideo || previewImage ? 'true' : 'false'}
       onPointerEnter={(event) => onPointerEnter(event, index)}
       onPointerLeave={onPointerLeave}
     >
@@ -465,6 +473,7 @@ function ResolveSlice({
         data-tab-group="work"
         data-work-trigger="true"
         aria-current={active ? 'true' : undefined}
+        aria-describedby={active ? SUMMARY_ID : undefined}
         aria-haspopup="dialog"
         aria-expanded={expanded}
         aria-controls={expanded ? `work-detail-dialog-${caseStudy.slug}` : undefined}
@@ -483,15 +492,17 @@ function ResolveSlice({
       >
         <span className={styles.slicePlate} aria-hidden="true">
           <HalftoneField src={getFieldSource(caseStudy)} className={styles.sliceField} />
-          <span className={styles.sliceMedia}>
-            {previewVideo ? (
+          {previewVideo ? (
+            <span className={styles.sliceMedia}>
               <CasePreviewVideo
                 video={previewVideo}
                 active={active}
                 reduceMotion={reduceMotion}
                 className={styles.sliceMediaAsset}
               />
-            ) : previewImage ? (
+            </span>
+          ) : previewImage ? (
+            <span className={styles.sliceMedia}>
               <Image
                 className={styles.sliceMediaAsset}
                 src={previewImage.src}
@@ -502,10 +513,8 @@ function ResolveSlice({
                 sizes="(max-width: 768px) 100vw, 64vw"
                 data-work-image-role="preview"
               />
-            ) : (
-              <WorkVisual accent="#a6ffdb" compact label={`CASE ${order} / FDE SIGNAL`} />
-            )}
-          </span>
+            </span>
+          ) : null}
           {active && !reduceMotion ? <span className={styles.sliceScan} /> : null}
         </span>
         <span className={styles.sliceTitle} aria-hidden="true">{title}</span>
@@ -750,14 +759,21 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
   const activeCase = caseStudies[activeIndex] ?? caseStudies[0];
   const expandedCase = expandedIndex === null ? null : caseStudies[expandedIndex] ?? null;
   const widths = getSliceWidths({ bandWidth, count: caseCount, gap: BAND_GAP });
-  const leadPath = getLeadPath({ activeIndex, widths, gap: BAND_GAP, inset: 24, depth: 56 });
+  const leadPath = getLeadPath({ activeIndex, widths, gap: BAND_GAP, inset: LEAD_INSET, depth: LEAD_DEPTH });
 
   const handleSelect = useCallback((index: number) => {
     userSelectedRef.current = true;
     setActiveIndex(clampIndex(index, caseCount));
   }, [caseCount]);
 
+  const clearHoverIntent = useCallback(() => {
+    if (hoverTimerRef.current === null) return;
+    window.clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = null;
+  }, []);
+
   const handleOpen = useCallback((index: number, trigger: HTMLButtonElement) => {
+    clearHoverIntent();
     const selectedIndex = clampIndex(index, caseCount);
     const rect = trigger.getBoundingClientRect();
     const finalWidth = Math.min(window.innerWidth * 0.92, 608);
@@ -769,18 +785,12 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
     });
     expansionTriggerRef.current = trigger;
     setExpandedIndex(selectedIndex);
-  }, [caseCount]);
+  }, [caseCount, clearHoverIntent]);
 
   const handleClose = useCallback(() => {
     releaseLoadedVideo(featureVideoRef.current);
     featureVideoRef.current = null;
     setExpandedIndex(null);
-  }, []);
-
-  const clearHoverIntent = useCallback(() => {
-    if (hoverTimerRef.current === null) return;
-    window.clearTimeout(hoverTimerRef.current);
-    hoverTimerRef.current = null;
   }, []);
 
   const handleSlicePointerEnter = useCallback(
@@ -858,12 +868,16 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
     return () => window.clearTimeout(timer);
   }, [activeIndex, reduceMotion]);
 
-  const bandStyle: CSSVars = bandWidth > 0
-    ? {
-      '--plate-width': `${Math.round(widths.open)}px`,
-      '--plate-height': `${Math.round(bandWidth * 0.75)}px`,
-    }
-    : {};
+  const resolveStyle: CSSVars = {
+    '--slice-grow': RESOLVE_GROW,
+    '--lead-depth': `${LEAD_DEPTH}px`,
+    ...(bandWidth > 0
+      ? {
+        '--plate-width': `${Math.round(widths.open)}px`,
+        '--plate-height': `${Math.round(bandWidth * 0.75)}px`,
+      }
+      : {}),
+  };
 
   if (!activeCase) return null;
 
@@ -885,7 +899,7 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
         </p>
       </div>
 
-      <div className={styles.resolve}>
+      <div className={styles.resolve} style={resolveStyle}>
         <p className={styles.bandMeta}>
           <span><b>{String(caseCount).padStart(2, '0')}</b> CASES</span>
           <span className={styles.desktopInstruction}>HOVER TO RESOLVE / CLICK TO EXPAND</span>
@@ -896,7 +910,6 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
           className={styles.band}
           role="list"
           aria-label="Selected work cases"
-          style={bandStyle}
           data-work-band
         >
           {caseStudies.map((caseStudy, index) => (
@@ -915,13 +928,13 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
             />
           ))}
         </ul>
-        <div className={styles.infoRow} aria-live="polite" data-work-info>
+        <div className={styles.infoRow} data-work-info>
           {bandWidth > 0 ? (
             <svg className={styles.lead} aria-hidden="true">
               <path key={activeIndex} d={leadPath} pathLength={1} />
             </svg>
           ) : null}
-          <div className={styles.infoContent} key={activeCase.slug}>
+          <div className={styles.infoContent} id={SUMMARY_ID} key={activeCase.slug}>
             <CaseSummary caseStudy={activeCase} />
           </div>
         </div>

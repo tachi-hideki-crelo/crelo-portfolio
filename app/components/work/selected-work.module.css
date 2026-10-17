@@ -127,7 +127,7 @@
 }
 
 .slice[data-active='true'] {
-  flex-grow: 7;
+  flex-grow: var(--slice-grow, 7);
 }
 
 .sliceButton {
@@ -171,6 +171,11 @@
   opacity: 0;
   transform: scale(1.04);
   transition: opacity 0.5s ease 0.35s, transform 1.2s var(--resolve-ease);
+}
+
+.slice[data-has-media='false'] .sliceField {
+  opacity: 1;
+  transform: none;
 }
 
 .slice:not([data-active='true']) .sliceButton:hover .sliceField {
@@ -306,12 +311,12 @@
 
 .infoRow {
   min-height: 12rem;
-  padding-top: 3.5rem;
+  padding-top: var(--lead-depth, 56px);
   position: relative;
 }
 
 .lead {
-  height: 3.5rem;
+  height: var(--lead-depth, 56px);
   left: 0;
   overflow: visible;
   position: absolute;
