@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -132,4 +133,44 @@ test('view follows the timeline: right for the title, left for the statement, ov
   assert.ok(statement.offsetX < opening.offsetX);
   assert.ok(cta.pitch > statement.pitch + 0.3);
   assert.ok(Math.abs(at(0.3, 'mobile').offsetX) < Math.abs(title.offsetX));
+});
+
+const shaderHost = readFileSync(new URL('../app/components/visual/HeroCosmosCanvas.tsx', import.meta.url), 'utf8');
+const fieldSource = readFileSync(new URL('../app/components/visual/hero-field.ts', import.meta.url), 'utf8');
+
+function numbersIn(source, start, end) {
+  const from = source.indexOf(start);
+  assert.ok(from >= 0, `missing ${start}`);
+  const body = source.slice(from, source.indexOf(end, from));
+  return body.slice(body.indexOf('{')).match(/\d+(?:\.\d+)?/g).map(Number);
+}
+
+test('the vertex shader mirrors the TypeScript field math', () => {
+  // The Canvas2D crosshairs and route are placed with the TS functions while
+  // the points are placed by the shader; any drift detaches them.
+  assert.deepEqual(
+    numbersIn(shaderHost, 'float surface(float x, float z, float t)', '\n  }'),
+    numbersIn(fieldSource, 'export function fieldSurfaceHeight', '\n}'),
+  );
+  assert.match(fieldSource, /const y2 = y \* cosPitch \+ z1 \* sinPitch;/);
+  assert.match(shaderHost, /float y2 = y \* cosPitch \+ z1 \* sinPitch;/);
+  assert.match(fieldSource, /const z2 = z1 \* cosPitch - y \* sinPitch;/);
+  assert.match(shaderHost, /float depth = z1 \* cosPitch - y \* sinPitch \+ uCamera\.z;/);
+  assert.match(fieldSource, /dissolve \* \(0\.4 \+ seed \* 0\.8\)/);
+  assert.match(shaderHost, /uDissolve \* \(0\.4 \+ aSeed \* 0\.8\)/);
+  assert.match(fieldSource, /\(x \+ 1\) \* 0\.5 \* FIELD_ORDER_STAGGER/);
+  assert.match(shaderHost, /\(x \+ 1\.0\) \* 0\.5 \* \$\{glsl\(FIELD_ORDER_STAGGER\)\}/);
+  ['FIELD_AMPLITUDE', 'FIELD_TERRACE_STEP', 'FIELD_ORDER_WINDOW', 'FIELD_SPAN_X', 'FIELD_SPAN_Z'].forEach((constant) => {
+    assert.match(shaderHost, new RegExp(`\\$\\{glsl\\(${constant}\\)\\}`), `shader must interpolate ${constant}`);
+  });
+});
+
+test('the static poster keeps the field clear of the condensed copy', async () => {
+  const { staticFieldPlacement } = await import('../app/components/visual/hero-field-draw.ts');
+  const wide = staticFieldPlacement(1440, 900);
+  const phone = staticFieldPlacement(375, 812);
+  // Wide layout: the statement ends near 77% of the height.
+  assert.ok(wide.offsetY >= 0.85);
+  // Phone layout: between the statement (~60%) and the CTA (~85%).
+  assert.ok(phone.offsetY > 0.65 && phone.offsetY < 0.8);
 });

@@ -59,7 +59,10 @@ function probeWebgl2(): boolean {
 }
 
 function readMonoFont(): string {
-  return getComputedStyle(document.documentElement).getPropertyValue('--font-mono').trim() || 'monospace';
+  // next/font defines --font-geist-mono on <body>, so the :root --font-mono
+  // token that references it does not resolve. Read the body's own values.
+  const styles = getComputedStyle(document.body);
+  return styles.getPropertyValue('--font-mono').trim() || styles.getPropertyValue('--font-geist-mono').trim() || 'monospace';
 }
 
 function glsl(value: number): string {
@@ -226,7 +229,6 @@ function FieldScene({ config, progress, formationProgress, annotationsRef }: { c
     vertexShader: FIELD_VERTEX_SHADER,
     fragmentShader: FIELD_FRAGMENT_SHADER,
   }), []);
-  const materialRef = useRef(material);
 
   useEffect(() => {
     fontFamilyRef.current = readMonoFont();
@@ -250,7 +252,9 @@ function FieldScene({ config, progress, formationProgress, annotationsRef }: { c
     const view = fieldViewFor(size.width, size.height, config, state);
     points.visible = formation.rowReveal > 0.001;
 
-    const uniforms = materialRef.current.uniforms;
+    // Write to the material the points actually render, so a recreated
+    // material (Fast Refresh, discarded memo) never keeps stale uniforms.
+    const uniforms = (points.material as THREE.ShaderMaterial).uniforms;
     uniforms.uTime.value = time;
     uniforms.uOrder.value = state.order;
     uniforms.uDissolve.value = state.dissolve;
@@ -343,6 +347,9 @@ export default function HeroCosmosCanvas({ progress, formationProgress, forceSta
     if (!host) return;
     const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     const connection = (navigator as Navigator & { connection?: { saveData?: boolean; addEventListener?: (type: string, listener: () => void) => void; removeEventListener?: (type: string, listener: () => void) => void } }).connection;
+    // WebGL2 support does not change with the viewport. Probe once so resize
+    // storms do not create a throwaway context per event next to the live one.
+    let webgl2Supported: boolean | null = null;
     const updateTier = () => {
       const nextTier = chooseTier(window.innerWidth, forceStatic || motionQuery.matches, Boolean(connection?.saveData));
       setTier(nextTier);
@@ -351,7 +358,8 @@ export default function HeroCosmosCanvas({ progress, formationProgress, forceSta
         setCapabilityReady(true);
         return;
       }
-      const supported = probeWebgl2();
+      webgl2Supported ??= probeWebgl2();
+      const supported = webgl2Supported;
       setWebglAvailable(supported);
       if (!supported) setTier('static');
       setCapabilityReady(true);

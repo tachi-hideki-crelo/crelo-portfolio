@@ -1,4 +1,4 @@
-import type { HeroTimelineState } from '../site/hero-timeline';
+import { clamp01, expoOut, type HeroTimelineState } from '../site/hero-timeline.ts';
 
 /**
  * Pure math shared by the WebGL field, its Canvas2D annotation layer and the
@@ -52,7 +52,9 @@ export const FIELD_TIERS: Record<HeroFieldTier, FieldTierConfig> = {
   pc: { columns: 132, rows: 72, dpr: 1.6, labels: true, travel: 1, scaleByHeight: 1.05, scaleByWidth: 0.62, horizonShift: 0 },
   tablet: { columns: 96, rows: 54, dpr: 1.3, labels: true, travel: 0.8, scaleByHeight: 1, scaleByWidth: 0.72, horizonShift: 0.03 },
   mobile: { columns: 64, rows: 44, dpr: 1, labels: false, travel: 0.35, scaleByHeight: 0.82, scaleByWidth: 1.1, horizonShift: 0.1 },
-  static: { columns: 72, rows: 40, dpr: 1, labels: true, travel: 0, scaleByHeight: 0.95, scaleByWidth: 0.62, horizonShift: 0.06 },
+  // The static poster is placed by staticFieldPlacement, not by the scroll
+  // travel or scale below.
+  static: { columns: 72, rows: 40, dpr: 1, labels: true, travel: 0, scaleByHeight: 1, scaleByWidth: 0, horizonShift: 0 },
 };
 
 export type FieldView = {
@@ -67,15 +69,6 @@ export type FieldView = {
 };
 
 export type ProjectedFieldPoint = { x: number; y: number; depth: number };
-
-function clamp01(value: number): number {
-  return Math.max(0, Math.min(1, value));
-}
-
-function expoOut(value: number): number {
-  const t = clamp01(value);
-  return t >= 1 ? 1 : 1 - Math.pow(2, -10 * t);
-}
 
 export function fieldGridCoordinate(index: number, count: number): number {
   return count <= 1 ? 0 : (index / (count - 1)) * 2 - 1;
