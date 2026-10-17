@@ -178,6 +178,15 @@
   transform: none;
 }
 
+.band[data-revealed='false'] .slice .sliceField {
+  opacity: 1;
+  transform: none;
+}
+
+.band[data-revealed='false'] .slice .sliceMedia {
+  clip-path: inset(0 100% 0 0);
+}
+
 .slice:not([data-active='true']) .sliceButton:hover .sliceField {
   filter: brightness(1.6);
 }
@@ -964,6 +973,10 @@
   }
 
   .sliceMedia {
+    clip-path: inset(0 0 100% 0);
+  }
+
+  .band[data-revealed='false'] .slice .sliceMedia {
     clip-path: inset(0 0 100% 0);
   }
 

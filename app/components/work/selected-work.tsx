@@ -432,6 +432,7 @@ function ResolveSlice({
   index,
   caseCount,
   active,
+  revealed,
   expanded,
   reduceMotion,
   onSelect,
@@ -443,6 +444,7 @@ function ResolveSlice({
   index: number;
   caseCount: number;
   active: boolean;
+  revealed: boolean;
   expanded: boolean;
   reduceMotion: boolean;
   onSelect: (index: number) => void;
@@ -477,7 +479,7 @@ function ResolveSlice({
         aria-haspopup="dialog"
         aria-expanded={expanded}
         aria-controls={expanded ? `work-detail-dialog-${caseStudy.slug}` : undefined}
-        aria-label={active ? `${title}の詳細を開く` : `${title}を表示`}
+        aria-label={active ? `${title}の詳細を開く` : title}
         onClick={(event) => {
           if (active || isFinePointer()) {
             onSelect(index);
@@ -515,7 +517,7 @@ function ResolveSlice({
               />
             </span>
           ) : null}
-          {active && !reduceMotion ? <span className={styles.sliceScan} /> : null}
+          {active && revealed && !reduceMotion ? <span className={styles.sliceScan} /> : null}
         </span>
         <span className={styles.sliceTitle} aria-hidden="true">{title}</span>
         <span className={styles.sliceIndex} aria-hidden="true"><i />{order}</span>
@@ -537,14 +539,12 @@ function ResolveSlice({
 
 function ExpandedCaseDialog({
   caseStudy,
-  index,
   origin,
   reduceMotion,
   featureVideoRef,
   onClose,
 }: {
   caseStudy: PublicCaseStudy;
-  index: number;
   origin: ExpansionOrigin;
   reduceMotion: boolean;
   featureVideoRef: { current: HTMLVideoElement | null };
@@ -629,15 +629,13 @@ function ExpandedCaseDialog({
           x: origin.x,
           y: origin.y,
           scale: origin.scale,
-          rotateZ: (index - 2) * 2.4,
         }}
-        animate={{ opacity: 1, x: 0, y: 0, scale: 1, rotateZ: 0 }}
+        animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
         exit={reduceMotion ? { opacity: 0 } : {
           opacity: 0,
           x: origin.x * 0.35,
           y: origin.y * 0.35,
           scale: Math.max(origin.scale, 0.72),
-          rotateZ: (index - 2) * 1.2,
         }}
         transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 165, damping: 24, mass: 0.9 }}
         onKeyDown={handleDialogKeyDown}
@@ -752,11 +750,13 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const [expansionOrigin, setExpansionOrigin] = useState<ExpansionOrigin>({ x: 0, y: 0, scale: 0.5 });
   const [bandWidth, setBandWidth] = useState(0);
+  const [hasEnteredView, setRevealed] = useState(false);
   const reduceMotion = useReducedMotion() ?? false;
   const caseStudies = cases;
   const caseCount = caseStudies.length;
 
   const activeCase = caseStudies[activeIndex] ?? caseStudies[0];
+  const revealed = hasEnteredView || reduceMotion;
   const expandedCase = expandedIndex === null ? null : caseStudies[expandedIndex] ?? null;
   const widths = getSliceWidths({ bandWidth, count: caseCount, gap: BAND_GAP });
   const leadPath = getLeadPath({ activeIndex, widths, gap: BAND_GAP, inset: LEAD_INSET, depth: LEAD_DEPTH });
@@ -851,6 +851,24 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
     return () => observer.disconnect();
   }, []);
 
+  // Hold the first resolve until the band is actually on screen so the scan
+  // and media wipe are seen instead of playing below the fold at load.
+  useEffect(() => {
+    const band = bandRef.current;
+    if (!band || hasEnteredView || reduceMotion) return;
+    if (typeof IntersectionObserver === 'undefined') {
+      const frame = window.requestAnimationFrame(() => setRevealed(true));
+      return () => window.cancelAnimationFrame(frame);
+    }
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry?.isIntersecting) return;
+      setRevealed(true);
+      observer.disconnect();
+    }, { threshold: 0.35 });
+    observer.observe(band);
+    return () => observer.disconnect();
+  }, [hasEnteredView, reduceMotion]);
+
   useEffect(() => clearHoverIntent, [clearHoverIntent]);
 
   // On phones the previously open row collapses above the new one; keep the
@@ -911,6 +929,7 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
           role="list"
           aria-label="Selected work cases"
           data-work-band
+          data-revealed={revealed}
         >
           {caseStudies.map((caseStudy, index) => (
             <ResolveSlice
@@ -918,6 +937,7 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
               index={index}
               caseCount={caseCount}
               active={index === activeIndex}
+              revealed={revealed}
               expanded={index === expandedIndex}
               reduceMotion={reduceMotion}
               onSelect={handleSelect}
@@ -929,7 +949,7 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
           ))}
         </ul>
         <div className={styles.infoRow} data-work-info>
-          {bandWidth > 0 ? (
+          {bandWidth > 0 && revealed ? (
             <svg className={styles.lead} aria-hidden="true">
               <path key={activeIndex} d={leadPath} pathLength={1} />
             </svg>
@@ -947,7 +967,6 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
               <ExpandedCaseDialog
                 key={expandedCase.slug}
                 caseStudy={expandedCase}
-                index={expandedIndex ?? 0}
                 origin={expansionOrigin}
                 reduceMotion={reduceMotion}
                 featureVideoRef={featureVideoRef}

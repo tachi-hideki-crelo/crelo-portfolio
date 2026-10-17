@@ -326,12 +326,15 @@ test('selected work resolves cases in a halftone band with a static reduced-moti
   assert.match(selectedWorkSource, /matches\(':focus-visible'\)/);
   assert.match(selectedWorkSource, /event\.pointerType !== 'mouse'/);
   assert.match(selectedWorkSource, /HOVER_INTENT_MS/);
-  assert.match(selectedWorkSource, /active && !reduceMotion \? <span className=\{styles\.sliceScan\}/);
   assert.match(selectedWorkSource, /getSliceWidths\(\{ bandWidth, count: caseCount, gap: BAND_GAP \}\)/);
   assert.match(selectedWorkSource, /'--plate-width'/);
   assert.match(selectedWorkSource, /key=\{`\$\{outcomeIndex\}-\$\{outcome\}`\}/);
   assert.match(selectedWorkSource, /<path key=\{activeIndex\} d=\{leadPath\} pathLength=\{1\} \/>/);
   assert.doesNotMatch(selectedWorkSource, /aria-live/);
+  assert.match(selectedWorkSource, /active && revealed && !reduceMotion \? <span className=\{styles\.sliceScan\}/);
+  assert.match(selectedWorkSource, /data-revealed=\{revealed\}/);
+  assert.match(selectedWorkStyles, /\.band\[data-revealed='false'\] \.slice \.sliceMedia \{\s*clip-path: inset\(0 100% 0 0\);/);
+  assert.doesNotMatch(selectedWorkSource, /rotateZ/);
   assert.match(selectedWorkSource, /aria-describedby=\{active \? SUMMARY_ID : undefined\}/);
   assert.match(selectedWorkSource, /clearHoverIntent\(\);\n    const selectedIndex = clampIndex\(index, caseCount\);/);
   assert.match(selectedWorkSource, /attachedRef\.current = false;\n  \}, \[video\]\);/);
