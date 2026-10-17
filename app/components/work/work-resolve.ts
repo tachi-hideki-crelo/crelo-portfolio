@@ -58,3 +58,33 @@ export function getHalftoneDot(luminance: number, step: number): { radius: numbe
     alpha: 0.12 + tone * 0.42,
   };
 }
+
+/**
+ * Lifts dark case media (night photos, dashboards) so every closed slice still
+ * reads as a field; highlights simply saturate at 1.
+ */
+export function liftLuminance(luminance: number): number {
+  return Math.min(1, 0.1 + Math.max(luminance, 0) * 1.1);
+}
+
+/**
+ * Auto-levels for a sampled image: maps the 2nd–98th percentile luminance to
+ * 0–1 so dark media (dashboards, night shots) still produce a readable field.
+ * Nearly flat images are left unchanged.
+ */
+export function getLuminanceLevels(samples: Float32Array): {
+  low: number;
+  high: number;
+  normalize: (luminance: number) => number;
+} {
+  if (samples.length === 0) return { low: 0, high: 1, normalize: (luminance) => luminance };
+  const sorted = Float32Array.from(samples).sort();
+  const low = sorted[Math.floor((sorted.length - 1) * 0.02)];
+  const high = sorted[Math.floor((sorted.length - 1) * 0.98)];
+  if (high - low < 0.05) return { low, high, normalize: (luminance) => luminance };
+  return {
+    low,
+    high,
+    normalize: (luminance) => Math.min(Math.max((luminance - low) / (high - low), 0), 1),
+  };
+}

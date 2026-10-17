@@ -317,7 +317,8 @@ test('selected work resolves cases in a halftone band with a static reduced-moti
   assert.match(selectedWorkSource, /function HalftoneField/);
   assert.match(selectedWorkSource, /getHalftoneDot\(luminance, step\)/);
   assert.match(selectedWorkSource, /getImageData\(0, 0, columns, rows\)/);
-  assert.match(selectedWorkSource, /catch \{\s*pixels = null;/);
+  assert.match(selectedWorkSource, /catch \{\s*luminances = null;/);
+  assert.match(selectedWorkSource, /getLuminanceLevels\(luminances\)/);
   assert.match(selectedWorkSource, /new ResizeObserver\(schedule\)/);
   assert.match(selectedWorkSource, /function ResolveSlice/);
   assert.match(selectedWorkSource, /data-active=\{active\}/);
@@ -436,13 +437,24 @@ test('selected work video roles attach only at the right interaction boundary', 
   assert.match(selectedWorkStyles, /grid-template-rows: auto minmax\(13rem, 0\.7fr\)/);
 });
 
-test('selected work band stays on site tokens while the detail dialog keeps per-case accents', () => {
+test('each case slice carries its theme signal colour shared with its detail dialog', () => {
   assert.match(selectedWorkSource, /AnimatePresence/);
   assert.match(selectedWorkSource, /'--case-accent': theme\.accent/);
   assert.match(selectedWorkStyles, /\.detailOverlay \{[\s\S]*--case-accent: #a6ffdb/);
   assert.match(selectedWorkStyles, /\.lead path \{[\s\S]*stroke: var\(--amber, #ffc779\)/);
-  assert.match(selectedWorkStyles, /rgb\(166 255 219 \/ 75%\)/);
-  assert.match(selectedWorkSource, /fillStyle = `rgb\(166 255 219 \/ \$\{dot\.alpha\.toFixed\(3\)\}\)`/);
+  assert.match(selectedWorkSource, /style=\{\{ '--slice-acc': theme\.accentSoft \} as CSSVars\}/);
+  assert.match(selectedWorkSource, /rgb=\{theme\.accentSoft\}/);
+  assert.match(selectedWorkSource, /fillStyle = `rgb\(\$\{rgb\} \/ \$\{dot\.alpha\.toFixed\(3\)\}\)`/);
+  assert.match(selectedWorkSource, /liftLuminance\(/);
+  assert.match(selectedWorkSource, /'--active-acc'/);
+  assert.match(selectedWorkSource, /className=\{styles\.sliceMeta\}>CASE \{order\}/);
+  assert.match(selectedWorkStyles, /\.slice \{[\s\S]*--slice-acc: 166 255 219;[\s\S]*outline: 1px solid rgb\(var\(--slice-acc\) \/ 22%\)/);
+  assert.match(selectedWorkStyles, /\.slice::before \{[\s\S]*background: rgb\(var\(--slice-acc\)\)/);
+  assert.match(selectedWorkStyles, /\.band \{[\s\S]*gap: var\(--band-gap, 6px\)/);
+  assert.match(selectedWorkStyles, /\.summaryRole \{\s*color: rgb\(var\(--active-acc, 166 255 219\)\)/);
+  assert.match(selectedWorkStyles, /max-width: 768px\)[\s\S]*\.band \{[\s\S]*gap: 0\.5rem/);
+  assert.match(selectedWorkStyles, /max-width: 768px\)[\s\S]*\.slice:not\(\[data-active='true'\]\) \.sliceField \{\s*mask-image: linear-gradient\(90deg, transparent 34%, #000 80%\)/);
+  assert.match(selectedWorkStyles, /max-width: 768px\)[\s\S]*\.sliceIndex \{[\s\S]*border-right: 1px solid rgb\(var\(--slice-acc\) \/ 28%\)/);
 
   const sliceMarkup = selectedWorkSource.slice(selectedWorkSource.indexOf('function ResolveSlice'), selectedWorkSource.indexOf('function ExpandedCaseDialog'));
   assert.ok(sliceMarkup.indexOf('onPointerEnter=') < sliceMarkup.indexOf('<button'));

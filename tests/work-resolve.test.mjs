@@ -6,6 +6,8 @@ import {
   getHalftoneDot,
   getLeadPath,
   getSliceWidths,
+  getLuminanceLevels,
+  liftLuminance,
 } from '../app/components/work/work-resolve.ts';
 
 test('slice widths split the band into one open plate and equal closed slices', () => {
@@ -39,4 +41,27 @@ test('halftone dots stay calm: dark pixels keep a floor, highlights are compress
   assert.ok(light.alpha <= 0.55);
   assert.deepEqual(getHalftoneDot(-1, 9), dark);
   assert.deepEqual(getHalftoneDot(2, 9), light);
+});
+
+test('luminance lift keeps dark case media visible as a field without blowing out highlights', () => {
+  assert.equal(liftLuminance(0), 0.1);
+  assert.ok(liftLuminance(0.2) > 0.2);
+  assert.equal(liftLuminance(1), 1);
+  assert.equal(liftLuminance(0.95), 1);
+  assert.equal(liftLuminance(-1), 0.1);
+  assert.ok(getHalftoneDot(liftLuminance(0), 9).radius > getHalftoneDot(0, 9).radius - 1e-9);
+});
+
+test('luminance levels stretch a dark image to the full range and ignore stray highlights', () => {
+  const dark = Float32Array.from({ length: 100 }, (_, index) => (index < 99 ? 0.05 + (index % 10) * 0.01 : 1));
+  const levels = getLuminanceLevels(dark);
+  assert.ok(levels.low <= 0.06 && levels.low >= 0.05);
+  assert.ok(levels.high < 0.2, 'a single 1.0 outlier does not set the white point');
+  assert.equal(levels.normalize(levels.low), 0);
+  assert.equal(levels.normalize(levels.high), 1);
+  assert.equal(levels.normalize(2), 1);
+
+  const flat = getLuminanceLevels(Float32Array.from({ length: 10 }, () => 0.4));
+  assert.equal(flat.normalize(0.4), 0.4, 'flat images are left unchanged');
+  assert.equal(getLuminanceLevels(new Float32Array(0)).normalize(0.3), 0.3);
 });
