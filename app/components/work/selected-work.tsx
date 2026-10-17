@@ -7,19 +7,13 @@ import type {
   MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent,
 } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Image from 'next/image';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 
 import { WorkVisual } from './work-visual';
-import {
-  CARD_LAYOUT,
-  STATIC_CARD_LAYOUT,
-  getHolographicCardMotion,
-  getPointerCardMotion,
-  getScatterEntryProgress,
-} from './work-motion';
+import { RESOLVE_GROW, getHalftoneDot, getLeadPath, getSliceWidths } from './work-resolve';
 import type {
   PublicCaseStudy,
   PublicCaseStudyImageMedia,
@@ -103,10 +97,12 @@ function releaseLoadedVideo(video: HTMLVideoElement | null) {
 
 function CasePreviewVideo({
   video,
+  active,
   reduceMotion,
   className,
 }: {
   video: PublicCaseStudyVideoMedia;
+  active: boolean;
   reduceMotion: boolean;
   className: string;
 }) {
@@ -114,9 +110,13 @@ function CasePreviewVideo({
   const attachedRef = useRef(false);
 
   useEffect(() => {
+    attachedRef.current = false;
+  }, [video]);
+
+  useEffect(() => {
     const element = videoRef.current;
     if (!element) return;
-    if (reduceMotion) {
+    if (reduceMotion || !active) {
       element.pause();
       return;
     }
@@ -136,15 +136,18 @@ function CasePreviewVideo({
         else element.pause();
       }, { threshold: 0.2 });
 
-    observer?.observe(element);
+    if (observer) observer.observe(element);
+    else attachAndPlay();
     return () => {
       observer?.disconnect();
       element.pause();
-      attachedRef.current = false;
     };
-  }, [reduceMotion, video]);
+  }, [active, reduceMotion, video]);
 
-  useEffect(() => () => releaseLoadedVideo(videoRef.current), []);
+  useEffect(() => () => {
+    attachedRef.current = false;
+    releaseLoadedVideo(videoRef.current);
+  }, []);
 
   return (
     <video
@@ -152,7 +155,7 @@ function CasePreviewVideo({
       className={className}
       poster={video.poster ?? undefined}
       preload="none"
-      autoPlay={!reduceMotion}
+      autoPlay={!reduceMotion && active}
       muted
       loop
       playsInline
@@ -290,307 +293,258 @@ function isFinePointer(): boolean {
   return typeof window !== 'undefined' && window.matchMedia('(pointer: fine)').matches;
 }
 
-function resolveViewportOffset(value: string): number {
-  const numeric = Number.parseFloat(value);
-  if (!Number.isFinite(numeric)) return 0;
-  if (value.endsWith('vw')) return (numeric / 100) * window.innerWidth;
-  if (value.endsWith('vh')) return (numeric / 100) * window.innerHeight;
-  if (value.endsWith('px')) return numeric;
-  return numeric;
+
+const BAND_GAP = 1;
+const HOVER_INTENT_MS = 110;
+const MOBILE_QUERY = '(max-width: 768px)';
+const SUMMARY_ID = 'selected-work-active-summary';
+const LEAD_DEPTH = 56;
+const LEAD_INSET = 24;
+
+function getFieldSource(caseStudy: PublicCaseStudy): string | null {
+  const previewVideo = getVideoMedia(caseStudy, 'preview');
+  if (previewVideo?.poster) return previewVideo.poster;
+  return getImageMedia(caseStudy)?.src ?? null;
 }
 
-function setDesktopCardListReady(cardList: HTMLElement, ready: boolean) {
-  cardList.toggleAttribute('inert', !ready);
-  if (ready) cardList.removeAttribute('aria-hidden');
-  else cardList.setAttribute('aria-hidden', 'true');
+function getSummaryOutcomes(caseStudy: PublicCaseStudy): string[] {
+  if (!caseStudy.approved) return ['公開承認後に反映'];
+  const outcomes = caseStudy.detail?.outcomes.map(({ title }) => title) ?? [];
+  if (outcomes.length > 0) return outcomes;
+  return approvedHighlights(caseStudy).map(({ value }) => value);
+}
 
-  cardList.querySelectorAll<HTMLElement>('button').forEach((control) => {
-    if (!ready) {
-      control.tabIndex = -1;
-      return;
+/**
+ * Draws the case media as a calm mint halftone, the same point language as the
+ * hero field. Unapproved slots fall back to the bare grid.
+ */
+function HalftoneField({ src, className }: { src: string | null; className: string }) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    let frame: number | null = null;
+    let image: HTMLImageElement | null = null;
+
+    const draw = () => {
+      frame = null;
+      const width = canvas.clientWidth;
+      const height = canvas.clientHeight;
+      const context = canvas.getContext('2d');
+      if (!context || width === 0 || height === 0) return;
+
+      const step = width < 480 ? 7 : 9;
+      const columns = Math.ceil(width / step);
+      const rows = Math.ceil(height / step);
+      let pixels: Uint8ClampedArray | null = null;
+      if (image?.complete && image.naturalWidth > 0) {
+        const sample = document.createElement('canvas');
+        sample.width = columns;
+        sample.height = rows;
+        const sampleContext = sample.getContext('2d', { willReadFrequently: true });
+        if (sampleContext) {
+          const scale = Math.max(columns / image.naturalWidth, rows / image.naturalHeight);
+          const drawWidth = image.naturalWidth * scale;
+          const drawHeight = image.naturalHeight * scale;
+          sampleContext.drawImage(image, (columns - drawWidth) / 2, (rows - drawHeight) / 2, drawWidth, drawHeight);
+          try {
+            pixels = sampleContext.getImageData(0, 0, columns, rows).data;
+          } catch {
+            pixels = null;
+          }
+        }
+      }
+
+      const ratio = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.round(width * ratio);
+      canvas.height = Math.round(height * ratio);
+      context.setTransform(ratio, 0, 0, ratio, 0, 0);
+      context.clearRect(0, 0, width, height);
+      for (let row = 0; row < rows; row += 1) {
+        for (let column = 0; column < columns; column += 1) {
+          const offset = (row * columns + column) * 4;
+          const luminance = pixels
+            ? (pixels[offset] * 0.299 + pixels[offset + 1] * 0.587 + pixels[offset + 2] * 0.114) / 255
+            : 0;
+          const dot = getHalftoneDot(luminance, step);
+          context.fillStyle = `rgb(166 255 219 / ${dot.alpha.toFixed(3)})`;
+          context.beginPath();
+          context.arc(column * step + step / 2, row * step + step / 2, dot.radius, 0, Math.PI * 2);
+          context.fill();
+        }
+      }
+    };
+
+    const schedule = () => {
+      if (frame === null) frame = window.requestAnimationFrame(draw);
+    };
+
+    if (src) {
+      image = new window.Image();
+      image.decoding = 'async';
+      image.onload = schedule;
+      image.src = src;
     }
-    control.removeAttribute('tabindex');
-  });
+    schedule();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(schedule);
+    observer?.observe(canvas);
+
+    return () => {
+      observer?.disconnect();
+      if (frame !== null) window.cancelAnimationFrame(frame);
+      if (image) image.onload = null;
+    };
+  }, [src]);
+
+  return <canvas ref={canvasRef} className={className} aria-hidden="true" data-work-halftone />;
 }
 
-function resetPointerCardMotion(stage: HTMLElement) {
-  stage.querySelectorAll<HTMLElement>('[data-case-index]').forEach((card) => {
-    card.style.setProperty('--card-pointer-x', '0px');
-    card.style.setProperty('--card-pointer-y', '0px');
-    card.style.setProperty('--card-pointer-rotate-x', '0deg');
-    card.style.setProperty('--card-pointer-rotate-y', '0deg');
-  });
-}
+function CaseSummary({ caseStudy, compact = false }: { caseStudy: PublicCaseStudy; compact?: boolean }) {
+  const index = String(caseStudy.displayOrder).padStart(2, '0');
+  const role = caseStudy.approved ? approvedText(caseStudy.role) : null;
+  const projectName = caseStudy.approved ? caseStudy.detail?.projectName ?? null : null;
+  const outcomes = getSummaryOutcomes(caseStudy);
 
-function updateScatterFromScroll(
-  section: HTMLElement,
-  reduceMotion: boolean,
-) {
-  const stage = section.querySelector<HTMLElement>('[data-work-stage]');
-  const stageAnchor = section.querySelector<HTMLElement>('[data-work-stage-anchor]');
-  if (!stage || !stageAnchor) return;
-
-  const rect = section.getBoundingClientRect();
-  const stageFlowTop = stageAnchor.getBoundingClientRect().top - rect.top;
-  const travel = Math.max(section.offsetHeight - window.innerHeight, 1);
-  const entryProgress = getScatterEntryProgress(
-    rect.top,
-    stageFlowTop,
-    window.innerHeight,
-    reduceMotion,
+  return (
+    <>
+      <div className={styles.summaryLead}>
+        <p className={styles.summaryRole}>
+          {compact ? role ?? 'PRIVATE PREVIEW' : `CASE ${index} — ${role ?? 'PRIVATE PREVIEW'}`}
+        </p>
+        <h3 className={styles.summaryTitle}>{statusCopy(caseStudy)}</h3>
+        {!compact && projectName ? <p className={styles.summaryProject}>{projectName}</p> : null}
+      </div>
+      <ol className={styles.summaryOutcomes}>
+        {outcomes.map((outcome, outcomeIndex) => (
+          <li key={`${outcomeIndex}-${outcome}`}>
+            <span>{compact ? '' : 'OUTCOME '}{String(outcomeIndex + 1).padStart(2, '0')}</span>
+            {outcome}
+          </li>
+        ))}
+      </ol>
+    </>
   );
-  const useContainedLayout = reduceMotion || !isFinePointer();
-
-  const visualProgress = reduceMotion ? 0 : Math.min(Math.max(-rect.top / travel, 0), 1);
-  section.style.setProperty('--work-progress', visualProgress.toFixed(4));
-  section.style.setProperty('--work-rotation', `${(visualProgress * 34).toFixed(3)}deg`);
-  const entryReady = entryProgress >= 1 || reduceMotion;
-  const desktopCardList = stage.querySelector<HTMLElement>('[data-work-card-list]');
-  section.dataset.entryReady = entryReady ? 'true' : 'false';
-  if (reduceMotion) section.dataset.entrySettled = 'false';
-  else if (!entryReady) section.dataset.entrySettled = 'false';
-  if (desktopCardList) setDesktopCardListReady(desktopCardList, entryReady);
-  if (!entryReady) resetPointerCardMotion(stage);
-
-  section.querySelectorAll<HTMLElement>('[data-case-index]').forEach((card) => {
-    const index = Number(card.dataset.caseIndex);
-    const layout = (useContainedLayout ? STATIC_CARD_LAYOUT : CARD_LAYOUT)[index];
-    if (!layout) return;
-    const motion = getHolographicCardMotion({
-      progress: entryProgress,
-      index,
-      targetX: resolveViewportOffset(layout.x),
-      targetY: resolveViewportOffset(layout.y),
-      targetZ: layout.z,
-      targetRotate: Number.parseFloat(layout.rotate),
-      viewportHeight: window.innerHeight,
-      reduceMotion,
-    });
-    card.style.setProperty('--card-x-px', `${motion.x.toFixed(3)}px`);
-    card.style.setProperty('--card-y-px', `${motion.y.toFixed(3)}px`);
-    card.style.setProperty('--card-z-px', `${motion.z.toFixed(3)}px`);
-    card.style.setProperty('--card-rotate-current', `${motion.rotate.toFixed(3)}deg`);
-    card.style.setProperty('--card-entry-progress', motion.progress.toFixed(4));
-    card.style.setProperty('--card-entry-scale', motion.scale.toFixed(4));
-    card.style.setProperty('--card-entry-blur', `${motion.blur.toFixed(3)}px`);
-    card.style.setProperty('--card-entry-opacity', motion.opacity.toFixed(4));
-    card.style.setProperty('--card-entry-inactive-opacity', motion.inactiveOpacity.toFixed(4));
-    card.style.setProperty('--card-media-opacity', motion.mediaOpacity.toFixed(4));
-    card.style.setProperty('--card-hologram-opacity', motion.hologramOpacity.toFixed(4));
-    card.style.setProperty('--card-scan-opacity', motion.scanOpacity.toFixed(4));
-    card.style.setProperty('--card-scan-offset', `${(motion.progress * 86).toFixed(3)}%`);
-    card.style.setProperty('--card-glow-opacity', motion.glowOpacity.toFixed(4));
-  });
 }
 
-function CaseCard({
+function ResolveSlice({
   caseStudy,
   index,
+  caseCount,
   active,
+  revealed,
   expanded,
   reduceMotion,
   onSelect,
   onOpen,
   onPointerEnter,
+  onPointerLeave,
 }: {
   caseStudy: PublicCaseStudy;
   index: number;
+  caseCount: number;
   active: boolean;
+  revealed: boolean;
   expanded: boolean;
   reduceMotion: boolean;
   onSelect: (index: number) => void;
   onOpen: (index: number, trigger: HTMLButtonElement) => void;
-  onPointerEnter: (event: ReactPointerEvent<HTMLElement>, index: number) => void;
+  onPointerEnter: (event: ReactPointerEvent<HTMLLIElement>, index: number) => void;
+  onPointerLeave: () => void;
 }) {
-  const theme = getTheme(caseStudy);
-  const layout = CARD_LAYOUT[index] ?? CARD_LAYOUT[0];
   const title = statusCopy(caseStudy);
+  const order = String(caseStudy.displayOrder).padStart(2, '0');
   const previewVideo = getVideoMedia(caseStudy, 'preview');
   const previewImage = getImageMedia(caseStudy);
-  const cardStyle: CSSVars = {
-    '--card-x': layout.x,
-    '--card-y': layout.y,
-    '--card-rotate': layout.rotate,
-    '--card-z': `${layout.z}px`,
-    '--card-depth': `${layout.depth}px`,
-    '--card-parallax': `${layout.parallax}px`,
-    '--card-x-px': '0px',
-    '--card-y-px': '0px',
-    '--card-z-px': '0px',
-    '--card-pointer-x': '0px',
-    '--card-pointer-y': '0px',
-    '--card-pointer-rotate-x': '0deg',
-    '--card-pointer-rotate-y': '0deg',
-    '--card-rotate-current': '0deg',
-    '--card-entry-progress': 0,
-    '--card-entry-scale': 0.55,
-    '--card-entry-blur': '18px',
-    '--card-entry-opacity': 0,
-    '--card-entry-inactive-opacity': 0,
-    '--card-media-opacity': 0,
-    '--card-hologram-opacity': 1,
-    '--card-scan-opacity': 0.82,
-    '--card-scan-offset': '0%',
-    '--card-glow-opacity': 0.46,
-    '--case-accent': theme.accent,
-    '--case-accent-rgb': theme.accentSoft,
-    '--card-order': index,
-  };
 
   return (
-    <article
-      className={`${styles.card} ${active ? styles.cardActive : ''}`}
-      data-case-index={index}
-      data-active={active}
-      data-expanded={expanded}
+    <li
+      className={styles.slice}
       role="listitem"
-      style={cardStyle}
+      data-active={active}
+      data-has-media={previewVideo || previewImage ? 'true' : 'false'}
       onPointerEnter={(event) => onPointerEnter(event, index)}
+      onPointerLeave={onPointerLeave}
     >
       <button
-        className={styles.cardButton}
-        id={`work-tab-${caseStudy.slug}`}
+        className={styles.sliceButton}
+        id={`work-slice-${caseStudy.slug}`}
         type="button"
         data-index={index}
         data-tab-index={index}
-        data-tab-group="desktop"
+        data-tab-group="work"
         data-work-trigger="true"
-        tabIndex={-1}
+        aria-current={active ? 'true' : undefined}
+        aria-describedby={active ? SUMMARY_ID : undefined}
         aria-haspopup="dialog"
         aria-expanded={expanded}
         aria-controls={expanded ? `work-detail-dialog-${caseStudy.slug}` : undefined}
-        aria-label={`${title}の詳細を開く`}
-        onClick={(event) => onOpen(index, event.currentTarget)}
-        onFocus={() => onSelect(index)}
-      >
-        <span className={styles.cardHologram} aria-hidden="true" />
-        <span className={styles.cardScan} aria-hidden="true" />
-        <span className={styles.cardResidualGlow} aria-hidden="true" />
-        {previewVideo ? (
-          <span className={styles.cardMedia} aria-hidden="true">
-            <CasePreviewVideo video={previewVideo} reduceMotion={reduceMotion} className={styles.cardMediaVideo} />
-          </span>
-        ) : previewImage ? (
-          <span className={styles.cardMedia} aria-hidden="true">
-            <Image
-              className={styles.cardMediaImage}
-              src={previewImage.src}
-              alt=""
-              width={previewImage.width}
-              height={previewImage.height}
-              loading="lazy"
-              sizes="(max-width: 768px) 100vw, 31vw"
-              data-work-image-role="preview"
-            />
-          </span>
-        ) : null}
-        <span className={styles.cardTopline}>
-          <span>CASE {String(caseStudy.displayOrder).padStart(2, '0')}</span>
-          <span>{caseStudy.approved ? 'PUBLISHED' : 'PRIVATE PREVIEW'}</span>
-        </span>
-        <span className={styles.cardTitle}>{title}</span>
-        {caseStudy.approved && approvedIndustry(caseStudy) ? (
-          <span className={styles.cardMeta}>{approvedIndustry(caseStudy)}</span>
-        ) : null}
-        <span className={styles.cardRule} aria-hidden="true" />
-        <span className={styles.cardHint}>{active ? 'CLICK / OPEN DETAILS' : 'SELECT CASE'}</span>
-        <span className={styles.cardCorner} aria-hidden="true" />
-      </button>
-      <span className={styles.cardNumber} aria-hidden="true">
-        {String(caseStudy.displayOrder).padStart(2, '0')}
-      </span>
-      <span className={styles.cardExpandIcon} aria-hidden="true">
-        <span aria-hidden="true">↗</span>
-      </span>
-    </article>
-  );
-}
-
-function MobileCaseItem({
-  caseStudy,
-  index,
-  active,
-  expanded,
-  reduceMotion,
-  onSelect,
-  onOpen,
-}: {
-  caseStudy: PublicCaseStudy;
-  index: number;
-  active: boolean;
-  expanded: boolean;
-  reduceMotion: boolean;
-  onSelect: (index: number) => void;
-  onOpen: (index: number, trigger: HTMLButtonElement) => void;
-}) {
-  const theme = getTheme(caseStudy);
-  const title = statusCopy(caseStudy);
-  const previewVideo = getVideoMedia(caseStudy, 'preview');
-  const previewImage = getImageMedia(caseStudy);
-  const style: CSSVars = {
-    '--case-accent': theme.accent,
-    '--case-accent-rgb': theme.accentSoft,
-  };
-
-  return (
-    <li className={`${styles.mobileItem} ${active ? styles.mobileItemActive : ''}`} style={style}>
-      <button
-        className={styles.mobileButton}
-        type="button"
-        data-index={index}
-        data-tab-index={index}
-        data-tab-group="mobile"
-        data-work-trigger="true"
-        aria-haspopup="dialog"
-        aria-expanded={expanded}
-        aria-controls={expanded ? `work-detail-dialog-${caseStudy.slug}` : undefined}
-        aria-label={`${title}の詳細を開く`}
-        id={`mobile-work-tab-${caseStudy.slug}`}
+        aria-label={active ? `${title}の詳細を開く` : title}
         onClick={(event) => {
+          if (active || isFinePointer()) {
+            onSelect(index);
+            onOpen(index, event.currentTarget);
+            return;
+          }
           onSelect(index);
-          onOpen(index, event.currentTarget);
         }}
-        onFocus={() => onSelect(index)}
+        onFocus={(event: FocusEvent<HTMLButtonElement>) => {
+          if (event.currentTarget.matches(':focus-visible')) onSelect(index);
+        }}
       >
-        {previewVideo ? (
-          <span className={styles.mobileMedia} aria-hidden="true">
-            <CasePreviewVideo video={previewVideo} reduceMotion={reduceMotion} className={styles.mobileMediaVideo} />
-          </span>
-        ) : previewImage ? (
-          <span className={styles.mobileMedia} aria-hidden="true">
-            <Image
-              className={styles.mobileMediaImage}
-              src={previewImage.src}
-              alt=""
-              width={previewImage.width}
-              height={previewImage.height}
-              loading="lazy"
-              sizes="100vw"
-              data-work-image-role="preview"
-            />
-          </span>
-        ) : null}
-        <span className={styles.mobileIndex}>{String(caseStudy.displayOrder).padStart(2, '0')}</span>
-        <span className={styles.mobileButtonCopy}>
-          <span className={styles.mobileStatus}>{caseStudy.approved ? 'PUBLISHED' : 'PRIVATE PREVIEW'}</span>
-          <span className={styles.mobileTitle}>{title}</span>
+        <span className={styles.slicePlate} aria-hidden="true">
+          <HalftoneField src={getFieldSource(caseStudy)} className={styles.sliceField} />
+          {previewVideo ? (
+            <span className={styles.sliceMedia}>
+              <CasePreviewVideo
+                video={previewVideo}
+                active={active}
+                reduceMotion={reduceMotion}
+                className={styles.sliceMediaAsset}
+              />
+            </span>
+          ) : previewImage ? (
+            <span className={styles.sliceMedia}>
+              <Image
+                className={styles.sliceMediaAsset}
+                src={previewImage.src}
+                alt=""
+                width={previewImage.width}
+                height={previewImage.height}
+                loading="lazy"
+                sizes="(max-width: 768px) 100vw, 64vw"
+                data-work-image-role="preview"
+              />
+            </span>
+          ) : null}
+          {active && revealed && !reduceMotion ? <span className={styles.sliceScan} /> : null}
         </span>
-        <span className={styles.mobilePlus} aria-hidden="true">↗</span>
+        <span className={styles.sliceTitle} aria-hidden="true">{title}</span>
+        <span className={styles.sliceIndex} aria-hidden="true"><i />{order}</span>
+        <span className={styles.sliceHud} aria-hidden="true">
+          <span className={styles.sliceTag}>
+            CASE <b>{order}</b> / {String(caseCount).padStart(2, '0')} · {previewVideo ? 'MOTION' : 'STILL'}
+          </span>
+          <span className={styles.sliceOpen}>詳細を見る<span>↗</span></span>
+        </span>
       </button>
+      {active ? (
+        <div className={styles.sliceSummary}>
+          <CaseSummary caseStudy={caseStudy} compact />
+        </div>
+      ) : null}
     </li>
   );
 }
 
 function ExpandedCaseDialog({
   caseStudy,
-  index,
   origin,
   reduceMotion,
   featureVideoRef,
   onClose,
 }: {
   caseStudy: PublicCaseStudy;
-  index: number;
   origin: ExpansionOrigin;
   reduceMotion: boolean;
   featureVideoRef: { current: HTMLVideoElement | null };
@@ -675,15 +629,13 @@ function ExpandedCaseDialog({
           x: origin.x,
           y: origin.y,
           scale: origin.scale,
-          rotateZ: (index - 2) * 2.4,
         }}
-        animate={{ opacity: 1, x: 0, y: 0, scale: 1, rotateZ: 0 }}
+        animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
         exit={reduceMotion ? { opacity: 0 } : {
           opacity: 0,
           x: origin.x * 0.35,
           y: origin.y * 0.35,
           scale: Math.max(origin.scale, 0.72),
-          rotateZ: (index - 2) * 1.2,
         }}
         transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 165, damping: 24, mass: 0.9 }}
         onKeyDown={handleDialogKeyDown}
@@ -788,66 +740,40 @@ type SelectedWorkProps = {
   cases: readonly PublicCaseStudy[];
 };
 
-function ThemeBleedLayer({
-  caseStudy,
-  theme,
-  reduceMotion,
-  className,
-}: {
-  caseStudy: PublicCaseStudy;
-  theme: CaseTheme;
-  reduceMotion: boolean;
-  className: string;
-}) {
-  return (
-    <AnimatePresence initial={false}>
-      <motion.div
-        aria-hidden="true"
-        className={`${styles.themeBleed} ${className}`}
-        data-theme-bleed={caseStudy.theme}
-        key={`theme-bleed-${caseStudy.slug}`}
-        style={{ '--bleed-rgb': theme.accentSoft } as CSSVars}
-        initial={reduceMotion ? false : { opacity: 0, scale: 0.985 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 1.012 }}
-        transition={reduceMotion ? { duration: 0 } : { duration: 0.56, ease: [0.16, 1, 0.3, 1] }}
-      >
-        <span className={styles.themeBleedCore} />
-        <span className={styles.themeBleedHaze} />
-      </motion.div>
-    </AnimatePresence>
-  );
-}
-
 export function SelectedWork({ cases }: SelectedWorkProps) {
-  const sectionRef = useRef<HTMLElement | null>(null);
-  const frameRef = useRef<number | null>(null);
-  const entrySettleFrameRef = useRef<number | null>(null);
-  const pointerFrameRef = useRef<number | null>(null);
-  const pointerSampleRef = useRef<{
-    stage: HTMLDivElement;
-    clientX: number;
-    clientY: number;
-    hoveredIndex: number | null;
-  } | null>(null);
+  const bandRef = useRef<HTMLUListElement | null>(null);
+  const hoverTimerRef = useRef<number | null>(null);
+  const userSelectedRef = useRef(false);
   const expansionTriggerRef = useRef<HTMLButtonElement | null>(null);
   const featureVideoRef = useRef<HTMLVideoElement | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const [expansionOrigin, setExpansionOrigin] = useState<ExpansionOrigin>({ x: 0, y: 0, scale: 0.5 });
+  const [bandWidth, setBandWidth] = useState(0);
+  const [hasEnteredView, setRevealed] = useState(false);
   const reduceMotion = useReducedMotion() ?? false;
   const caseStudies = cases;
   const caseCount = caseStudies.length;
 
   const activeCase = caseStudies[activeIndex] ?? caseStudies[0];
-  const activeTheme = activeCase ? getTheme(activeCase) : THEMES.mint;
+  const revealed = hasEnteredView || reduceMotion;
   const expandedCase = expandedIndex === null ? null : caseStudies[expandedIndex] ?? null;
+  const widths = getSliceWidths({ bandWidth, count: caseCount, gap: BAND_GAP });
+  const leadPath = getLeadPath({ activeIndex, widths, gap: BAND_GAP, inset: LEAD_INSET, depth: LEAD_DEPTH });
 
   const handleSelect = useCallback((index: number) => {
+    userSelectedRef.current = true;
     setActiveIndex(clampIndex(index, caseCount));
   }, [caseCount]);
 
+  const clearHoverIntent = useCallback(() => {
+    if (hoverTimerRef.current === null) return;
+    window.clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = null;
+  }, []);
+
   const handleOpen = useCallback((index: number, trigger: HTMLButtonElement) => {
+    clearHoverIntent();
     const selectedIndex = clampIndex(index, caseCount);
     const rect = trigger.getBoundingClientRect();
     const finalWidth = Math.min(window.innerWidth * 0.92, 608);
@@ -859,7 +785,7 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
     });
     expansionTriggerRef.current = trigger;
     setExpandedIndex(selectedIndex);
-  }, [caseCount]);
+  }, [caseCount, clearHoverIntent]);
 
   const handleClose = useCallback(() => {
     releaseLoadedVideo(featureVideoRef.current);
@@ -867,15 +793,20 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
     setExpandedIndex(null);
   }, []);
 
-  const handleCardPointerEnter = useCallback(
-    (event: ReactPointerEvent<HTMLElement>, index: number) => {
-      if (expandedIndex === null && (event.pointerType === 'mouse' || isFinePointer())) handleSelect(index);
+  const handleSlicePointerEnter = useCallback(
+    (event: ReactPointerEvent<HTMLLIElement>, index: number) => {
+      if (expandedIndex !== null || event.pointerType !== 'mouse') return;
+      clearHoverIntent();
+      hoverTimerRef.current = window.setTimeout(() => {
+        hoverTimerRef.current = null;
+        handleSelect(index);
+      }, HOVER_INTENT_MS);
     },
-    [expandedIndex, handleSelect],
+    [clearHoverIntent, expandedIndex, handleSelect],
   );
 
   const handleKeyboard = useCallback(
-    (event: KeyboardEvent<HTMLDivElement>) => {
+    (event: KeyboardEvent<HTMLElement>) => {
       if (expandedIndex !== null) return;
       const target = event.target as HTMLElement;
       if (target.dataset.workTrigger !== 'true') return;
@@ -891,7 +822,7 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
       event.preventDefault();
       const selectedIndex = clampIndex(next, caseCount);
       handleSelect(selectedIndex);
-      const tabGroup = target.getAttribute('data-tab-group') ?? 'desktop';
+      const tabGroup = target.getAttribute('data-tab-group') ?? 'work';
       const tab = document.querySelector<HTMLButtonElement>(`button[data-tab-group="${tabGroup}"][data-tab-index="${selectedIndex}"]`);
       tab?.focus({ preventScroll: true });
     },
@@ -909,153 +840,71 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
   }, [expandedIndex]);
 
   useEffect(() => {
-    const section = sectionRef.current;
-    if (!section) return;
-
-    const scheduleEntrySettle = () => {
-      if (reduceMotion || entrySettleFrameRef.current !== null) return;
-      entrySettleFrameRef.current = window.requestAnimationFrame(() => {
-        entrySettleFrameRef.current = null;
-        if (sectionRef.current !== section || section.dataset.entryReady !== 'true') return;
-        section.dataset.entrySettled = 'true';
-      });
-    };
-
-    const onScroll = () => {
-      if (window.matchMedia('(max-width: 768px)').matches) return;
-      if (frameRef.current !== null) return;
-      frameRef.current = window.requestAnimationFrame(() => {
-        frameRef.current = null;
-        const wasEntryReady = section.dataset.entryReady === 'true';
-        updateScatterFromScroll(section, reduceMotion);
-        const isEntryReady = section.dataset.entryReady === 'true';
-        if (!isEntryReady || reduceMotion) return;
-        if (!wasEntryReady && section.dataset.entrySettled !== 'true') scheduleEntrySettle();
-      });
-    };
-
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll, { passive: true });
-    return () => {
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onScroll);
-      if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
-      if (entrySettleFrameRef.current !== null) {
-        window.cancelAnimationFrame(entrySettleFrameRef.current);
-        entrySettleFrameRef.current = null;
-      }
-    };
-  }, [reduceMotion]);
-
-  useEffect(() => () => {
-    if (pointerFrameRef.current !== null) window.cancelAnimationFrame(pointerFrameRef.current);
+    const band = bandRef.current;
+    if (!band) return;
+    setBandWidth(Math.round(band.getBoundingClientRect().width));
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setBandWidth(Math.round(entry.contentRect.width));
+    });
+    observer.observe(band);
+    return () => observer.disconnect();
   }, []);
 
-  const handleStagePointerMove = useCallback(
-    (event: ReactPointerEvent<HTMLDivElement>) => {
-      const stage = event.currentTarget;
-      const section = sectionRef.current;
-      if (section?.dataset.entryReady !== 'true') {
-        pointerSampleRef.current = null;
-        resetPointerCardMotion(stage);
-        return;
-      }
-      if (reduceMotion || !isFinePointer() || event.pointerType === 'touch') {
-        pointerSampleRef.current = null;
-        resetPointerCardMotion(stage);
-        return;
-      }
-
-      const target = event.target as Element;
-      const hoveredCard = target.closest<HTMLElement>('[data-case-index]');
-      const hoveredIndex = hoveredCard ? Number(hoveredCard.dataset.caseIndex) : null;
-
-      pointerSampleRef.current = { stage, clientX: event.clientX, clientY: event.clientY, hoveredIndex };
-      if (pointerFrameRef.current !== null) return;
-      pointerFrameRef.current = window.requestAnimationFrame(() => {
-        pointerFrameRef.current = null;
-        const sample = pointerSampleRef.current;
-        if (!sample) return;
-        if (sectionRef.current?.dataset.entryReady !== 'true') {
-          pointerSampleRef.current = null;
-          resetPointerCardMotion(sample.stage);
-          return;
-        }
-        const stageRect = sample.stage.getBoundingClientRect();
-        const pointerX = sample.clientX - stageRect.left - stageRect.width / 2;
-        const pointerY = sample.clientY - stageRect.top - stageRect.height / 2;
-
-        sample.stage.querySelectorAll<HTMLElement>('[data-case-index]').forEach((card) => {
-          const index = Number(card.dataset.caseIndex);
-          if (index === sample.hoveredIndex) return;
-          const layout = CARD_LAYOUT[index];
-          if (!layout) return;
-          const baseX = Number.parseFloat(card.style.getPropertyValue('--card-x-px')) || 0;
-          const baseY = Number.parseFloat(card.style.getPropertyValue('--card-y-px')) || 0;
-          const pointerMotion = getPointerCardMotion({
-            baseX,
-            baseY,
-            pointerX,
-            pointerY,
-            viewportWidth: stageRect.width,
-            viewportHeight: stageRect.height,
-            depth: layout.depth,
-          });
-          card.style.setProperty('--card-pointer-x', `${pointerMotion.x.toFixed(3)}px`);
-          card.style.setProperty('--card-pointer-y', `${pointerMotion.y.toFixed(3)}px`);
-          card.style.setProperty('--card-pointer-rotate-x', `${pointerMotion.rotateX.toFixed(3)}deg`);
-          card.style.setProperty('--card-pointer-rotate-y', `${pointerMotion.rotateY.toFixed(3)}deg`);
-        });
-      });
-    },
-    [reduceMotion],
-  );
-
-  const handleStagePointerLeave = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    pointerSampleRef.current = null;
-    if (pointerFrameRef.current !== null) {
-      window.cancelAnimationFrame(pointerFrameRef.current);
-      pointerFrameRef.current = null;
+  // Hold the first resolve until the band is actually on screen so the scan
+  // and media wipe are seen instead of playing below the fold at load.
+  useEffect(() => {
+    const band = bandRef.current;
+    if (!band || hasEnteredView || reduceMotion) return;
+    if (typeof IntersectionObserver === 'undefined') {
+      const frame = window.requestAnimationFrame(() => setRevealed(true));
+      return () => window.cancelAnimationFrame(frame);
     }
-    resetPointerCardMotion(event.currentTarget);
-  }, []);
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry?.isIntersecting) return;
+      setRevealed(true);
+      observer.disconnect();
+    }, { threshold: 0.35 });
+    observer.observe(band);
+    return () => observer.disconnect();
+  }, [hasEnteredView, reduceMotion]);
 
-  const handleStageFocusCapture = useCallback((event: FocusEvent<HTMLDivElement>) => {
-    if (reduceMotion || sectionRef.current?.dataset.entryReady !== 'true') return;
-    const target = event.target as Element;
-    const card = target.closest<HTMLElement>('[data-case-index]');
-    if (!card) return;
-    const baseX = Number.parseFloat(card.style.getPropertyValue('--card-x-px')) || 0;
-    const baseY = Number.parseFloat(card.style.getPropertyValue('--card-y-px')) || 0;
-    card.style.setProperty('--card-pointer-x', `${(-baseX * 0.58).toFixed(3)}px`);
-    card.style.setProperty('--card-pointer-y', `${(-baseY * 0.58).toFixed(3)}px`);
-    card.style.setProperty('--card-pointer-rotate-x', '0deg');
-    card.style.setProperty('--card-pointer-rotate-y', '0deg');
-  }, [reduceMotion]);
+  useEffect(() => clearHoverIntent, [clearHoverIntent]);
 
-  const sectionStyle: CSSVars = useMemo(
-    () => ({
-      '--theme-accent': activeTheme.accent,
-      '--theme-accent-rgb': activeTheme.accentSoft,
-      '--theme-index': activeIndex,
-    }),
-    [activeIndex, activeTheme.accent, activeTheme.accentSoft],
-  );
+  // On phones the previously open row collapses above the new one; keep the
+  // newly opened row in view once the height transition has settled.
+  useEffect(() => {
+    if (!userSelectedRef.current || !window.matchMedia(MOBILE_QUERY).matches) return;
+    const timer = window.setTimeout(() => {
+      const slice = bandRef.current?.children[activeIndex];
+      if (!(slice instanceof HTMLElement)) return;
+      const top = slice.getBoundingClientRect().top;
+      if (top < 64 || top > window.innerHeight * 0.6) {
+        window.scrollTo({ top: window.scrollY + top - 72, behavior: reduceMotion ? 'auto' : 'smooth' });
+      }
+    }, reduceMotion ? 0 : 960);
+    return () => window.clearTimeout(timer);
+  }, [activeIndex, reduceMotion]);
+
+  const resolveStyle: CSSVars = {
+    '--slice-grow': RESOLVE_GROW,
+    '--lead-depth': `${LEAD_DEPTH}px`,
+    ...(bandWidth > 0
+      ? {
+        '--plate-width': `${Math.round(widths.open)}px`,
+        '--plate-height': `${Math.round(bandWidth * 0.75)}px`,
+      }
+      : {}),
+  };
 
   if (!activeCase) return null;
 
   return (
     <section
-      ref={sectionRef}
       className={styles.selectedWork}
       id="selected-work"
       aria-labelledby="selected-work-title"
-      data-active-theme={activeCase.theme}
       data-detail-open={expandedCase ? 'true' : 'false'}
-      data-entry-ready="false"
-      data-entry-settled="false"
-      style={sectionStyle}
       onKeyDown={handleKeyboard}
     >
       <div className={styles.workIntro}>
@@ -1066,82 +915,51 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
           <span className={styles.introCopyChunk}>WEBサイト、</span><span className={styles.introCopyChunk}>チラシ制作、</span><span className={styles.introCopyChunk}>SNSデータ運用化、</span><span className={styles.introCopyChunk}>アプリ開発など</span><br />
           <span className={styles.introCopyChunk}>様々な企業の悩みに合った</span><span className={styles.introCopyChunk}>技術を用いて</span><span className={styles.introCopyChunk}>解決を目指します。</span>
         </p>
-        <span className={styles.scrollLabel}>
-          <span className={styles.desktopInstruction}>HOVER TO SELECT / CLICK TO EXPAND</span>
-          <span className={styles.mobileInstruction}>TAP TO EXPAND</span>
-          {' / '}{String(activeIndex + 1).padStart(2, '0')}
-        </span>
       </div>
 
-      <span className={styles.stageAnchor} data-work-stage-anchor aria-hidden="true" />
-      <div className={styles.desktopStage}>
-        <ThemeBleedLayer
-          caseStudy={activeCase}
-          theme={activeTheme}
-          reduceMotion={reduceMotion}
-          className={styles.desktopThemeBleed}
-        />
-        <div className={styles.stageAtmosphere} aria-hidden="true" />
-        <div
-          className={styles.stageShell}
-          data-work-stage
-          onPointerMove={handleStagePointerMove}
-          onPointerLeave={handleStagePointerLeave}
-          onFocusCapture={handleStageFocusCapture}
+      <div className={styles.resolve} style={resolveStyle}>
+        <p className={styles.bandMeta}>
+          <span><b>{String(caseCount).padStart(2, '0')}</b> CASES</span>
+          <span className={styles.desktopInstruction}>HOVER TO RESOLVE / CLICK TO EXPAND</span>
+          <span className={styles.mobileInstruction}>TAP TO OPEN</span>
+        </p>
+        <ul
+          ref={bandRef}
+          className={styles.band}
+          role="list"
+          aria-label="Selected work cases"
+          data-work-band
+          data-revealed={revealed}
         >
-          <div
-            className={styles.tabList}
-            role="list"
-            aria-label="Selected work cases"
-            data-work-card-list
-            data-entry-ready="false"
-            inert
-            aria-hidden="true"
-          >
-            {caseStudies.map((caseStudy, index) => (
-              <CaseCard
-                caseStudy={caseStudy}
-                index={index}
-                active={index === activeIndex}
-                expanded={index === expandedIndex}
-                reduceMotion={reduceMotion}
-                onSelect={handleSelect}
-                onOpen={handleOpen}
-                onPointerEnter={handleCardPointerEnter}
-                key={caseStudy.slug}
-              />
-            ))}
-          </div>
-          <div className={styles.stageVisual}>
-            <WorkVisual accent={activeTheme.accent} compact label="FDE / CASE ROUTE" />
+          {caseStudies.map((caseStudy, index) => (
+            <ResolveSlice
+              caseStudy={caseStudy}
+              index={index}
+              caseCount={caseCount}
+              active={index === activeIndex}
+              revealed={revealed}
+              expanded={index === expandedIndex}
+              reduceMotion={reduceMotion}
+              onSelect={handleSelect}
+              onOpen={handleOpen}
+              onPointerEnter={handleSlicePointerEnter}
+              onPointerLeave={clearHoverIntent}
+              key={caseStudy.slug}
+            />
+          ))}
+        </ul>
+        <div className={styles.infoRow} data-work-info>
+          {bandWidth > 0 && revealed ? (
+            <svg className={styles.lead} aria-hidden="true">
+              <path key={activeIndex} d={leadPath} pathLength={1} />
+            </svg>
+          ) : null}
+          <div className={styles.infoContent} id={SUMMARY_ID} key={activeCase.slug}>
+            <CaseSummary caseStudy={activeCase} />
           </div>
         </div>
       </div>
 
-      <div className={styles.mobileStage}>
-        <ThemeBleedLayer
-          caseStudy={activeCase}
-          theme={activeTheme}
-          reduceMotion={reduceMotion}
-          className={styles.mobileThemeBleed}
-        />
-        <div className={styles.mobileTabList}>
-          <ul aria-label="Selected work cases">
-            {caseStudies.map((caseStudy, index) => (
-              <MobileCaseItem
-                caseStudy={caseStudy}
-                index={index}
-                active={index === activeIndex}
-                expanded={index === expandedIndex}
-                reduceMotion={reduceMotion}
-                onSelect={handleSelect}
-                onOpen={handleOpen}
-                key={caseStudy.slug}
-              />
-            ))}
-          </ul>
-        </div>
-      </div>
       {typeof document !== 'undefined'
         ? createPortal(
           <AnimatePresence>
@@ -1149,7 +967,6 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
               <ExpandedCaseDialog
                 key={expandedCase.slug}
                 caseStudy={expandedCase}
-                index={expandedIndex ?? 0}
                 origin={expansionOrigin}
                 reduceMotion={reduceMotion}
                 featureVideoRef={featureVideoRef}
