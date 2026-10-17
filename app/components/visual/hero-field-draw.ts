@@ -1,17 +1,16 @@
-import { getHeroTimeline, type HeroTimelineState } from '../site/hero-timeline';
+import { clamp01, getHeroTimeline, type HeroTimelineState } from '../site/hero-timeline.ts';
 import {
   buildFieldRoute,
-  FIELD_TIERS,
   fieldCellSeed,
   fieldGridCoordinate,
   fieldPointHeight,
+  type FieldGridConfig,
   fieldTagCells,
-  fieldViewFor,
-  type FieldTierConfig,
   type FieldView,
   projectFieldPoint,
   type ProjectedFieldPoint,
-} from './hero-field';
+  STATIC_FIELD_GRID,
+} from './hero-field.ts';
 
 type AnnotationOptions = {
   columns: number;
@@ -21,8 +20,24 @@ type AnnotationOptions = {
   fontFamily: string;
 };
 
-function clamp01(value: number): number {
-  return Math.max(0, Math.min(1, value));
+type FieldLayout = {
+  tags: Array<[number, number]>;
+  route: Array<[number, number]>;
+};
+
+// Tag cells and the route depend only on the grid size, so build them once
+// per tier instead of on every animation frame.
+const layoutCache = new Map<string, FieldLayout>();
+
+function fieldLayout(columns: number, rows: number): FieldLayout {
+  const key = `${columns}x${rows}`;
+  let layout = layoutCache.get(key);
+  if (!layout) {
+    const tags = fieldTagCells(columns, rows);
+    layout = { tags, route: buildFieldRoute(tags, columns) };
+    layoutCache.set(key, layout);
+  }
+  return layout;
 }
 
 function projectCell(column: number, row: number, view: FieldView, state: HeroTimelineState, options: AnnotationOptions): ProjectedFieldPoint | null {
@@ -54,13 +69,13 @@ function drawCrosshair(context: CanvasRenderingContext2D, x: number, y: number) 
 export function drawFieldAnnotations(context: CanvasRenderingContext2D, view: FieldView, state: HeroTimelineState, options: AnnotationOptions) {
   const visible = 1 - state.dissolve;
   if (visible <= 0) return;
-  const cells = fieldTagCells(options.columns, options.rows);
-  const tags = cells.map(([column, row]) => projectCell(column, row, view, state, options));
+  const layout = fieldLayout(options.columns, options.rows);
 
   if (state.tagReveal > 0) {
     context.lineWidth = 1;
     context.font = `10px ${options.fontFamily}`;
-    tags.forEach((point, index) => {
+    layout.tags.forEach(([column, row], index) => {
+      const point = projectCell(column, row, view, state, options);
       if (!point) return;
       const alpha = clamp01(state.tagReveal * 1.4 - index * 0.08) * visible;
       if (alpha <= 0) return;
@@ -73,12 +88,16 @@ export function drawFieldAnnotations(context: CanvasRenderingContext2D, view: Fi
   }
 
   if (state.route <= 0) return;
-  const route = buildFieldRoute(cells, options.columns)
-    .map(([column, row]) => projectCell(column, row, view, state, options))
-    .filter((point): point is ProjectedFieldPoint => point !== null);
+  const route: ProjectedFieldPoint[] = [];
+  let total = 0;
+  for (const [column, row] of layout.route) {
+    const point = projectCell(column, row, view, state, options);
+    if (!point) continue;
+    const previous = route[route.length - 1];
+    if (previous) total += Math.hypot(point.x - previous.x, point.y - previous.y);
+    route.push(point);
+  }
   if (route.length < 2) return;
-  const lengths = route.slice(1).map((point, index) => Math.hypot(point.x - route[index].x, point.y - route[index].y));
-  const total = lengths.reduce((sum, length) => sum + length, 0);
   // The statement draws most of the route; the CTA act extends it out of frame.
   let remaining = total * (state.route * 0.82 + (1 - state.route * 0.82) * state.ship);
   let headX = route[0].x;
@@ -88,10 +107,12 @@ export function drawFieldAnnotations(context: CanvasRenderingContext2D, view: Fi
   context.beginPath();
   context.moveTo(headX, headY);
   for (let index = 1; index < route.length && remaining > 0; index += 1) {
-    const length = lengths[index - 1];
+    const from = route[index - 1];
+    const to = route[index];
+    const length = Math.hypot(to.x - from.x, to.y - from.y);
     const amount = length > 0 ? Math.min(1, remaining / length) : 1;
-    headX = route[index - 1].x + (route[index].x - route[index - 1].x) * amount;
-    headY = route[index - 1].y + (route[index].y - route[index - 1].y) * amount;
+    headX = from.x + (to.x - from.x) * amount;
+    headY = from.y + (to.y - from.y) * amount;
     context.lineTo(headX, headY);
     remaining -= length;
   }
@@ -103,15 +124,83 @@ export function drawFieldAnnotations(context: CanvasRenderingContext2D, view: Fi
 /** Progress used for the condensed, non-scrolling Hero: structured field, finished route. */
 export const STATIC_FIELD_PROGRESS = 0.8;
 
-export function drawStaticField(context: CanvasRenderingContext2D, width: number, height: number, dpr: number, fontFamily: string, tier: FieldTierConfig = FIELD_TIERS.static) {
-  const state = { ...getHeroTimeline(STATIC_FIELD_PROGRESS), fieldOffsetX: 0.08 };
-  const view = fieldViewFor(width, height, tier, state);
+export type StaticFieldPlacement = {
+  offsetX: number;
+  offsetY: number;
+  scale: number;
+  /** The phone layout: a full-width CTA closes the band, so it is short. */
+  compact: boolean;
+};
+
+/** Where the condensed copy sits, in CSS px relative to the static canvas. */
+export type StaticCopyBounds = { statementBottom: number; ctaTop: number; ctaRight: number };
+
+const STATIC_MARGIN = 16;
+// Below the statement the band must also clear its blurred ::before shield
+// (~0.95rem) and the OBS labels drawn up to ~18px above far-row tags.
+const STATIC_TOP_CLEARANCE = 40;
+// Below this the band is too short to read as a field; draw nothing instead.
+const MIN_STATIC_SCALE = 140;
+
+/** Used before layout can be measured: copy roughly where the wide layout puts it. */
+function fallbackCopyBounds(width: number, height: number): StaticCopyBounds {
+  return { statementBottom: height * 0.78, ctaTop: height * 0.9, ctaRight: width * 0.25 };
+}
+
+/** How far the flat field reaches above, below and beside its centre per unit of scale. */
+function fieldExtentsPerScale(state: HeroTimelineState) {
+  const view: FieldView = { width: 0, height: 0, scale: 1, offsetX: 0, offsetY: 0, pitch: state.cameraPitch, yaw: state.cameraYaw, distance: state.cameraDistance };
+  let above = 0;
+  let below = 0;
+  let side = 0;
+  for (const x of [-1, 1]) {
+    for (const z of [-1, 1]) {
+      const point = projectFieldPoint(x, 0, z, view);
+      if (!point) continue;
+      above = Math.max(above, -point.y);
+      below = Math.max(below, point.y);
+      side = Math.max(side, Math.abs(point.x));
+    }
+  }
+  return { above, below, side };
+}
+
+/**
+ * Places the condensed Hero's field in the free band below its statement.
+ * A CTA that reaches past the centre (the phone layout) closes that band from
+ * below; a short CTA at the left (the wide layout) only pushes the field to
+ * its right, and the field may bleed off the bottom edge.
+ */
+export function staticFieldPlacement(width: number, height: number, copy: StaticCopyBounds, state: HeroTimelineState = getHeroTimeline(STATIC_FIELD_PROGRESS)): StaticFieldPlacement {
+  const extents = fieldExtentsPerScale(state);
+  const ctaBlocksBand = copy.ctaRight > width * 0.55;
+  const bandTop = copy.statementBottom + STATIC_TOP_CLEARANCE;
+  const bandBottom = ctaBlocksBand ? copy.ctaTop - STATIC_MARGIN : height * 1.04;
+  const byHeight = Math.max(0, bandBottom - bandTop) / (extents.above + extents.below);
+  const byWidth = (width * (ctaBlocksBand ? 1 : 0.33)) / extents.side;
+  const scale = Math.min(byHeight, byWidth);
+  const centreX = ctaBlocksBand ? width / 2 : copy.ctaRight + STATIC_MARGIN * 2 + extents.side * scale;
+  return { offsetX: centreX / width - 0.5, offsetY: (bandTop + extents.above * scale) / height, scale, compact: ctaBlocksBand };
+}
+
+export function drawStaticField(context: CanvasRenderingContext2D, width: number, height: number, dpr: number, fontFamily: string, copy: StaticCopyBounds | null, grid: FieldGridConfig = STATIC_FIELD_GRID) {
+  const state = getHeroTimeline(STATIC_FIELD_PROGRESS);
+  const { compact, ...placement } = staticFieldPlacement(width, height, copy ?? fallbackCopyBounds(width, height), state);
+  const view: FieldView = {
+    width,
+    height,
+    ...placement,
+    pitch: state.cameraPitch,
+    yaw: state.cameraYaw,
+    distance: state.cameraDistance,
+  };
   context.setTransform(dpr, 0, 0, dpr, 0, 0);
   context.clearRect(0, 0, width, height);
-  for (let row = 0; row < tier.rows; row += 1) {
-    for (let column = 0; column < tier.columns; column += 1) {
-      const x = fieldGridCoordinate(column, tier.columns);
-      const z = fieldGridCoordinate(row, tier.rows);
+  if (view.scale < MIN_STATIC_SCALE) return;
+  for (let row = 0; row < grid.rows; row += 1) {
+    for (let column = 0; column < grid.columns; column += 1) {
+      const x = fieldGridCoordinate(column, grid.columns);
+      const z = fieldGridCoordinate(row, grid.rows);
       const point = projectFieldPoint(x, fieldPointHeight(x, z, 0, state.order, 0, 0), z, view);
       if (!point) continue;
       const depth = clamp01(1.4 - point.depth * 0.3);
@@ -120,5 +209,6 @@ export function drawStaticField(context: CanvasRenderingContext2D, width: number
       context.fillRect(point.x - size / 2, point.y - size / 2, size, size);
     }
   }
-  drawFieldAnnotations(context, view, state, { columns: tier.columns, rows: tier.rows, time: 0, labels: tier.labels, fontFamily });
+  // Like the scrolling mobile tier, the short phone band drops the labels.
+  drawFieldAnnotations(context, view, state, { columns: grid.columns, rows: grid.rows, time: 0, labels: grid.labels && !compact, fontFamily });
 }

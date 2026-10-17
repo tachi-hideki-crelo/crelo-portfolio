@@ -14,6 +14,7 @@ import {
   FIELD_SPAN_Z,
   FIELD_TERRACE_STEP,
   FIELD_TIERS,
+  type FieldGridConfig,
   fieldCellSeed,
   fieldGridCoordinate,
   fieldScanAt,
@@ -21,8 +22,9 @@ import {
   type FieldTierConfig,
   HERO_FIELD_PALETTE,
   type HeroFieldTier,
+  STATIC_FIELD_GRID,
 } from './hero-field';
-import { drawFieldAnnotations, drawStaticField } from './hero-field-draw';
+import { drawFieldAnnotations, drawStaticField, type StaticCopyBounds } from './hero-field-draw';
 
 export type HeroCosmosTier = HeroFieldTier;
 
@@ -44,7 +46,8 @@ type HeroCosmosR3FProps = {
 function chooseTier(width: number, reducedMotion: boolean, saveData: boolean): HeroCosmosTier {
   if (reducedMotion || saveData) return 'static';
   if (width >= 1180) return 'pc';
-  if (width >= 640) return 'tablet';
+  // Match the CSS breakpoint where the Hero copy switches to its phone layout.
+  if (width > 720) return 'tablet';
   return 'mobile';
 }
 
@@ -66,7 +69,22 @@ function glsl(value: number): string {
   return Number.isInteger(value) ? `${value}.0` : String(value);
 }
 
-function StaticCosmos({ config }: { config: FieldTierConfig }) {
+function readStaticCopyBounds(canvas: HTMLCanvasElement): StaticCopyBounds | null {
+  const hero = canvas.closest('.hero-story');
+  const statement = hero?.querySelector('.hero-story__statement');
+  const cta = hero?.querySelector('.hero-story__cta');
+  if (!statement || !cta) return null;
+  const origin = canvas.getBoundingClientRect();
+  const statementRect = statement.getBoundingClientRect();
+  const ctaRect = cta.getBoundingClientRect();
+  return {
+    statementBottom: statementRect.bottom - origin.top,
+    ctaTop: ctaRect.top - origin.top,
+    ctaRight: ctaRect.right - origin.left,
+  };
+}
+
+function StaticCosmos({ config }: { config: FieldGridConfig }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -76,9 +94,11 @@ function StaticCosmos({ config }: { config: FieldTierConfig }) {
     if (!context) return;
     const fontFamily = readMonoFont();
     let frame: number | null = null;
+    let disposed = false;
     // The condensed Hero does not scroll, so the poster frame only needs to
-    // follow the viewport size.
+    // follow the viewport size and late font metrics.
     const draw = () => {
+      if (disposed) return;
       if (frame !== null) window.cancelAnimationFrame(frame);
       frame = window.requestAnimationFrame(() => {
         frame = null;
@@ -89,12 +109,23 @@ function StaticCosmos({ config }: { config: FieldTierConfig }) {
         canvas.height = Math.round(height * dpr);
         canvas.style.width = `${width}px`;
         canvas.style.height = `${height}px`;
-        drawStaticField(context, width, height, dpr, fontFamily, config);
+        // Place the field from where the condensed copy actually sits, so CSS
+        // breakpoints and font metrics cannot push it under the text.
+        drawStaticField(context, width, height, dpr, fontFamily, readStaticCopyBounds(canvas), config);
       });
     };
     draw();
+    void document.fonts?.ready.then(draw);
+    // The condensed layout lands after this effect (the parent applies
+    // data-static on re-render); the Hero's height change re-measures it.
+    const hero = canvas.closest('.hero-story');
+    // The static path also serves older browsers, so ResizeObserver is optional.
+    const layoutObserver = hero && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(draw) : null;
+    if (hero) layoutObserver?.observe(hero);
     window.addEventListener('resize', draw, { passive: true });
     return () => {
+      disposed = true;
+      layoutObserver?.disconnect();
       window.removeEventListener('resize', draw);
       if (frame !== null) window.cancelAnimationFrame(frame);
     };
@@ -226,7 +257,6 @@ function FieldScene({ config, progress, formationProgress, annotationsRef }: { c
     vertexShader: FIELD_VERTEX_SHADER,
     fragmentShader: FIELD_FRAGMENT_SHADER,
   }), []);
-  const materialRef = useRef(material);
 
   useEffect(() => {
     fontFamilyRef.current = readMonoFont();
@@ -250,7 +280,9 @@ function FieldScene({ config, progress, formationProgress, annotationsRef }: { c
     const view = fieldViewFor(size.width, size.height, config, state);
     points.visible = formation.rowReveal > 0.001;
 
-    const uniforms = materialRef.current.uniforms;
+    // Write to the material the points actually render, so a recreated
+    // material (Fast Refresh, discarded memo) never keeps stale uniforms.
+    const uniforms = (points.material as THREE.ShaderMaterial).uniforms;
     uniforms.uTime.value = time;
     uniforms.uOrder.value = state.order;
     uniforms.uDissolve.value = state.dissolve;
@@ -323,12 +355,17 @@ export default function HeroCosmosCanvas({ progress, formationProgress, forceSta
   const [offscreen, setOffscreen] = useState(false);
   const [documentHidden, setDocumentHidden] = useState(false);
   const paused = offscreen || documentHidden;
+  // WebGL2 support does not change with the viewport, so it is probed once
+  // instead of per resize event. A lost context clears it so the next resize
+  // probes again rather than trusting a stale result.
+  const webgl2SupportRef = useRef<boolean | null>(null);
   const handleContextLost = useCallback(() => {
+    webgl2SupportRef.current = null;
     setWebglAvailable(false);
     setTier('static');
   }, []);
   const isStatic = forceStatic || tier === 'static' || !webglAvailable;
-  const config = FIELD_TIERS[tier];
+  const config = isStatic ? null : FIELD_TIERS[tier];
   const renderTier = capabilityReady ? (isStatic ? 'static' : tier) : 'pending';
   const fallbackMode = capabilityReady ? (isStatic ? 'canvas2d' : 'webgl2') : 'pending';
 
@@ -351,7 +388,8 @@ export default function HeroCosmosCanvas({ progress, formationProgress, forceSta
         setCapabilityReady(true);
         return;
       }
-      const supported = probeWebgl2();
+      webgl2SupportRef.current ??= probeWebgl2();
+      const supported = webgl2SupportRef.current;
       setWebglAvailable(supported);
       if (!supported) setTier('static');
       setCapabilityReady(true);
@@ -380,12 +418,12 @@ export default function HeroCosmosCanvas({ progress, formationProgress, forceSta
       className="hero-cosmos"
       data-render-tier={renderTier}
       data-config-tier={tier}
-      data-points={isStatic ? FIELD_TIERS.static.columns * FIELD_TIERS.static.rows : config.columns * config.rows}
+      data-points={config ? config.columns * config.rows : STATIC_FIELD_GRID.columns * STATIC_FIELD_GRID.rows}
       data-fallback={fallbackMode}
       data-paused={paused ? 'true' : 'false'}
       aria-hidden="true"
     >
-      {!capabilityReady ? null : isStatic ? <StaticCosmos config={FIELD_TIERS.static} /> : <HeroCosmosR3F config={config} progress={progress} formationProgress={formationProgress} paused={paused} onContextLost={handleContextLost} />}
+      {!capabilityReady ? null : config ? <HeroCosmosR3F config={config} progress={progress} formationProgress={formationProgress} paused={paused} onContextLost={handleContextLost} /> : <StaticCosmos config={STATIC_FIELD_GRID} />}
     </div>
   );
 }

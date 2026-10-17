@@ -50,7 +50,7 @@ function lerp(start: number, end: number, amount: number): number {
   return start + (end - start) * amount;
 }
 
-function expoOut(value: number): number {
+export function expoOut(value: number): number {
   const t = clamp01(value);
   return t >= 1 ? 1 : 1 - Math.pow(2, -10 * t);
 }
