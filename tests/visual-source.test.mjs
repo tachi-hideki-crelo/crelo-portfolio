@@ -131,3 +131,19 @@ test('HeroCosmosCanvas shares MotionValue progress without scroll React state', 
   assert.match(hero, /hero-story__initial--engineer[^>]*>E<\/span>ngineer/);
   assert.match(styles, /hero-story\[data-static='true'\] \.hero-story__statement[\s\S]*top: 66%/);
 });
+
+test('font tokens resolve because next/font variables sit on <html>', () => {
+  const layout = readFileSync(new URL('../app/layout.tsx', import.meta.url), 'utf8');
+  // globals.css declares --font-sans/--font-mono on :root from these variables;
+  // on <body> they are undefined at :root and every font token becomes invalid.
+  assert.match(styles, /:root \{[\s\S]*--font-sans: var\(--font-geist-sans\)/);
+  assert.match(layout, /<html lang="ja" className=\{`\$\{geistSans\.variable\} \$\{geistMono\.variable\}`\}>/);
+  assert.doesNotMatch(layout, /<body className=\{`\$\{geistSans\.variable\}/);
+});
+
+test('the right-aligned Hero statement fits between the gutters at tablet widths', () => {
+  // 17 full-width characters (~19em with padding) must fit inside 100vw minus
+  // two 8.5vw gutters, so the size is capped by the viewport width.
+  assert.match(styles, /\.hero-story__statement \{[^}]*font-size: min\(clamp\(2\.35rem, 2\.75vw, 4rem\), 4\.1vw\)/);
+  assert.match(styles, /@media \(max-width: 1000px\) \{\s*\.header-status \{ display: none; \}/);
+});

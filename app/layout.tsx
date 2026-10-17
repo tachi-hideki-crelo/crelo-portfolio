@@ -54,8 +54,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ja">
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+    // The font variables live on <html> because the --font-sans/--font-mono
+    // tokens in globals.css are declared on :root and reference them.
+    <html lang="ja" className={`${geistSans.variable} ${geistMono.variable}`}>
+      <body>
         <a className="skip-link" href="#main-content">本文へ移動</a>
         {children}
       </body>

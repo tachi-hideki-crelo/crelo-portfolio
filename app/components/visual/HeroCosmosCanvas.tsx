@@ -62,10 +62,7 @@ function probeWebgl2(): boolean {
 }
 
 function readMonoFont(): string {
-  // next/font defines --font-geist-mono on <body>, so the :root --font-mono
-  // token that references it does not resolve. Read the body's own values.
-  const styles = getComputedStyle(document.body);
-  return styles.getPropertyValue('--font-mono').trim() || styles.getPropertyValue('--font-geist-mono').trim() || 'monospace';
+  return getComputedStyle(document.documentElement).getPropertyValue('--font-mono').trim() || 'monospace';
 }
 
 function glsl(value: number): string {
