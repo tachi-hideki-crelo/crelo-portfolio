@@ -122,7 +122,8 @@ function StaticCosmos({ config }: { config: FieldGridConfig }) {
     // The condensed layout lands after this effect (the parent applies
     // data-static on re-render); the Hero's height change re-measures it.
     const hero = canvas.closest('.hero-story');
-    const layoutObserver = hero ? new ResizeObserver(draw) : null;
+    // The static path also serves older browsers, so ResizeObserver is optional.
+    const layoutObserver = hero && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(draw) : null;
     if (hero) layoutObserver?.observe(hero);
     window.addEventListener('resize', draw, { passive: true });
     return () => {
