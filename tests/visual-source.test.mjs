@@ -137,8 +137,15 @@ test('font tokens resolve because next/font variables sit on <html>', () => {
   // globals.css declares --font-sans/--font-mono on :root from these variables;
   // on <body> they are undefined at :root and every font token becomes invalid.
   assert.match(styles, /:root \{[\s\S]*--font-sans: var\(--font-geist-sans\)/);
-  assert.match(layout, /<html lang="ja" className=\{`\$\{geistSans\.variable\} \$\{geistMono\.variable\}`\}>/);
-  assert.doesNotMatch(layout, /<body className=\{`\$\{geistSans\.variable\}/);
+  const htmlTag = layout.match(/<html\s[^>]*>/)?.[0] ?? '';
+  const bodyTag = layout.match(/<body[\s>][^>]*>?/)?.[0] ?? '';
+  assert.match(htmlTag, /geistSans\.variable/);
+  assert.match(htmlTag, /geistMono\.variable/);
+  assert.doesNotMatch(bodyTag, /\.variable/);
+  // Self-referencing @theme tokens would turn into a cycle if the :root
+  // declarations above ever moved; nothing uses Tailwind's font utilities.
+  assert.doesNotMatch(styles, /--font-sans: var\(--font-sans\)/);
+  assert.doesNotMatch(styles, /--font-mono: var\(--font-mono\)/);
 });
 
 test('the right-aligned Hero statement fits between the gutters at tablet widths', () => {
@@ -146,4 +153,7 @@ test('the right-aligned Hero statement fits between the gutters at tablet widths
   // two 8.5vw gutters, so the size is capped by the viewport width.
   assert.match(styles, /\.hero-story__statement \{[^}]*font-size: min\(clamp\(2\.35rem, 2\.75vw, 4rem\), 4\.1vw\)/);
   assert.match(styles, /@media \(max-width: 1000px\) \{\s*\.header-status \{ display: none; \}/);
+  // Safety net if the copy grows: wrap inside the gutters below 1000px.
+  assert.match(styles, /\.hero-story__statement \{ max-width: calc\(100vw - 2 \* clamp\(1\.25rem, 8\.5vw, 9rem\)\); \}/);
+  assert.match(styles, /\.hero-story__statement p \{ text-wrap: balance; white-space: normal; \}/);
 });
