@@ -4,7 +4,7 @@ import test from 'node:test';
 import { getHeroFormationTimeline, getHeroTimeline, heroPhaseAt } from '../app/components/site/hero-timeline.ts';
 
 test('Hero timeline keeps the five-act phase boundaries deterministic', () => {
-  assert.equal(heroPhaseAt(0), 'sphere');
+  assert.equal(heroPhaseAt(0), 'field');
   assert.equal(heroPhaseAt(0.3), 'fde');
   assert.equal(heroPhaseAt(0.4), 'hold');
   assert.equal(heroPhaseAt(0.55), 'transfer');
@@ -28,49 +28,42 @@ test('Hero timeline matches the requested checkpoint choreography', () => {
   assert.equal(getHeroTimeline(0.1).coordinateOpacity, 0);
   assert.equal(getHeroTimeline(0.139).coordinateOpacity, 0);
   assert.equal(getHeroTimeline(0.14).coordinateOpacity, 0);
-  assert.equal(initial.sphereX, 0);
+  assert.equal(initial.fieldOffsetX, 0);
+  assert.equal(initial.tagReveal, 0);
+  assert.equal(initial.order, 0);
   assert.ok(first.fdeOpacity > 0.95);
-  assert.ok(first.sphereX > 0);
+  assert.ok(first.fieldOffsetX > 0);
+  assert.ok(first.tagReveal > 0.95);
+  assert.equal(first.order, 0);
   assert.equal(transfer.fdeOpacity, 0);
-  assert.ok(transfer.sphereX < 0);
+  assert.ok(transfer.order > 0 && transfer.order < 1);
+  assert.ok(transfer.fieldOffsetX < first.fieldOffsetX);
   assert.ok(statement.statementOpacity > 0.95);
   assert.ok(statement.statementFirstOpacity > 0.95);
   assert.ok(statement.statementSecondOpacity > 0.95);
+  assert.equal(statement.order, 1);
+  assert.ok(statement.fieldOffsetX < 0);
+  assert.ok(getHeroTimeline(0.62).route > 0 && getHeroTimeline(0.62).route < 1);
+  assert.equal(getHeroTimeline(0.8).route, 1);
   assert.ok(cta.ctaOpacity > 0.95);
-  assert.ok(cta.cameraYaw < -0.2);
+  assert.ok(cta.ship > 0.5);
+  assert.ok(cta.cameraPitch > statement.cameraPitch + 0.3);
+  assert.notEqual(first.cameraYaw, statement.cameraYaw);
+  assert.equal(statement.dissolve, 0);
   assert.ok(dissolve.dissolve > 0);
-  assert.ok(dissolve.particleOpacity > cta.particleOpacity);
-  assert.notEqual(initial.sphereRotationX, first.sphereRotationX);
-  assert.notEqual(first.sphereRotationY, statement.sphereRotationY);
-  assert.notEqual(statement.cameraYaw, cta.cameraYaw);
 });
 
-test('Hero formation starts empty and resolves layers in a deterministic order', () => {
-  const empty = getHeroFormationTimeline(0);
-  assert.deepEqual(empty, {
-    particleReveal: 0,
-    sphereReveal: 0,
-    orbitReveal: 0,
-    satelliteReveal: 0,
-    formationGlow: 0,
-  });
+test('Hero formation starts empty, lays rows in from the horizon, then settles the light', () => {
+  assert.deepEqual(getHeroFormationTimeline(0), { rowReveal: 0, fieldLight: 0 });
 
-  const particles = getHeroFormationTimeline(0.1);
-  assert.ok(particles.particleReveal > 0);
-  assert.equal(particles.sphereReveal, 0);
-  assert.equal(particles.orbitReveal, 0);
-  assert.equal(particles.satelliteReveal, 0);
+  const rows = getHeroFormationTimeline(0.1);
+  assert.ok(rows.rowReveal > 0);
+  assert.equal(rows.fieldLight, 0);
 
-  const core = getHeroFormationTimeline(0.55);
-  assert.ok(core.particleReveal > core.sphereReveal);
-  assert.ok(core.sphereReveal > core.orbitReveal);
-  assert.ok(core.orbitReveal > core.satelliteReveal);
-  assert.ok(core.formationGlow > 0.9);
+  const middle = getHeroFormationTimeline(0.5);
+  assert.ok(middle.rowReveal > middle.fieldLight);
+  assert.ok(middle.fieldLight > 0);
 
-  const complete = getHeroFormationTimeline(1);
-  assert.equal(complete.particleReveal, 1);
-  assert.equal(complete.sphereReveal, 1);
-  assert.equal(complete.orbitReveal, 1);
-  assert.equal(complete.satelliteReveal, 1);
-  assert.ok(Math.abs(complete.formationGlow) < Number.EPSILON);
+  assert.deepEqual(getHeroFormationTimeline(1), { rowReveal: 1, fieldLight: 1 });
+  assert.deepEqual(getHeroFormationTimeline(2), { rowReveal: 1, fieldLight: 1 });
 });

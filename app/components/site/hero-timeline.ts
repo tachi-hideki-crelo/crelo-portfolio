@@ -1,5 +1,5 @@
 export type HeroPhase =
-  | 'sphere'
+  | 'field'
   | 'fde'
   | 'hold'
   | 'transfer'
@@ -9,15 +9,15 @@ export type HeroPhase =
 
 export type HeroTimelineState = {
   phase: HeroPhase;
-  sphereX: number;
-  sphereY: number;
-  sphereScale: number;
-  sphereRotationX: number;
-  sphereRotationY: number;
-  sphereRotationZ: number;
-  cameraYaw: number;
+  fieldOffsetX: number;
+  fieldOffsetY: number;
   cameraPitch: number;
-  cameraRoll: number;
+  cameraYaw: number;
+  cameraDistance: number;
+  tagReveal: number;
+  order: number;
+  route: number;
+  ship: number;
   fdeOpacity: number;
   statementOpacity: number;
   statementFirstOpacity: number;
@@ -25,15 +25,11 @@ export type HeroTimelineState = {
   ctaOpacity: number;
   coordinateOpacity: number;
   dissolve: number;
-  particleOpacity: number;
 };
 
 export type HeroFormationState = {
-  particleReveal: number;
-  sphereReveal: number;
-  orbitReveal: number;
-  satelliteReveal: number;
-  formationGlow: number;
+  rowReveal: number;
+  fieldLight: number;
 };
 
 export function clamp01(value: number): number {
@@ -54,9 +50,14 @@ function lerp(start: number, end: number, amount: number): number {
   return start + (end - start) * amount;
 }
 
+function expoOut(value: number): number {
+  const t = clamp01(value);
+  return t >= 1 ? 1 : 1 - Math.pow(2, -10 * t);
+}
+
 export function heroPhaseAt(progress: number): HeroPhase {
   const value = clamp01(progress);
-  if (value < 0.14) return 'sphere';
+  if (value < 0.14) return 'field';
   if (value < 0.34) return 'fde';
   if (value < 0.47) return 'hold';
   if (value < 0.6) return 'transfer';
@@ -67,22 +68,12 @@ export function heroPhaseAt(progress: number): HeroPhase {
 
 export function getHeroFormationTimeline(progress: number): HeroFormationState {
   const value = clamp01(progress);
-  // The intro hands over to a genuinely empty Hero. A loose particle field
-  // then condenses into the sphere before its cyber shell, orbital hardware,
-  // and staggered satellites resolve. This entrance is time-driven and stays
-  // independent from the longer scroll story below.
-  const particleReveal = smoothstep(segment(value, 0.02, 0.5));
-  const sphereReveal = smoothstep(segment(value, 0.12, 0.72));
-  const orbitReveal = smoothstep(segment(value, 0.3, 0.88));
-  const satelliteReveal = smoothstep(segment(value, 0.42, 1));
-  const glowProgress = segment(value, 0.08, 0.92);
-
+  // The intro hands over to a genuinely empty Hero. The point field is laid in
+  // row by row from the horizon, then its light settles. This entrance is
+  // time-driven and stays independent from the longer scroll story below.
   return {
-    particleReveal,
-    sphereReveal,
-    orbitReveal,
-    satelliteReveal,
-    formationGlow: Math.sin(glowProgress * Math.PI),
+    rowReveal: smoothstep(segment(value, 0.02, 0.7)),
+    fieldLight: smoothstep(segment(value, 0.25, 1)),
   };
 }
 
@@ -96,7 +87,7 @@ export function getHeroTimeline(progress: number): HeroTimelineState {
   const phase = heroPhaseAt(value);
   const fdeIn = smoothstep(segment(value, 0.14, 0.22));
   // The English copy has fully yielded by the midpoint checkpoint while the
-  // sphere continues its leftward arc through 0.60.
+  // field continues its leftward travel through 0.62.
   const fdeOut = smoothstep(segment(value, 0.47, 0.52));
   const statementFirstIn = smoothstep(segment(value, 0.58, 0.68));
   const statementSecondIn = smoothstep(segment(value, 0.62, 0.72));
@@ -104,39 +95,38 @@ export function getHeroTimeline(progress: number): HeroTimelineState {
   const statementOut = smoothstep(segment(value, 0.94, 1));
   const ctaIn = smoothstep(segment(value, 0.8, 0.86));
   const ctaOut = smoothstep(segment(value, 0.94, 1));
-  const grandAngle = smoothstep(segment(value, 0.8, 0.94));
-  const journey = smoothstep(segment(value, 0, 0.94));
   const dissolve = smoothstep(segment(value, 0.94, 1));
+  const ship = smoothstep(segment(value, 0.8, 0.94));
 
-  // The sphere starts on-axis, moves right for the English introduction, then
-  // traces a shallow leftward arc as the Japanese field statement takes over.
+  // The field starts on-axis, slides right while the English title reads,
+  // then crosses left for the Japanese statement. The CTA act raises the
+  // camera to an overhead, blueprint-like view of the finished route.
   const rightTravel = smoothstep(segment(value, 0.14, 0.34));
-  const leftArc = smoothstep(segment(value, 0.47, 0.6));
-  const sphereX = lerp(0, 0.68, rightTravel) + lerp(0, -1.26, leftArc);
-  const sphereY = lerp(0, 0.08, rightTravel) + Math.sin(leftArc * Math.PI) * 0.18;
+  const leftTravel = smoothstep(segment(value, 0.47, 0.62));
 
   return {
     phase,
-    sphereX,
-    sphereY,
-    sphereScale: (1 + journey * 0.08 + Math.sin(value * Math.PI * 2.4) * 0.025) * lerp(1, 1.18, dissolve),
-    // The cosmos is already in motion during the introduction. The final
-    // angle change is an accent layered on top of the continuous journey.
-    sphereRotationX: 0.12 + journey * 0.76 + Math.sin(value * Math.PI * 3.2) * 0.16 + grandAngle * 0.34 + dissolve * 0.42,
-    sphereRotationY: -0.18 + journey * 1.08 + value * 1.18 + grandAngle * 0.42 + dissolve * 1.8,
-    sphereRotationZ: -0.08 + journey * 0.36 + Math.sin(value * Math.PI * 2.1) * 0.1 + grandAngle * 0.28 + dissolve * 1.2,
-    cameraYaw: journey * -0.12 + grandAngle * -0.3 + dissolve * 0.24,
-    cameraPitch: journey * 0.08 + grandAngle * 0.18 + dissolve * 0.18,
-    cameraRoll: journey * -0.025 + grandAngle * -0.075 + dissolve * 0.12,
+    // While the right-aligned statement reads, the field stays left of it and
+    // drops below its baseline so the route never runs under the copy.
+    fieldOffsetX: rightTravel * 0.2 - leftTravel * 0.42,
+    fieldOffsetY: lerp(lerp(0.62, 0.7, leftTravel), 0.6, ship),
+    cameraPitch: lerp(0.32, 1.18, ship) + dissolve * 0.2,
+    cameraYaw: lerp(0, -0.22, rightTravel) + leftTravel * 0.3 - ship * 0.08,
+    cameraDistance: lerp(3.1, 2.7, rightTravel) + ship * 0.5,
+    // Observations are tagged while the title reads, the field is structured
+    // during the transfer, and the route is drawn under the statement.
+    tagReveal: smoothstep(segment(value, 0.16, 0.3)),
+    order: segment(value, 0.47, 0.6),
+    route: expoOut(segment(value, 0.6, 0.8)),
+    ship,
     fdeOpacity: fdeIn * (1 - fdeOut),
     statementOpacity: statementIn * (1 - statementOut),
     statementFirstOpacity: statementFirstIn * (1 - statementOut),
     statementSecondOpacity: statementSecondIn * (1 - statementOut),
     ctaOpacity: ctaIn * (1 - ctaOut),
     // Keep the opening act visually pure: telemetry labels only enter after
-    // the sphere-only window has completed.
+    // the field-only window has completed.
     coordinateOpacity: smoothstep(segment(value, 0.14, 0.18)),
     dissolve,
-    particleOpacity: 0.58 + dissolve * 0.42,
   };
 }

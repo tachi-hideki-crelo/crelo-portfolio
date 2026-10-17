@@ -4,7 +4,7 @@ import test from 'node:test';
 
 const backdrop = readFileSync(new URL('../app/components/visual/NeuralBackdrop.tsx', import.meta.url), 'utf8');
 const cosmos = readFileSync(new URL('../app/components/visual/HeroCosmosCanvas.tsx', import.meta.url), 'utf8');
-const cyberConfig = readFileSync(new URL('../app/components/visual/hero-cyber-config.ts', import.meta.url), 'utf8');
+const fieldDraw = readFileSync(new URL('../app/components/visual/hero-field-draw.ts', import.meta.url), 'utf8');
 const hero = readFileSync(new URL('../app/components/site/HeroExperience.tsx', import.meta.url), 'utf8');
 const styles = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8');
 
@@ -21,18 +21,10 @@ test('HeroCosmosCanvas pairs context-loss listener setup and cleanup', () => {
   assert.match(cosmos, /setTier\('static'\)/);
 });
 
-test('HeroCosmosCanvas disposes the cyber scene resources on unmount', () => {
+test('HeroCosmosCanvas disposes the field resources on unmount', () => {
   assert.match(cosmos, /geometry\.dispose\(\)/);
-  assert.match(cosmos, /coreMaterial\.dispose\(\)/);
-  assert.match(cosmos, /shellMaterial\.dispose\(\)/);
-  assert.match(cosmos, /pointData\.geometry\.dispose\(\)/);
-  assert.match(cosmos, /coreStarData\.geometry\.dispose\(\)/);
-  assert.match(cosmos, /const coreStarData = useMemo[\s\S]*depthTest: false/);
-  assert.match(cosmos, /<points ref=\{coreStarsRef\}[^>]*renderOrder=\{1\.5\}/);
-  assert.match(cosmos, /vAlpha = flicker \* \(0\.14 \+ aPulse \* 0\.22\)/);
-  assert.match(cosmos, /orbitGroup\.traverse\(\(object\) =>/);
-  assert.match(cosmos, /object\.geometry\.dispose\(\)/);
-  assert.match(cosmos, /materials\.forEach\(\(material\) => material\.dispose\(\)\)/);
+  assert.match(cosmos, /material\.dispose\(\)/);
+  assert.match(cosmos, /<points ref=\{pointsRef\}[^>]*frustumCulled=\{false\}/);
 });
 
 test('HeroCosmosCanvas pauses while either offscreen or hidden', () => {
@@ -47,75 +39,33 @@ test('HeroCosmosCanvas pauses while either offscreen or hidden', () => {
 });
 
 test('StaticCosmos uses one capped DPR for backing size and transform', () => {
-  assert.match(cosmos, /function drawStaticCosmos\([\s\S]*points: Float32Array, dpr: number\)/);
-  assert.match(cosmos, /drawStaticCosmos\(context, width, height, value, points, dpr\)/);
-  const drawStaticSource = cosmos.slice(cosmos.indexOf('function drawStaticCosmos'), cosmos.indexOf('\nfunction StaticCosmos'));
-  assert.doesNotMatch(drawStaticSource, /window\.devicePixelRatio/);
+  assert.match(cosmos, /const dpr = Math\.min\(window\.devicePixelRatio \|\| 1, config\.dpr\)/);
+  assert.match(cosmos, /drawStaticField\(context, width, height, dpr, fontFamily, config\)/);
+  assert.match(fieldDraw, /export function drawStaticField\([\s\S]*dpr: number/);
+  assert.doesNotMatch(fieldDraw, /window\.devicePixelRatio/);
 });
 
-test('HeroCosmosCanvas uses the required responsive detail budget', () => {
-  assert.match(cosmos, /pc: \{ detail: 5, points: 3000, coreStars: 260, satellites: 28, orbits: 7, dpr: 1\.6/);
-  assert.match(cosmos, /tablet: \{ detail: 4, points: 1700, coreStars: 160, satellites: 18, orbits: 6, dpr: 1\.3/);
-  assert.match(cosmos, /mobile: \{ detail: 3, points: 900, coreStars: 90, satellites: 11, orbits: 5, dpr: 1/);
-  assert.match(cosmos, /new THREE\.IcosahedronGeometry\(1, config\.detail\)/);
+test('HeroCosmosCanvas renders the field from the shared tier budget', () => {
+  assert.match(cosmos, /const config = FIELD_TIERS\[tier\]/);
+  assert.match(cosmos, /createFieldGeometry\(config\.columns, config\.rows\)/);
   assert.match(cosmos, /frameloop=\{paused \? 'never' : 'always'\}/);
+  assert.match(cosmos, /data-points=/);
 });
 
-test('HeroCosmosCanvas renders a layered cyber core and varied warm satellites', () => {
-  assert.match(cosmos, /const SATELLITE_PALETTE = \[/);
-  assert.match(cosmos, /0xffd24a/);
-  assert.match(cosmos, /0xffaa24/);
-  assert.match(cosmos, /function satelliteScale\(index: number\)/);
-  assert.match(cosmos, /satellites\.setColorAt\(index, color\)/);
-  assert.match(cosmos, /glows\.setColorAt\(index, color\)/);
-  assert.match(cosmos, /new THREE\.Color\(SATELLITE_PALETTE/);
-  assert.match(cosmos, /const coreMaterial = useMemo/);
-  assert.match(cosmos, /from '\.\/hero-cyber-config'/);
-  assert.match(cyberConfig, /dark: '#050812'/);
-  assert.match(cyberConfig, /cyan: '#70E9FF'/);
-  assert.match(cyberConfig, /violet: '#9E72FF'/);
-  assert.match(cyberConfig, /gold: '#FFD24A'/);
-  assert.match(cosmos, /data-core-stars=/);
-  assert.match(cosmos, /data-orbits=/);
-  assert.match(cosmos, /new THREE\.LineSegments/);
-  assert.match(cosmos, /aTrack/);
-  assert.match(cosmos, /const strokeOffsets = ringIndex < 3 \? \[-0\.006, 0, 0\.006\] : \[0\]/);
-  assert.match(cosmos, /const addSegment = \(start: THREE\.Vector3/);
-  assert.match(cosmos, /uScanPeriod/);
-});
-
-test('HeroCosmosCanvas uses a thin cyber shell and three timed ring axes', () => {
-  assert.match(cosmos, /const shellGeometry = geometry/);
-  assert.match(cosmos, /const shellMaterial = useMemo/);
-  assert.match(cosmos, /float hash21\(vec2 value\)/);
-  assert.match(cosmos, /float segmentDistance\(vec2 point/);
-  assert.match(cosmos, /float columns = mix\(13\.0, 22\.0, uCircuitDensity\)/);
-  assert.match(cosmos, /float routeEdge = max\(fwidth\(routeDistance\)/);
-  assert.match(cosmos, /float trunkRow = 1\.0 - step/);
-  assert.match(cosmos, /float trunkColumn = 1\.0 - step/);
-  assert.match(cosmos, /float terminal = activeCell/);
-  assert.match(cosmos, /float traceHalo/);
-  assert.match(cosmos, /float trace/);
-  assert.match(cosmos, /float junction/);
-  assert.match(cosmos, /float scanPosition = fract\(uTime \/ uScanPeriod\)/);
-  assert.match(cosmos, /uScanPeriod: \{ value: CIRCUIT_SCAN_PERIOD_SECONDS \}/);
-  assert.match(cosmos, /uCircuitDensity/);
-  assert.match(cyberConfig, /CORE_BREATH_PERIOD_SECONDS = 8/);
-  assert.match(cyberConfig, /CIRCUIT_SCAN_PERIOD_SECONDS = 6/);
-  assert.match(cyberConfig, /RING_PERIODS = \[45, 70, 95\]/);
-  assert.match(cyberConfig, /RING_DIRECTIONS = \[1, -1, 1\]/);
-  assert.match(cosmos, /setFromAxisAngle\(spinAxis, angle\)/);
-  assert.match(cosmos, /baseQuaternion/);
-  assert.match(cosmos, /getHeroCircuitReveal\(formation\.sphereReveal\)/);
-  assert.match(cyberConfig, /function getHeroCircuitReveal/);
-  assert.match(cosmos, /radius: 1\.32, scaleY: 1, rotation/);
-  assert.match(cosmos, /radius: 1\.5, scaleY: 1, rotation/);
-  assert.match(cosmos, /radius: 1\.68, scaleY: 1, rotation/);
-  assert.match(cosmos, /new THREE\.Euler\(tilt\[0\], tilt\[1\], rotation\)/);
+test('HeroCosmosCanvas is a quiet point field, not the old cyber sphere', () => {
+  assert.match(cosmos, /from '\.\/hero-field'/);
+  assert.match(cosmos, /new THREE\.ShaderMaterial/);
+  assert.match(cosmos, /HERO_FIELD_PALETTE\.ink/);
+  assert.match(cosmos, /HERO_FIELD_PALETTE\.mint/);
+  assert.match(cosmos, /drawFieldAnnotations\(context, view, state/);
+  assert.match(cosmos, /className="hero-cosmos__annotations"/);
   assert.match(cosmos, /safeDelta = Math\.min\(Math\.max\(delta, 0\), 0\.05\)/);
-  assert.doesNotMatch(cosmos, /STATIC_CRYSTAL_FACETS/);
-  assert.doesNotMatch(cosmos, /crystalGeometry/);
-  assert.doesNotMatch(cosmos, /crystalMaterial/);
+  assert.doesNotMatch(cosmos, /IcosahedronGeometry/);
+  assert.doesNotMatch(cosmos, /SATELLITE_PALETTE/);
+  assert.doesNotMatch(cosmos, /orbitGroup/);
+  assert.doesNotMatch(cosmos, /AdditiveBlending/);
+  assert.doesNotMatch(styles, /\.hero-story__sticky::before/);
+  assert.doesNotMatch(styles, /\.hero-story__sticky::after/);
 });
 
 test('Hero cosmos forms from an empty first frame after the intro handoff', () => {
@@ -127,18 +77,13 @@ test('Hero cosmos forms from an empty first frame after the intro handoff', () =
   assert.match(hero, /value >= 0\.14 && formationProgress\.get\(\) < 1/);
   assert.match(hero, /formationAnimationRef\.current\?\.stop\(\)/);
   assert.match(cosmos, /getHeroFormationTimeline\(formationProgress\.get\(\)\)/);
-  assert.match(cosmos, /<group ref=\{rootRef\} visible=\{false\}>/);
-  assert.match(cosmos, /root\.visible = formation\.particleReveal > 0\.001 \|\| formation\.sphereReveal > 0\.001/);
-  assert.match(cosmos, /uReveal: \{ value: 0 \}/);
-  assert.match(cosmos, /uFormation: \{ value: 0 \}/);
-  assert.match(cosmos, /uBaseOpacity: \{ value: opacity \}/);
-  assert.match(cosmos, /material\.uniforms\.uReveal\.value = formation\.orbitReveal/);
-  assert.match(cosmos, /formation\.orbitReveal/);
-  assert.match(cosmos, /satelliteRevealAt\(formation\.satelliteReveal, index\)/);
-  assert.match(cosmos, /satelliteScale\(index\) \* localReveal/);
+  assert.match(cosmos, /visible=\{false\} \/>/);
+  assert.match(cosmos, /points\.visible = formation\.rowReveal > 0\.001/);
+  assert.match(cosmos, /uniforms\.uRowReveal\.value = formation\.rowReveal/);
+  assert.match(cosmos, /uniforms\.uLight\.value = formation\.fieldLight/);
   assert.match(cosmos, /const renderTier = capabilityReady \?/);
   assert.match(cosmos, /\{!capabilityReady \? null : isStatic \?/);
-  const staticSource = cosmos.slice(cosmos.indexOf('function drawStaticCosmos'), cosmos.indexOf('\nfunction StaticCosmos'));
+  const staticSource = fieldDraw.slice(fieldDraw.indexOf('export function drawStaticField'));
   assert.doesNotMatch(staticSource, /formationProgress/);
 });
 
