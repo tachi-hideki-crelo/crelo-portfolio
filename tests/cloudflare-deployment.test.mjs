@@ -2,10 +2,14 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
+import { contentSecurityPolicy, renderHeadersFile, securityHeaders, serializeContentSecurityPolicy } from '../security-headers.ts';
+
 const config = JSON.parse(readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8'));
 const scripts = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).scripts;
 const viteSource = readFileSync(new URL('../vite.config.ts', import.meta.url), 'utf8');
 const nextConfigSource = readFileSync(new URL('../next.config.ts', import.meta.url), 'utf8');
+const buildCloudflareSource = readFileSync(new URL('../scripts/build-cloudflare.mjs', import.meta.url), 'utf8');
+const headersSource = readFileSync(new URL('../public/_headers', import.meta.url), 'utf8');
 
 test('personal Cloudflare deployment uses the dedicated contact DB and daily cleanup', () => {
   assert.equal(config.name, 'crelo-fde-portfolio-preview');
@@ -34,6 +38,40 @@ test('personal Cloudflare deployment uses the dedicated contact DB and daily cle
   assert.match(viteSource, /!deployToPersonalCloudflare \? \[sites\(\)\] : \[\]/);
   assert.match(viteSource, /config: localBindingConfig/);
   assert.match(nextConfigSource, /source: '\/\(\.\*\)'/);
-  assert.match(nextConfigSource, /Content-Security-Policy/);
+  assert.match(nextConfigSource, /import \{ securityHeaders \} from '\.\/security-headers\.ts'/);
+  assert.match(nextConfigSource, /\.\.\.securityHeaders/);
   assert.match(nextConfigSource, /X-Robots-Tag/);
+});
+
+test('public/_headers is generated from the shared security headers', () => {
+  // Run `npm run sync:headers` after editing security-headers.ts.
+  assert.equal(headersSource, renderHeadersFile());
+  // The Cloudflare build refuses to deploy a stale copy.
+  assert.match(buildCloudflareSource, /sync-security-headers\.ts', '--check'/);
+  const policy = securityHeaders.find((header) => header.key === 'Content-Security-Policy');
+  assert.ok(policy, 'Content-Security-Policy header is missing');
+  assert.equal(policy.value, serializeContentSecurityPolicy(contentSecurityPolicy));
+});
+
+test('CSP allows Turnstile and Cloudflare Web Analytics without broad sources', () => {
+  const scriptSrc = contentSecurityPolicy['script-src'];
+  const connectSrc = contentSecurityPolicy['connect-src'];
+  assert.ok(scriptSrc.includes('https://challenges.cloudflare.com'));
+  assert.ok(scriptSrc.includes('https://static.cloudflareinsights.com'));
+  assert.ok(connectSrc.includes('https://cloudflareinsights.com'));
+  assert.deepEqual(contentSecurityPolicy['default-src'], ["'self'"]);
+  assert.deepEqual(contentSecurityPolicy['frame-ancestors'], ["'none'"]);
+
+  // No wildcard hosts or bare schemes anywhere.
+  Object.entries(contentSecurityPolicy).forEach(([directive, sources]) => {
+    sources.forEach((source) => assert.doesNotMatch(source, /\*|^https?:$|^wss?:$/, `${directive} allows ${source}`));
+  });
+  // Scripts and connections only from 'self' or explicit https hosts.
+  [...scriptSrc, ...connectSrc].forEach((source) => {
+    assert.ok(
+      ["'self'", "'unsafe-inline'"].includes(source) || /^https:\/\/[a-z0-9.-]+$/.test(source),
+      `unexpected script/connect source ${source}`,
+    );
+  });
+  assert.ok(!scriptSrc.includes("'unsafe-eval'"));
 });
