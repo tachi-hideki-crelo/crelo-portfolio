@@ -1,652 +1,571 @@
+/* METHOD plates: a sticky stage. Copy for the active step sits on the left;
+   on the right four translucent plates (separations of one map) drop in and
+   stack, joined by dotted registration pins, then turn to a plan view where
+   the registration marks line up amber. `data-motion='static'` (before
+   hydration and with reduced motion) lays everything out as a normal page. */
 .methodSection {
-  --method-atmosphere: 0;
-  --method-settle: 0;
-  --method-spread: 0;
-  border-top: 1px solid rgb(166 255 219 / 10%);
-  min-height: 300vh;
+  --method-accent: #a6ffdb;
+  --method-accent-rgb: 166 255 219;
+  --method-lead: #ffc779;
+  --method-lead-rgb: 255 199 121;
+  --method-ease: cubic-bezier(0.72, 0, 0.18, 1);
+  background: linear-gradient(180deg, #090d0e 0%, #05080a 55%, #070b0c 100%);
+  border-top: 1px solid rgb(var(--method-accent-rgb) / 8%);
+  isolation: isolate;
   position: relative;
 }
 
-.stickyStage {
-  background:
-    radial-gradient(circle at 50% 64%, rgb(54 128 109 / 10%), transparent 31rem),
-    linear-gradient(180deg, rgb(4 8 11 / 97%), rgb(5 10 13 / 94%));
+.methodSection[data-motion='live'] {
+  height: 620vh;
+}
+
+.stage {
+  display: grid;
+  gap: 2vw;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  margin: 0 auto;
+  max-width: 96rem;
+  padding: clamp(5rem, 11vw, 10rem) clamp(1.25rem, 5vw, 5.5rem);
+  position: relative;
+}
+
+.methodSection[data-motion='live'] .stage {
   height: 100vh;
-  isolation: isolate;
-  overflow: clip;
+  overflow: hidden;
+  padding-bottom: 0;
+  /* Clear the fixed site header. */
+  padding-top: max(9vh, 7.5rem);
   position: sticky;
   top: 0;
 }
 
-.marker {
-  left: clamp(1.25rem, 4.7vw, 4.75rem);
-  position: absolute;
-  right: clamp(1.25rem, 4.7vw, 4.75rem);
-  top: clamp(5.3rem, 7.2vh, 6.2rem);
-  z-index: 8;
-}
-
-.intro {
-  left: 50%;
-  position: absolute;
-  text-align: center;
-  top: clamp(7.7rem, 12.3vh, 9.4rem);
-  transform: translateX(-50%);
-  width: min(94vw, 88rem);
-  z-index: 6;
-}
-
-.intro > p:first-child {
-  margin-bottom: clamp(.55rem, 1.1vh, .85rem);
-}
-
-.intro > p:last-child {
-  color: var(--muted);
-  font-size: clamp(.72rem, 1vw, .92rem);
-  line-height: 1.8;
-  margin: .8rem auto 0;
-  max-width: 45rem;
-}
-
-.title {
-  align-items: center;
-  display: flex;
-  font-size: clamp(3.3rem, 7vw, 7rem);
-  font-weight: 560;
-  gap: .11em;
-  justify-content: center;
-  letter-spacing: -.078em;
-  line-height: .88;
-  margin: 0;
-  white-space: nowrap;
-}
-
-.title span { display: inline-block; }
-
-.title i {
-  color: rgb(166 255 219 / 38%);
-  font-family: var(--font-mono);
-  font-size: .31em;
-  font-style: normal;
-  letter-spacing: 0;
-  transform: translateY(.18em);
-}
-
-.atmosphere {
-  inset: 0;
-  opacity: calc(.2 + var(--method-atmosphere) * .8);
-  pointer-events: none;
-  position: absolute;
-  z-index: -1;
-}
-
-.atmosphereGrid {
-  background-image:
-    linear-gradient(rgb(166 255 219 / 6%) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(166 255 219 / 6%) 1px, transparent 1px);
-  background-size: 64px 64px;
-  inset: 30% -12% -35%;
-  mask-image: radial-gradient(ellipse at center, #000 12%, transparent 71%);
-  opacity: calc(.2 + var(--method-spread) * .36);
-  position: absolute;
-  transform: perspective(700px) rotateX(63deg) translateY(calc(var(--method-settle) * -18px));
-  transform-origin: center top;
-}
-
-.atmosphereBeam {
-  background: linear-gradient(90deg, transparent, rgb(166 255 219 / 24%), rgb(121 220 255 / 18%), transparent);
-  height: 1px;
-  left: 50%;
-  position: absolute;
-  top: 61%;
-  transform: translateX(-50%) scaleX(calc(.08 + var(--method-spread) * .92));
-  width: min(90vw, 82rem);
-}
-
-.atmosphereBeam::after {
-  background: radial-gradient(ellipse, rgb(129 242 201 / 15%), transparent 66%);
-  content: '';
-  height: 18rem;
-  left: 50%;
-  position: absolute;
-  top: 0;
-  transform: translate(-50%, -50%);
-  width: 64rem;
-}
-
-.atmosphereCore {
-  border: 1px solid rgb(166 255 219 / 11%);
-  border-radius: 50%;
-  height: 28rem;
-  left: 50%;
-  opacity: calc(1 - var(--method-spread) * .62);
-  position: absolute;
-  top: 64%;
-  transform: translate(-50%, -50%) scale(calc(.64 + var(--method-spread) * .56));
-  width: 28rem;
-}
-
-.atmosphereCore::before,
-.atmosphereCore::after {
-  border: 1px dashed rgb(121 220 255 / 10%);
-  border-radius: 50%;
-  content: '';
-  inset: 9%;
-  position: absolute;
-  transform: rotate(calc(var(--method-spread) * 52deg));
-}
-
-.atmosphereCore::after {
-  border-color: rgb(255 199 121 / 8%);
-  inset: 23%;
-  transform: rotate(calc(var(--method-spread) * -76deg));
-}
-
-.deckStage {
-  inset: 0;
-  perspective: 1050px;
-  perspective-origin: 50% 63%;
-  position: absolute;
-  z-index: 4;
-}
-
-.deckAxis {
-  background: linear-gradient(180deg, transparent, rgb(166 255 219 / 35%) 42%, rgb(166 255 219 / 6%) 76%, transparent);
-  height: 58vh;
-  left: 50%;
-  opacity: calc(.52 - var(--method-spread) * .44);
-  position: absolute;
-  top: 35%;
-  transform: translateX(-50%);
-  width: 1px;
-}
-
-.deck {
-  height: 0;
-  left: 50%;
-  position: absolute;
-  top: clamp(19rem, 35.5vh, 22.5rem);
-  transform-style: preserve-3d;
-  width: 0;
-}
-
-.methodCard {
-  --method-card-opacity: .82;
-  --method-counter-yaw: 0deg;
-  --method-glint-x: 50%;
-  --method-glint-y: 45%;
-  --method-hover-opacity: 1;
-  --method-hover-scale: 1;
-  --method-hover-x: 0px;
-  --method-hover-y: 0px;
-  --method-hover-z: 0px;
-  --method-pointer-tilt-x: 0deg;
-  --method-pointer-tilt-y: 0deg;
-  --method-pointer-x: 0px;
-  --method-pointer-y: 0px;
-  --method-rotate: 0deg;
-  --method-x: 0px;
-  --method-y: 100px;
-  --method-yaw: 0deg;
-  --method-z: 0px;
-  height: clamp(28rem, 57vh, 36rem);
-  left: 0;
-  opacity: var(--method-card-opacity);
-  outline: none;
-  position: absolute;
-  top: 0;
-  transform:
-    translate3d(calc(-50% + var(--method-x)), var(--method-y), var(--method-z))
-    rotateY(var(--method-yaw))
-    rotateZ(var(--method-rotate));
-  transform-style: preserve-3d;
-  width: clamp(14.5rem, 21vw, 19rem);
-  z-index: calc(10 + var(--method-index));
-}
-
-.methodCard[data-method-active='true'] { z-index: 80; }
-
-.cardSurface {
-  background:
-    radial-gradient(circle at var(--method-glint-x) var(--method-glint-y), rgb(var(--method-accent-rgb) / 13%), transparent 21rem),
-    linear-gradient(152deg, rgb(17 25 28 / 96%), rgb(5 9 12 / 98%) 61%, rgb(var(--method-accent-rgb) / 6%));
-  border: 1px solid rgb(218 236 230 / 42%);
-  border-radius: .8rem;
-  box-shadow:
-    0 1.7rem 4.5rem rgb(0 0 0 / 48%),
-    inset 0 0 0 1px rgb(255 255 255 / 2.5%);
-  clip-path: polygon(0 0, calc(100% - 1.5rem) 0, 100% 1.5rem, 100% 100%, 1.5rem 100%, 0 calc(100% - 1.5rem));
-  height: 100%;
-  opacity: var(--method-hover-opacity);
-  overflow: hidden;
-  padding: clamp(1.15rem, 1.6vw, 1.55rem);
-  position: relative;
-  transform:
-    translate3d(
-      calc(var(--method-hover-x) + var(--method-pointer-x)),
-      calc(var(--method-hover-y) + var(--method-pointer-y)),
-      var(--method-hover-z)
-    )
-    rotateX(var(--method-pointer-tilt-x))
-    rotateY(calc(var(--method-counter-yaw) + var(--method-pointer-tilt-y)))
-    scale(var(--method-hover-scale));
-  transform-origin: center center;
-  transform-style: preserve-3d;
-  transition:
-    border-color 260ms ease,
-    box-shadow 360ms cubic-bezier(.16, 1, .3, 1),
-    filter 260ms ease,
-    opacity 260ms ease,
-    transform 360ms cubic-bezier(.16, 1, .3, 1);
-}
-
-.cardSurface::before {
-  background-image:
-    linear-gradient(rgb(var(--method-accent-rgb) / 5%) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(var(--method-accent-rgb) / 5%) 1px, transparent 1px);
-  background-size: 22px 22px;
-  content: '';
-  inset: 0;
-  mask-image: linear-gradient(180deg, transparent, #000 35%, transparent 82%);
-  opacity: .55;
-  pointer-events: none;
-  position: absolute;
-}
-
-.cardSurface::after {
-  border-bottom: 1px solid var(--method-accent);
-  border-left: 1px solid var(--method-accent);
-  bottom: 0;
-  content: '';
-  height: 3.2rem;
-  left: 0;
-  opacity: .62;
-  position: absolute;
-  width: 3.2rem;
-}
-
-.methodCard[data-method-active='true'] .cardSurface,
-.methodCard:focus-visible .cardSurface {
-  border-color: var(--method-accent);
-  box-shadow:
-    0 2.8rem 7rem rgb(0 0 0 / 65%),
-    0 0 0 1px rgb(var(--method-accent-rgb) / 24%),
-    0 0 3.4rem rgb(var(--method-accent-rgb) / 20%),
-    inset 0 0 2.2rem rgb(var(--method-accent-rgb) / 6%);
-}
-
-.methodCard:focus-visible .cardSurface { outline: 2px solid var(--method-accent); outline-offset: 5px; }
-
-.cardGlint {
-  background: radial-gradient(circle, rgb(255 255 255 / 20%), transparent 48%);
-  height: 16rem;
-  left: var(--method-glint-x);
-  mix-blend-mode: screen;
-  opacity: 0;
-  pointer-events: none;
-  position: absolute;
-  top: var(--method-glint-y);
-  transform: translate(-50%, -50%);
-  transition: opacity 240ms ease;
-  width: 16rem;
-}
-
-.methodCard[data-method-active='true'] .cardGlint { opacity: .52; }
-
-.cardScan {
-  background: linear-gradient(90deg, transparent, rgb(var(--method-accent-rgb) / 66%), transparent);
-  height: 1px;
-  left: -30%;
-  opacity: 0;
-  position: absolute;
-  top: 0;
-  width: 160%;
-}
-
-.methodCard[data-method-active='true'] .cardScan { animation: method-card-scan 1.7s ease-in-out infinite; }
-
-.cardTopline {
-  align-items: center;
-  color: var(--method-accent);
-  display: flex;
-  font-family: var(--font-mono);
-  font-size: clamp(.48rem, .62vw, .58rem);
-  justify-content: space-between;
-  letter-spacing: .11em;
-  position: relative;
-  text-transform: uppercase;
-  z-index: 2;
-}
-
-.cardTopline span:last-child { color: rgb(219 229 226 / 46%); font-size: .8em; }
-
-.cardSigil {
-  height: clamp(7.4rem, 14vh, 9rem);
-  left: 50%;
-  opacity: .72;
-  position: absolute;
-  top: 18%;
-  transform: translateX(-50%);
-  transition: opacity 260ms ease, transform 420ms cubic-bezier(.16, 1, .3, 1);
-  width: clamp(7.4rem, 14vh, 9rem);
-}
-
-.methodCard[data-method-active='true'] .cardSigil { opacity: 1; transform: translateX(-50%) scale(1.08) rotate(4deg); }
-
-.cardSigil::before,
-.cardSigil::after {
-  border: 1px solid rgb(var(--method-accent-rgb) / 31%);
-  content: '';
-  inset: 12%;
-  position: absolute;
-}
-
-.cardSigil::after { border-style: dashed; inset: 25%; transform: rotate(45deg); }
-
-.cardSigil span { background: var(--method-accent); box-shadow: 0 0 1.3rem rgb(var(--method-accent-rgb) / 80%); position: absolute; }
-
-.cardSigil--frame span:nth-child(1),
-.cardSigil--frame span:nth-child(2) { height: 1px; left: 4%; right: 4%; top: 50%; }
-.cardSigil--frame span:nth-child(2) { left: 50%; top: 4%; bottom: 4%; height: auto; right: auto; width: 1px; }
-.cardSigil--frame span:nth-child(3) { border: 1px solid var(--method-accent); background: transparent; height: 34%; left: 33%; top: 33%; width: 34%; }
-.cardSigil--frame span:nth-child(4) { border-radius: 50%; height: .55rem; left: calc(50% - .275rem); top: calc(50% - .275rem); width: .55rem; }
-
-.cardSigil--prove::before { border-radius: 50%; }
-.cardSigil--prove::after { inset: 17%; }
-.cardSigil--prove span { height: 1px; left: 13%; top: 50%; transform-origin: right; width: 37%; }
-.cardSigil--prove span:nth-child(2) { left: 50%; transform: rotate(90deg); }
-.cardSigil--prove span:nth-child(3) { left: 50%; transform: rotate(180deg); }
-.cardSigil--prove span:nth-child(4) { left: 50%; transform: rotate(270deg); }
-
-.cardSigil--build::before { inset: 14% 20%; transform: skewY(-12deg); }
-.cardSigil--build::after { inset: 27% 8%; transform: skewY(12deg); }
-.cardSigil--build span { height: 18%; transform: rotate(45deg); width: 18%; }
-.cardSigil--build span:nth-child(1) { left: 19%; top: 18%; }
-.cardSigil--build span:nth-child(2) { right: 19%; top: 18%; }
-.cardSigil--build span:nth-child(3) { bottom: 18%; left: 19%; }
-.cardSigil--build span:nth-child(4) { bottom: 18%; right: 19%; }
-
-.cardSigil--land::before { border-radius: 50%; inset: 18%; }
-.cardSigil--land::after { border-radius: 50%; inset: 35%; transform: none; }
-.cardSigil--land span { border-radius: 50%; height: .65rem; width: .65rem; }
-.cardSigil--land span:nth-child(1) { left: calc(50% - .325rem); top: 5%; }
-.cardSigil--land span:nth-child(2) { right: 5%; top: calc(50% - .325rem); }
-.cardSigil--land span:nth-child(3) { bottom: 5%; left: calc(50% - .325rem); }
-.cardSigil--land span:nth-child(4) { left: 5%; top: calc(50% - .325rem); }
-
-.cardCopy {
-  left: clamp(1.15rem, 1.6vw, 1.55rem);
-  position: absolute;
-  right: clamp(1.15rem, 1.6vw, 1.55rem);
-  top: 46%;
-  z-index: 2;
-}
-
-.cardPhase {
-  color: var(--method-accent);
-  font-family: var(--font-mono);
-  font-size: .5rem;
-  letter-spacing: .14em;
-  margin: 0 0 .45rem;
-}
-
-.cardCopy h3 {
-  font-size: clamp(2.8rem, 4.5vw, 4.7rem);
-  font-weight: 560;
-  letter-spacing: -.085em;
-  line-height: .86;
-  margin: 0;
-}
-
-.cardJapanese {
-  color: var(--method-accent);
-  font-size: clamp(.7rem, .85vw, .84rem);
-  margin: .72rem 0 0;
-}
-
-.cardDescription {
-  color: rgb(215 227 223 / 64%);
-  font-size: clamp(.72rem, .82vw, .86rem);
-  line-height: 1.78;
-  margin: 1rem 0 0;
-  max-width: 17rem;
-}
-
-.cardOutput {
-  border-top: 1px solid rgb(var(--method-accent-rgb) / 19%);
-  bottom: 1.35rem;
+.copy {
   display: flex;
   flex-direction: column;
-  gap: .38rem;
-  left: clamp(1.15rem, 1.6vw, 1.55rem);
-  padding-top: .75rem;
-  position: absolute;
-  right: clamp(1.15rem, 1.6vw, 1.55rem);
+  min-width: 0;
+  position: relative;
   z-index: 2;
 }
 
-.cardOutput span {
-  color: var(--method-accent);
-  font-family: var(--font-mono);
-  font-size: .46rem;
-  letter-spacing: .13em;
+.methodSection[data-motion='live'] .copy {
+  padding-bottom: 14vh;
 }
 
-.cardOutput strong {
-  color: rgb(213 226 221 / 47%);
-  font-family: var(--font-mono);
-  font-size: clamp(.48rem, .58vw, .58rem);
-  font-weight: 400;
-  letter-spacing: .045em;
+.eyebrow,
+.stepLabel,
+.plateEdge,
+.plateTab,
+.railButton b {
+  font-family: var(--font-mono, monospace);
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
-.cardCorner {
-  color: var(--method-accent);
-  font-family: var(--font-mono);
-  font-size: 1.1rem;
-  position: absolute;
-  right: 1.15rem;
-  top: 2.6rem;
+.eyebrow {
+  color: color-mix(in srgb, var(--method-accent) 82%, white);
+  font-size: 0.57rem;
+  margin: 0 0 1.3rem;
 }
 
-.interactionHint {
-  bottom: 2.2rem;
-  color: rgb(185 207 199 / 45%);
-  display: flex;
-  font-family: var(--font-mono);
-  font-size: .48rem;
-  justify-content: space-between;
-  left: clamp(1.25rem, 4.7vw, 4.75rem);
-  letter-spacing: .13em;
+.intro h2 {
+  font-size: clamp(2.2rem, 4.2vw, 4.2rem);
+  letter-spacing: -0.075em;
+  line-height: 0.96;
   margin: 0;
+}
+
+.lead {
+  color: #8c9a99;
+  font-size: 0.88rem;
+  line-height: 1.8;
+  margin: 1.2rem 0 0;
+  max-width: 27rem;
+}
+
+.slots {
+  margin-top: 3rem;
+  position: relative;
+}
+
+.methodSection[data-motion='live'] .slots {
+  height: 17.5rem;
+  margin-top: auto;
+}
+
+.steps {
+  display: grid;
+  gap: 2.75rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.methodSection[data-motion='live'] .step,
+.methodSection[data-motion='live'] .composite {
+  bottom: 0;
+  left: 0;
+  opacity: 0;
+  pointer-events: none;
   position: absolute;
-  right: clamp(1.25rem, 4.7vw, 4.75rem);
-  text-transform: uppercase;
+  right: 0;
+  transform: translateY(12px);
+  transition: opacity 450ms ease, transform 600ms var(--method-ease);
 }
 
-@keyframes method-card-scan {
-  0% { opacity: 0; transform: translateY(0); }
-  18% { opacity: .7; }
-  74% { opacity: .22; }
-  100% { opacity: 0; transform: translateY(34rem); }
-}
-
-@media (max-width: 1100px) and (min-width: 901px) {
-  .title { font-size: clamp(3rem, 6.7vw, 5.2rem); }
-  .methodCard { width: clamp(13rem, 21.3vw, 15rem); }
-  .cardCopy h3 { font-size: clamp(2.5rem, 4.4vw, 3.6rem); }
-  .cardDescription { font-size: .7rem; }
-}
-
-@media (max-width: 900px) {
-  .methodSection { min-height: 0; padding: 7rem 1.25rem 9rem; }
-
-  .stickyStage {
-    background: linear-gradient(180deg, rgb(4 8 11 / 97%), rgb(5 10 13 / 94%));
-    height: auto;
-    overflow: visible;
-    position: relative;
-    top: auto;
-  }
-
-  .marker { left: 0; position: relative; right: auto; top: auto; }
-
-  .intro {
-    left: auto;
-    margin-top: 4rem;
-    position: relative;
-    text-align: left;
-    top: auto;
-    transform: none;
-    width: 100%;
-  }
-
-  .intro > p:first-child { margin-bottom: 1rem; }
-  .intro > p:last-child { font-size: .84rem; margin: 1.35rem 0 0; max-width: 35rem; }
-
-  .title {
-    flex-wrap: wrap;
-    font-size: clamp(2.55rem, 12vw, 4.5rem);
-    gap: .08em .13em;
-    justify-content: flex-start;
-    line-height: .92;
-    white-space: normal;
-  }
-
-  .title span { white-space: nowrap; }
-  .title i { font-size: .34em; }
-
-  .atmosphere { inset: -5rem -1.25rem 0; }
-  .atmosphereGrid { inset: 14rem -30% 0; opacity: .22; transform: none; }
-  .atmosphereBeam { top: 23rem; }
-  .atmosphereCore { height: 20rem; top: 27rem; width: 20rem; }
-
-  .deckStage {
-    inset: auto;
-    margin-top: 3.5rem;
-    perspective: none;
-    position: relative;
-  }
-
-  .deckAxis {
-    bottom: 2rem;
-    height: auto;
-    left: .55rem;
-    opacity: .36;
-    top: 0;
-  }
-
-  .deck {
-    display: grid;
-    gap: 1rem;
-    height: auto;
-    left: auto;
-    position: relative;
-    top: auto;
-    width: 100%;
-  }
-
-  .methodCard {
-    height: clamp(28rem, 123vw, 31rem);
-    left: auto;
-    opacity: 1;
-    position: relative;
-    top: auto;
-    transform: none !important;
-    width: 100%;
-    z-index: auto;
-  }
-
-  .cardSurface {
-    opacity: 0;
-    transform: translate3d(0, 2.4rem, 0) rotateZ(-1.4deg);
-    transition:
-      border-color 260ms ease,
-      box-shadow 360ms cubic-bezier(.16, 1, .3, 1),
-      opacity 640ms cubic-bezier(.16, 1, .3, 1),
-      transform 720ms cubic-bezier(.16, 1, .3, 1);
-  }
-
-  .methodCard:nth-child(even) .cardSurface { transform: translate3d(0, 2.4rem, 0) rotateZ(1.4deg); }
-  .methodCard[data-inview='true'] .cardSurface,
-  .methodCard[data-method-active='true'] .cardSurface,
-  .methodCard:focus-visible .cardSurface { opacity: 1; transform: none; }
-  .methodCard:nth-child(2) .cardSurface { transition-delay: 80ms; }
-  .methodCard:nth-child(3) .cardSurface { transition-delay: 120ms; }
-  .methodCard:nth-child(4) .cardSurface { transition-delay: 160ms; }
-
-  .cardTopline { font-size: .54rem; }
-  .cardSigil { height: 8.4rem; top: 17%; width: 8.4rem; }
-  .cardCopy { top: 45%; }
-  .cardCopy h3 { font-size: clamp(3.2rem, 15vw, 4.6rem); }
-  .cardJapanese { font-size: .8rem; }
-  .cardDescription { font-size: .84rem; max-width: 18rem; }
-  .cardOutput strong { font-size: .54rem; }
-
-  .interactionHint {
-    bottom: auto;
-    left: auto;
-    margin-top: 1.5rem;
-    position: relative;
-    right: auto;
-  }
-
-  .interactionHint span:first-child { display: none; }
-  .interactionHint span:last-child::before { content: 'SCROLL / '; }
-}
-
-.methodSection[data-reduced-motion='true'] {
-  min-height: auto;
-  padding: 7rem clamp(1.25rem, 4.7vw, 4.75rem) 10rem;
-}
-
-.methodSection[data-reduced-motion='true'] .stickyStage {
-  height: auto;
-  min-height: 0;
-  overflow: visible;
-  position: relative;
-}
-
-.methodSection[data-reduced-motion='true'] .marker { left: 0; position: relative; right: auto; top: auto; }
-
-.methodSection[data-reduced-motion='true'] .intro {
-  left: auto;
-  margin: 4rem auto 0;
-  position: relative;
-  top: auto;
+.methodSection[data-motion='live'] .step[data-active='true'],
+.methodSection[data-motion='live'] .composite[data-active='true'] {
+  opacity: 1;
+  pointer-events: auto;
   transform: none;
 }
 
-.methodSection[data-reduced-motion='true'] .deckStage { inset: auto; margin-top: 4rem; position: relative; }
+.composite {
+  margin-top: 2.75rem;
+}
 
-.methodSection[data-reduced-motion='true'] .deck {
+.stepLabel {
+  color: var(--method-lead);
+  font-size: 0.6rem;
+  margin: 0;
+}
+
+.verb {
+  font-size: clamp(3rem, 5.6vw, 5.6rem);
+  font-weight: 400;
+  letter-spacing: -0.075em;
+  line-height: 1;
+  margin: 0.7rem 0 0;
+  white-space: nowrap;
+}
+
+.stepHead {
+  font-size: 1.05rem;
+  font-weight: 500;
+  margin: 1.3rem 0 0;
+}
+
+.stepCopy {
+  color: #9aa8a4;
+  font-size: 0.88rem;
+  line-height: 1.85;
+  margin: 0.55rem 0 0;
+  max-width: 28rem;
+}
+
+.stepOutput {
+  border-top: 1px solid rgb(var(--method-accent-rgb) / 18%);
+  font-size: 0.8rem;
+  margin: 0.9rem 0 0;
+  max-width: 28rem;
+  padding-top: 0.8rem;
+}
+
+.stepOutput span {
+  color: var(--method-accent);
+  font-size: 0.66rem;
+  margin-right: 0.8rem;
+}
+
+/* Scene */
+.scene {
   display: grid;
-  gap: .75rem;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  height: auto;
-  left: auto;
+  min-width: 0;
+  perspective: 2600px;
+  place-items: center;
+}
+
+.methodSection[data-motion='live'] .scene {
+  padding-bottom: 12vh;
+}
+
+.methodSection[data-motion='static'] .scene {
+  align-self: start;
+  position: sticky;
+  top: 6rem;
+}
+
+.stack {
+  aspect-ratio: 1;
   position: relative;
-  top: auto;
+  transform: rotateX(58deg) rotateZ(-38deg);
+  transform-style: preserve-3d;
+  width: min(38vw, 66vh);
+}
+
+.methodSection[data-motion='static'] .stack {
+  transform: none;
+  width: min(100%, 34rem);
+}
+
+.plate {
+  background: rgb(7 14 16 / 22%);
+  border: 1px solid rgb(var(--method-accent-rgb) / 28%);
+  inset: 0;
+  position: absolute;
+  transform-style: preserve-3d;
+  transition: border-color 400ms ease;
+}
+
+.plate::before {
+  background-image: radial-gradient(rgb(var(--method-accent-rgb) / 12%) 0.6px, transparent 0.8px);
+  background-size: 12px 12px;
+  content: '';
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+.plate svg {
+  display: block;
+  height: 100%;
+  transition: opacity 450ms ease;
   width: 100%;
 }
 
-.methodSection[data-reduced-motion='true'] .methodCard {
-  height: 30rem;
-  left: auto;
-  opacity: 1;
-  position: relative;
-  top: auto;
-  transform: none !important;
-  width: auto;
+.plate[data-active='true'] {
+  border-color: rgb(var(--method-lead-rgb) / 90%);
 }
 
-.methodSection[data-reduced-motion='true'] .cardSurface { transform: none !important; }
-.methodSection[data-reduced-motion='true'] .interactionHint { display: none; }
+.plate[data-dim='true'] svg {
+  opacity: 0.44;
+}
 
-@media (max-width: 900px) and (prefers-reduced-motion: reduce) {
-  .methodSection[data-reduced-motion='true'] { padding: 7rem 1.25rem 9rem; }
-  .methodSection[data-reduced-motion='true'] .intro { margin-top: 4rem; text-align: left; }
-  .methodSection[data-reduced-motion='true'] .deck { grid-template-columns: 1fr; }
-  .methodSection[data-reduced-motion='true'] .methodCard { height: 29rem; width: 100%; }
+.methodSection[data-composite='true'] .plate {
+  border-color: transparent;
+}
+
+.methodSection[data-composite='true'] .plate:first-child {
+  border-color: rgb(var(--method-lead-rgb) / 60%);
+}
+
+.methodSection[data-composite='true'] .plate + .plate {
+  background: transparent;
+}
+
+.methodSection[data-composite='true'] .plate + .plate::before {
+  display: none;
+}
+
+.plateEdge {
+  color: var(--method-lead);
+  font-size: 0.56rem;
+  left: 0;
+  letter-spacing: 0.16em;
+  opacity: 0;
+  position: absolute;
+  top: calc(100% + 0.55rem);
+  transition: opacity 400ms ease;
+  white-space: nowrap;
+}
+
+.plate[data-active='true'] .plateEdge {
+  opacity: 1;
+}
+
+.plateTab {
+  background: rgb(5 8 11 / 60%);
+  border: 1px solid rgb(var(--method-accent-rgb) / 28%);
+  border-left: 0;
+  color: #5f706e;
+  font-size: 0.55rem;
+  left: calc(100% + 1px);
+  letter-spacing: 0.12em;
+  padding: 0.25rem 0.45rem;
+  position: absolute;
+  transition: color 400ms ease, background 400ms ease, border-color 400ms ease;
+}
+
+.plate[data-active='true'] .plateTab {
+  background: var(--method-lead);
+  border-color: var(--method-lead);
+  color: #05080b;
+}
+
+.methodSection[data-composite='true'] .plateEdge,
+.methodSection[data-composite='true'] .plateTab {
+  opacity: 0;
+}
+
+.pin {
+  background: repeating-linear-gradient(to bottom, rgb(var(--method-accent-rgb) / 55%) 0 2px, transparent 2px 6px);
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  transform-origin: 50% 0;
+  width: 1px;
+}
+
+/* Plate artwork */
+.registration {
+  fill: none;
+  stroke: rgb(var(--method-accent-rgb) / 55%);
+  stroke-width: 0.8;
+  transition: stroke 500ms ease;
+}
+
+.methodSection[data-composite='true'] .registration {
+  stroke: var(--method-lead);
+}
+
+.fieldPoint,
+.fieldScoped {
+  fill: var(--method-accent);
+}
+
+.fieldPoint {
+  opacity: 0.38;
+}
+
+.fieldScoped {
+  opacity: 0.95;
+}
+
+.crop,
+.prototypeFrame,
+.ring,
+.route,
+.flow,
+.ping {
+  fill: none;
+}
+
+.crop {
+  stroke: var(--method-lead);
+}
+
+.artLabel,
+.artLabelLead {
+  font-family: var(--font-mono, monospace);
+  font-size: 8px;
+  letter-spacing: 1.2px;
+}
+
+.artLabel {
+  fill: var(--method-accent);
+}
+
+.artLabelLead {
+  fill: var(--method-lead);
+}
+
+.prototypeFrame {
+  stroke: rgb(var(--method-lead-rgb) / 35%);
+  stroke-dasharray: 2 3;
+}
+
+.prototypePoint,
+.adopted {
+  fill: var(--method-lead);
+}
+
+.ring {
+  stroke: var(--method-lead);
+  stroke-dasharray: 1 3;
+}
+
+.route {
+  stroke: rgb(var(--method-accent-rgb) / 60%);
+}
+
+.node {
+  fill: #071012;
+  stroke: var(--method-accent);
+}
+
+.flow {
+  animation: method-flow 1.4s linear infinite;
+  stroke: var(--method-lead);
+  stroke-dasharray: 2 14;
+  stroke-width: 1.2;
+}
+
+.ping {
+  animation: method-ping 2.4s ease-out infinite;
+  stroke: rgb(var(--method-lead-rgb) / 55%);
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@keyframes method-flow {
+  to { stroke-dashoffset: -32; }
+}
+
+@keyframes method-ping {
+  0% { opacity: 1; transform: scale(0.4); }
+  100% { opacity: 0; transform: scale(1.4); }
+}
+
+/* Step index */
+.rail {
+  border-top: 1px solid rgb(var(--method-accent-rgb) / 18%);
+  display: none;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  z-index: 3;
+}
+
+.methodSection[data-motion='live'] .rail {
+  bottom: 4.5vh;
+  display: grid;
+  left: clamp(1.25rem, 5vw, 5.5rem);
+  position: absolute;
+  right: clamp(1.25rem, 5vw, 5.5rem);
+}
+
+.railButton {
+  align-items: baseline;
+  background: none;
+  border: 0;
+  color: #5f706e;
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  font-size: 0.82rem;
+  gap: 0.7rem;
+  min-height: 44px;
+  padding: 0.8rem 0 0;
+  text-align: left;
+  transition: color 300ms ease;
+}
+
+.railButton b {
+  font-size: 0.55rem;
+  font-weight: 400;
+}
+
+.railButton:hover,
+.railButton:focus-visible {
+  color: #9aa8a4;
+}
+
+.railButton:focus-visible {
+  outline: 1px solid var(--method-accent);
+  outline-offset: 4px;
+}
+
+.railButton[aria-current='step'] {
+  color: var(--ink, #f3f6f3);
+}
+
+.railButton[aria-current='step'] b,
+.railButton[data-loop='true'][aria-current='step'] {
+  color: var(--method-lead);
+}
+
+.srOnly {
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+@media (max-width: 760px) {
+  .methodSection[data-motion='live'] {
+    height: 560vh;
+  }
+
+  .stage {
+    gap: 2.5rem;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .methodSection[data-motion='live'] .stage {
+    gap: 0;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    padding-top: max(10vh, 6rem);
+  }
+
+  .methodSection[data-motion='live'] .copy {
+    display: contents;
+  }
+
+  .intro h2 {
+    font-size: 2rem;
+  }
+
+  .lead {
+    font-size: 0.78rem;
+    line-height: 1.7;
+    margin-top: 0.7rem;
+  }
+
+  .methodSection[data-motion='live'] .scene {
+    min-height: 0;
+    order: 1;
+    padding: 0;
+  }
+
+  .stack {
+    width: min(56vw, 30vh);
+  }
+
+  .methodSection[data-motion='live'] .slots {
+    height: 14.5rem;
+    margin: 0 0 11vh;
+    order: 2;
+  }
+
+  .verb {
+    font-size: 2.6rem;
+    margin-top: 0.4rem;
+  }
+
+  .stepHead {
+    font-size: 0.95rem;
+    margin-top: 0.7rem;
+  }
+
+  .stepCopy {
+    font-size: 0.8rem;
+    line-height: 1.7;
+  }
+
+  .stepOutput {
+    margin-top: 0.6rem;
+    padding-top: 0.55rem;
+  }
+
+  .plateEdge,
+  .plateTab {
+    display: none;
+  }
+
+  .methodSection[data-motion='live'] .rail {
+    bottom: 3vh;
+    grid-template-columns: repeat(5, auto);
+    justify-content: space-between;
+  }
+
+  .railButton span {
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    height: 1px;
+    overflow: hidden;
+    position: absolute;
+    white-space: nowrap;
+    width: 1px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flow,
+  .ping {
+    animation: none;
+  }
+
+  .ping {
+    opacity: 0.55;
+  }
+
+  .step,
+  .composite,
+  .plate,
+  .plate svg,
+  .registration,
+  .railButton {
+    transition: none;
+  }
 }
