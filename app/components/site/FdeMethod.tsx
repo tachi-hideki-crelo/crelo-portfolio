@@ -1,119 +1,185 @@
 'use client';
 
-import type { CSSProperties, FocusEvent, PointerEvent as ReactPointerEvent } from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useReducedMotion } from 'motion/react';
 
 import {
-  getMethodCardTimeline,
-  getMethodHoverTimeline,
-  getMethodStageTimeline,
+  createMethodPlateArt,
+  getMethodStepProgress,
+  getMethodTimeline,
+  METHOD_COMPOSITE_INDEX,
+  METHOD_PLATE_SIZE,
+  routePath,
 } from './fde-method-motion';
 import styles from './fde-method.module.css';
 
-type CSSVars = CSSProperties & Record<`--${string}`, string | number>;
-
-const processSteps = [
+const methodSteps = [
   {
     code: '01',
-    name: 'Frame',
-    jp: '課題を定義する',
-    signal: 'DISCOVERY / CONTEXT',
-    copy: '現場の声と事業の制約をつなぎ、問題点や課題点をデータを用いて定めます。',
-    output: 'Problem frame / success signal',
-    accent: '#a6ffdb',
-    accentRgb: '166 255 219',
-    glyph: 'frame',
+    en: 'Frame',
+    verb: '見極める',
+    head: '何を解くべきかを決める',
+    body: '現場の声と事業の制約を聞き取り、データで裏づけて、取り組む課題をひとつに絞ります。',
+    output: '解くべき課題と、成功の基準',
   },
   {
     code: '02',
-    name: 'Prove',
-    jp: '仮説を確かめる',
-    signal: 'PROTOTYPE / EVIDENCE',
-    copy: '小さく作って効果を検証し、仮説の成否を判断します。',
-    output: 'Working proof / decision evidence',
-    accent: '#79dcff',
-    accentRgb: '121 220 255',
-    glyph: 'prove',
+    en: 'Prove',
+    verb: '確かめる',
+    head: '小さく作って、効くかを試す',
+    body: '最小限の試作を現場で動かし、続けるか・変えるかを数字で判断します。',
+    output: '動く試作と、判断の根拠',
   },
   {
     code: '03',
-    name: 'Build',
-    jp: '使える形にする',
-    signal: 'SYSTEM / INTEGRATION',
-    copy: 'AI・ソフトウェア・連携を、運用に乗る設計へ落とし込みます。',
-    output: 'Production system / operating flow',
-    accent: '#ffc779',
-    accentRgb: '255 199 121',
-    glyph: 'build',
+    en: 'Build',
+    verb: '組み上げる',
+    head: '毎日使える仕組みにする',
+    body: 'AIやソフトウェア、既存ツールとの連携を、運用まで見据えて設計・実装します。',
+    output: '本番で動くシステム',
   },
   {
     code: '04',
-    name: 'Land',
-    jp: '現場へ届ける',
-    signal: 'ROLLOUT / ADOPTION',
-    copy: '導入後のデータ収集、その後の改善まで伴走し、業務の日々の変化にも柔軟に対応します。',
-    output: 'Field adoption / iteration loop',
-    accent: '#ff9fcb',
-    accentRgb: '255 159 203',
-    glyph: 'land',
+    en: 'Land',
+    verb: '根づかせる',
+    head: '使われ続けるまで伴走する',
+    body: '導入後の使われ方をデータで追い、改善を続けます。業務が変われば、仕組みも合わせて変えます。',
+    output: '定着と、改善のサイクル',
   },
 ] as const;
 
-function hasFinePointer(): boolean {
-  return typeof window !== 'undefined' && window.matchMedia('(pointer: fine)').matches;
+const plateArt = createMethodPlateArt();
+
+const subscribeNothing = () => () => {};
+
+function cropMarks(): string {
+  const { x0, y0, x1, y1 } = plateArt.frame;
+  const m = 14;
+  return [[x0, y0, 1, 1], [x1, y0, -1, 1], [x0, y1, 1, -1], [x1, y1, -1, -1]]
+    .map(([x, y, dx, dy]) => `M${x + dx * m} ${y} H${x} V${y + dy * m}`)
+    .join(' ');
 }
+
+const PlateArt = memo(function PlateArt({ index }: { index: number }) {
+  const { frame, center: [cx, cy] } = plateArt;
+  return (
+    <svg viewBox={`0 0 ${METHOD_PLATE_SIZE} ${METHOD_PLATE_SIZE}`} aria-hidden="true" focusable="false">
+      {plateArt.registration.map(([x, y]) => (
+        <g key={`${x}-${y}`} className={styles.registration}>
+          <circle cx={x} cy={y} r="5" />
+          <path d={`M${x - 9} ${y} H${x + 9} M${x} ${y - 9} V${y + 9}`} />
+        </g>
+      ))}
+
+      {index === 0 ? (
+        <>
+          {plateArt.field.map((point, pointIndex) => (
+            <rect
+              key={pointIndex}
+              className={point.inFrame ? styles.fieldScoped : styles.fieldPoint}
+              x={point.x - 1}
+              y={point.y - 1}
+              width="2"
+              height="2"
+            />
+          ))}
+          <path className={styles.crop} d={cropMarks()} />
+          <text className={styles.artLabelLead} x={frame.x0} y={frame.y0 - 8}>SCOPE</text>
+        </>
+      ) : null}
+
+      {index === 1 ? (
+        <>
+          <rect
+            className={styles.prototypeFrame}
+            x={frame.x0 + 14}
+            y={frame.y0 + 14}
+            width={frame.x1 - frame.x0 - 28}
+            height={frame.y1 - frame.y0 - 28}
+          />
+          {plateArt.prototype.map(([x, y]) => (
+            <rect key={`${x}-${y}`} className={styles.prototypePoint} x={x - 1.5} y={y - 1.5} width="3" height="3" />
+          ))}
+          {plateArt.rings.map((radius, ringIndex) => (
+            <circle key={radius} className={styles.ring} cx={cx} cy={cy} r={radius} style={{ strokeOpacity: 0.7 - ringIndex * 0.2 }} />
+          ))}
+          <text className={styles.artLabelLead} x={frame.x1 + 22} y={cy - 40}>TEST × 3</text>
+        </>
+      ) : null}
+
+      {index === 2 ? (
+        <>
+          {plateArt.routes.map((route, routeIndex) => (
+            <path key={routeIndex} className={styles.route} d={routePath(route)} />
+          ))}
+          {plateArt.nodes.map(([x, y]) => (
+            <rect key={`${x}-${y}`} className={styles.node} x={x - 5} y={y - 5} width="10" height="10" />
+          ))}
+          <rect className={styles.node} x={cx - 7} y={cy - 7} width="14" height="14" />
+          <text className={styles.artLabel} x="312" y="236">SYSTEM</text>
+        </>
+      ) : null}
+
+      {index === 3 ? (
+        <>
+          {plateArt.routes.map((route, routeIndex) => (
+            <path key={routeIndex} className={styles.flow} d={routePath(route)} />
+          ))}
+          {plateArt.adopted.map(([x, y]) => (
+            <rect key={`${x}-${y}`} className={styles.adopted} x={x - 1.3} y={y - 1.3} width="2.6" height="2.6" />
+          ))}
+          {plateArt.nodes.map(([x, y]) => (
+            <circle key={`${x}-${y}`} className={styles.ping} cx={x} cy={y} r="12" />
+          ))}
+          <text className={styles.artLabelLead} x="60" y="358">IN USE</text>
+        </>
+      ) : null}
+    </svg>
+  );
+});
 
 export default function FdeMethod() {
   const sectionRef = useRef<HTMLElement | null>(null);
+  const stackRef = useRef<HTMLDivElement | null>(null);
+  const plateRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const pinRefs = useRef<Array<HTMLSpanElement | null>>([]);
   const frameRef = useRef<number | null>(null);
-  const cardRefs = useRef<Array<HTMLElement | null>>([]);
-  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [view, setView] = useState({ active: 0, dimInactive: true });
   const reduceMotion = useReducedMotion() ?? false;
+  const hydrated = useSyncExternalStore(subscribeNothing, () => true, () => false);
+  // Until hydration (and whenever motion is reduced) the section renders as a
+  // static page: every step readable and the finished composite in plan view.
+  const live = hydrated && !reduceMotion;
 
   useEffect(() => {
     const section = sectionRef.current;
-    if (!section) return;
+    const stack = stackRef.current;
+    if (!section || !stack) return;
 
-    const mobileQuery = window.matchMedia('(max-width: 900px)');
     const update = () => {
       frameRef.current = null;
-      const viewportWidth = window.innerWidth;
-      const mobile = mobileQuery.matches;
-      section.dataset.layout = mobile ? 'stack' : reduceMotion ? 'static' : 'deck';
-
-      if (mobile) {
-        section.dataset.methodProgress = '1.0000';
-        section.style.setProperty('--method-spread', '1');
-        section.style.setProperty('--method-atmosphere', '1');
-        return;
-      }
-
-      const rect = section.getBoundingClientRect();
       const travel = Math.max(section.offsetHeight - window.innerHeight, 1);
-      const progress = reduceMotion ? 1 : Math.min(Math.max(-rect.top / travel, 0), 1);
-      const stage = getMethodStageTimeline(progress, reduceMotion);
-      section.dataset.methodProgress = stage.progress.toFixed(4);
-      section.style.setProperty('--method-spread', stage.spread.toFixed(4));
-      section.style.setProperty('--method-atmosphere', stage.atmosphere.toFixed(4));
-      section.style.setProperty('--method-settle', stage.settle.toFixed(4));
+      const progress = live ? -section.getBoundingClientRect().top / travel : 1;
+      const timeline = getMethodTimeline(progress, stack.clientWidth, !live);
 
-      cardRefs.current.forEach((card, index) => {
-        if (!card) return;
-        const timeline = getMethodCardTimeline({
-          progress,
-          index,
-          viewportWidth,
-          reduceMotion,
-        });
-        card.style.setProperty('--method-x', `${timeline.x.toFixed(3)}px`);
-        card.style.setProperty('--method-y', `${timeline.y.toFixed(3)}px`);
-        card.style.setProperty('--method-z', `${timeline.z.toFixed(3)}px`);
-        card.style.setProperty('--method-rotate', `${timeline.rotate.toFixed(3)}deg`);
-        card.style.setProperty('--method-yaw', `${timeline.yaw.toFixed(3)}deg`);
-        card.style.setProperty('--method-counter-yaw', activeIndex === index ? `${(-timeline.yaw * 0.86).toFixed(3)}deg` : '0deg');
-        card.style.setProperty('--method-card-opacity', timeline.opacity.toFixed(4));
+      stack.style.transform = `rotateX(${timeline.tilt.x.toFixed(2)}deg) rotateZ(${timeline.tilt.z.toFixed(2)}deg) scale(${timeline.tilt.scale.toFixed(3)})`;
+      timeline.plates.forEach((plate, index) => {
+        const node = plateRefs.current[index];
+        if (!node) return;
+        node.style.transform = `translateZ(${plate.z.toFixed(1)}px)`;
+        node.style.opacity = plate.opacity.toFixed(3);
       });
+      pinRefs.current.forEach((pin) => {
+        if (!pin) return;
+        pin.style.height = `${timeline.pin.length.toFixed(1)}px`;
+        pin.style.transform = `translateZ(${timeline.pin.z.toFixed(1)}px) rotateX(90deg)`;
+        pin.style.opacity = timeline.pin.visible ? '1' : '0';
+      });
+      setView((current) => (
+        current.active === timeline.active && current.dimInactive === timeline.dimInactive
+          ? current
+          : { active: timeline.active, dimInactive: timeline.dimInactive }
+      ));
     };
 
     const requestUpdate = () => {
@@ -121,83 +187,30 @@ export default function FdeMethod() {
       frameRef.current = window.requestAnimationFrame(update);
     };
 
-    requestUpdate();
+    update();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(requestUpdate);
+    observer?.observe(stack);
     window.addEventListener('scroll', requestUpdate, { passive: true });
     window.addEventListener('resize', requestUpdate, { passive: true });
-    mobileQuery.addEventListener('change', requestUpdate);
     return () => {
+      observer?.disconnect();
       window.removeEventListener('scroll', requestUpdate);
       window.removeEventListener('resize', requestUpdate);
-      mobileQuery.removeEventListener('change', requestUpdate);
       if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
+      frameRef.current = null;
     };
-  }, [activeIndex, reduceMotion]);
+  }, [live]);
 
-  useEffect(() => {
-    const cards = cardRefs.current.filter((card): card is HTMLElement => Boolean(card));
-    if (reduceMotion || typeof IntersectionObserver === 'undefined') {
-      cards.forEach((card) => { card.dataset.inview = 'true'; });
-      return;
-    }
-
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) (entry.target as HTMLElement).dataset.inview = 'true';
-      });
-    }, { rootMargin: '0px 0px -8% 0px', threshold: 0.16 });
-    cards.forEach((card) => observer.observe(card));
-    return () => observer.disconnect();
+  const jumpTo = useCallback((index: number) => {
+    const section = sectionRef.current;
+    if (!section) return;
+    const travel = Math.max(section.offsetHeight - window.innerHeight, 0);
+    const top = section.getBoundingClientRect().top + window.scrollY + getMethodStepProgress(index) * travel;
+    window.scrollTo({ top, behavior: reduceMotion ? 'auto' : 'smooth' });
   }, [reduceMotion]);
 
-  const resetPointer = useCallback((card: HTMLElement) => {
-    card.style.setProperty('--method-pointer-x', '0px');
-    card.style.setProperty('--method-pointer-y', '0px');
-    card.style.setProperty('--method-pointer-tilt-x', '0deg');
-    card.style.setProperty('--method-pointer-tilt-y', '0deg');
-    card.style.setProperty('--method-glint-x', '50%');
-    card.style.setProperty('--method-glint-y', '45%');
-  }, []);
-
-  const handlePointerEnter = useCallback((event: ReactPointerEvent<HTMLElement>, index: number) => {
-    if (event.pointerType === 'touch' || !hasFinePointer()) return;
-    setActiveIndex(index);
-  }, []);
-
-  const handlePointerMove = useCallback((event: ReactPointerEvent<HTMLElement>, index: number) => {
-    if (reduceMotion || event.pointerType === 'touch' || !hasFinePointer() || activeIndex !== index) return;
-    const card = event.currentTarget;
-    const cardRect = card.getBoundingClientRect();
-    const stage = card.closest<HTMLElement>('[data-method-deck-stage]');
-    const stageRect = stage?.getBoundingClientRect() ?? cardRect;
-    const localX = Math.min(Math.max((event.clientX - cardRect.left) / Math.max(cardRect.width, 1), 0), 1);
-    const localY = Math.min(Math.max((event.clientY - cardRect.top) / Math.max(cardRect.height, 1), 0), 1);
-    const deckX = Math.min(Math.max((event.clientX - stageRect.left) / Math.max(stageRect.width, 1), 0), 1);
-    const deckY = Math.min(Math.max((event.clientY - stageRect.top) / Math.max(stageRect.height, 1), 0), 1);
-
-    cardRefs.current.forEach((target, targetIndex) => {
-      if (!target) return;
-      const strength = targetIndex === index ? 1 : 0.34;
-      target.style.setProperty('--method-pointer-x', targetIndex === index ? `${((localX - 0.5) * 7).toFixed(3)}px` : '0px');
-      target.style.setProperty('--method-pointer-y', targetIndex === index ? `${((localY - 0.5) * 5).toFixed(3)}px` : '0px');
-      target.style.setProperty('--method-pointer-tilt-x', `${((0.5 - deckY) * 7 * strength).toFixed(3)}deg`);
-      target.style.setProperty('--method-pointer-tilt-y', `${((deckX - 0.5) * 8 * strength).toFixed(3)}deg`);
-      target.style.setProperty('--method-glint-x', `${(localX * 100).toFixed(2)}%`);
-      target.style.setProperty('--method-glint-y', `${(localY * 100).toFixed(2)}%`);
-    });
-  }, [activeIndex, reduceMotion]);
-
-  const handlePointerLeave = useCallback((event: ReactPointerEvent<HTMLElement>, index: number) => {
-    const card = event.currentTarget;
-    setActiveIndex(card.contains(document.activeElement) ? index : null);
-    cardRefs.current.forEach((target) => { if (target) resetPointer(target); });
-  }, [resetPointer]);
-
-  const handleBlur = useCallback((event: FocusEvent<HTMLElement>) => {
-    const next = event.relatedTarget as Element | null;
-    if (next?.closest('[data-method-card]')) return;
-    setActiveIndex(null);
-    cardRefs.current.forEach((card) => { if (card) resetPointer(card); });
-  }, [resetPointer]);
+  const { active, dimInactive } = view;
+  const composite = active === METHOD_COMPOSITE_INDEX;
 
   return (
     <section
@@ -205,89 +218,88 @@ export default function FdeMethod() {
       id="method"
       className={styles.methodSection}
       aria-labelledby="method-title"
-      data-reduced-motion={reduceMotion ? 'true' : 'false'}
-      data-layout="deck"
-      data-method-progress="0.0000"
+      data-motion={live ? 'live' : 'static'}
+      data-composite={composite ? 'true' : 'false'}
     >
-      <div className={styles.stickyStage}>
-        <div className={styles.atmosphere} aria-hidden="true">
-          <span className={styles.atmosphereGrid} />
-          <span className={styles.atmosphereBeam} />
-          <span className={styles.atmosphereCore} />
-        </div>
+      <div className={styles.stage}>
+        <div className={styles.copy}>
+          <header className={styles.intro}>
+            <p className={styles.eyebrow}>03 / HOW I WORK</p>
+            <h2 id="method-title">進め方</h2>
+            <p className={styles.lead}>
+              作って納品するだけでは、現場は変わりません。何を解くべきかを決めるところから、使われ続けるところまで。4つのステップを一貫して担当します。
+            </p>
+          </header>
 
-        <div className={`section-marker ${styles.marker}`}><span>03</span><span>FDE METHOD / FIELD LOOP</span></div>
-
-        <header className={styles.intro}>
-          <p className="eyebrow eyebrow--mint">From ambiguity to adoption</p>
-          <h2 id="method-title" className={styles.title}>
-            <span>Frame</span><i aria-hidden="true">→</i><span>Prove</span><i aria-hidden="true">→</i><span>Build</span><i aria-hidden="true">→</i><span>Land</span>
-          </h2>
-          <p>納品して終わりではなく、実際の現場で使われ続けるところまで。<br />4つのFlowで、変化、改善まで担当します。</p>
-        </header>
-
-        <div className={styles.deckStage} data-method-deck-stage>
-          <span className={styles.deckAxis} aria-hidden="true" />
-          <div className={styles.deck} aria-label="FDE process">
-            {processSteps.map((step, index) => {
-              const hover = getMethodHoverTimeline(index, activeIndex);
-              const cardStyle: CSSVars = {
-                '--method-index': index,
-                '--method-accent': step.accent,
-                '--method-accent-rgb': step.accentRgb,
-                '--method-hover-x': `${hover.pushX}px`,
-                '--method-hover-y': `${hover.liftY}px`,
-                '--method-hover-z': `${hover.liftZ}px`,
-                '--method-hover-scale': hover.scale,
-                '--method-hover-opacity': hover.opacity,
-              };
-
-              return (
-                <article
-                  ref={(node) => { cardRefs.current[index] = node; }}
-                  className={styles.methodCard}
-                  key={step.name}
-                  data-method-card
-                  data-method-index={index}
-                  data-method-active={activeIndex === index ? 'true' : 'false'}
-                  data-inview="false"
-                  style={cardStyle}
-                  tabIndex={0}
-                  aria-labelledby={`method-step-${index}`}
-                  onPointerEnter={(event) => handlePointerEnter(event, index)}
-                  onPointerMove={(event) => handlePointerMove(event, index)}
-                  onPointerLeave={(event) => handlePointerLeave(event, index)}
-                  onFocus={() => setActiveIndex(index)}
-                  onBlur={handleBlur}
-                >
-                  <div className={styles.cardSurface}>
-                    <span className={styles.cardGlint} aria-hidden="true" />
-                    <span className={styles.cardScan} aria-hidden="true" />
-                    <div className={styles.cardTopline}>
-                      <span>FIELD / {step.code}</span>
-                      <span>{step.signal}</span>
-                    </div>
-                    <div className={`${styles.cardSigil} ${styles[`cardSigil--${step.glyph}`]}`} aria-hidden="true">
-                      <span /><span /><span /><span />
-                    </div>
-                    <div className={styles.cardCopy}>
-                      <p className={styles.cardPhase}>PHASE {step.code}</p>
-                      <h3 id={`method-step-${index}`}>{step.name}</h3>
-                      <p className={styles.cardJapanese}>{step.jp}</p>
-                      <p className={styles.cardDescription}>{step.copy}</p>
-                    </div>
-                    <div className={styles.cardOutput}>
-                      <span>OUTPUT</span>
-                      <strong>{step.output}</strong>
-                    </div>
-                    <span className={styles.cardCorner} aria-hidden="true">+</span>
-                  </div>
-                </article>
-              );
-            })}
+          <div className={styles.slots}>
+            <ol className={styles.steps}>
+              {methodSteps.map((step, index) => (
+                <li key={step.code} className={styles.step} data-active={active === index ? 'true' : 'false'}>
+                  <p className={styles.stepLabel}>PLATE {step.code} / <span lang="en">{step.en.toUpperCase()}</span></p>
+                  <h3 className={styles.verb}>{step.verb}</h3>
+                  <p className={styles.stepHead}>{step.head}</p>
+                  <p className={styles.stepCopy}>{step.body}</p>
+                  <p className={styles.stepOutput}><span>成果物</span>{step.output}</p>
+                </li>
+              ))}
+            </ol>
+            <div className={styles.composite} data-active={composite ? 'true' : 'false'}>
+              <p className={styles.stepLabel}>COMPOSITE / 4 PLATES</p>
+              <p className={styles.verb}>一枚の仕組みに。</p>
+              <p className={styles.stepHead}>4枚が重なって、現場で動く完成図になる</p>
+              <p className={styles.stepCopy}>使われ方から見えてきた次の課題は、新しい 01 の版として、また見極めるところから始めます。</p>
+            </div>
           </div>
-          <p className={styles.interactionHint} aria-hidden="true"><span>SCROLL TO ORCHESTRATE</span><span>HOVER / FOCUS TO INSPECT</span></p>
         </div>
+
+        <div className={styles.scene} aria-hidden="true">
+          <div ref={stackRef} className={styles.stack}>
+            {methodSteps.map((step, index) => (
+              <div
+                key={step.code}
+                ref={(node) => { plateRefs.current[index] = node; }}
+                className={styles.plate}
+                data-active={active === index ? 'true' : 'false'}
+                data-dim={dimInactive && active !== index ? 'true' : 'false'}
+              >
+                <PlateArt index={index} />
+                <span className={styles.plateEdge}>PLATE {step.code} — {step.en.toUpperCase()} / {step.verb}</span>
+                <span className={styles.plateTab} style={{ top: `${8 + index * 9}%` }}>{step.code}</span>
+              </div>
+            ))}
+            {[[4, 4], [96, 4], [4, 96], [96, 96]].map(([x, y], index) => (
+              <span
+                key={`${x}-${y}`}
+                ref={(node) => { pinRefs.current[index] = node; }}
+                className={styles.pin}
+                style={{ left: `${x}%`, top: `${y}%` }}
+              />
+            ))}
+          </div>
+        </div>
+
+        <nav className={styles.rail} aria-label="進め方のステップ">
+          {methodSteps.map((step, index) => (
+            <button
+              key={step.code}
+              type="button"
+              className={styles.railButton}
+              aria-current={active === index ? 'step' : undefined}
+              onClick={() => jumpTo(index)}
+            >
+              <b>{step.code}</b><span>{step.verb}</span>
+            </button>
+          ))}
+          <button
+            type="button"
+            className={styles.railButton}
+            data-loop="true"
+            aria-current={composite ? 'step' : undefined}
+            onClick={() => jumpTo(METHOD_COMPOSITE_INDEX)}
+          >
+            <b aria-hidden="true">↻ 01</b><span className={styles.srOnly}>完成図</span>
+          </button>
+        </nav>
       </div>
     </section>
   );

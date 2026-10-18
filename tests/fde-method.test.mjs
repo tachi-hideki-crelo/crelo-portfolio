@@ -3,89 +3,124 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
-  getMethodCardTimeline,
-  getMethodHoverTimeline,
-  getMethodStageTimeline,
-  METHOD_SPREAD_END,
-  METHOD_SPREAD_START,
+  createMethodPlateArt,
+  createSeededRandom,
+  getMethodStepProgress,
+  getMethodTimeline,
+  METHOD_COMPOSITE_INDEX,
+  METHOD_PLATE_SIZE,
+  METHOD_STEP_COUNT,
+  routePath,
 } from '../app/components/site/fde-method-motion.ts';
 
 const homeSource = readFileSync(new URL('../app/components/site/HomeExperience.tsx', import.meta.url), 'utf8');
 const methodSource = readFileSync(new URL('../app/components/site/FdeMethod.tsx', import.meta.url), 'utf8');
 const methodStyles = readFileSync(new URL('../app/components/site/fde-method.module.css', import.meta.url), 'utf8');
 
-test('FDE method spread timeline is bounded, gradual, and deterministic', () => {
-  const initial = getMethodStageTimeline(0);
-  const beforeStart = getMethodStageTimeline(METHOD_SPREAD_START - 0.001);
-  const middle = getMethodStageTimeline((METHOD_SPREAD_START + METHOD_SPREAD_END) / 2);
-  const complete = getMethodStageTimeline(METHOD_SPREAD_END);
-  const settled = getMethodStageTimeline(0.92);
+const PLATE_WIDTH = 560;
 
-  assert.equal(initial.spread, 0);
-  assert.equal(beforeStart.spread, 0);
-  assert.ok(middle.spread > 0 && middle.spread < 1);
-  assert.equal(complete.spread, 1);
-  assert.equal(settled.settle, 1);
+test('plate art is deterministic and stays inside the shared plate', () => {
+  const first = createMethodPlateArt();
+  assert.deepEqual(first, createMethodPlateArt());
 
-  const samples = Array.from({ length: 101 }, (_, index) => getMethodStageTimeline(index / 100).spread);
-  samples.slice(1).forEach((value, index) => assert.ok(value >= samples[index]));
+  const inside = ([x, y]) => x >= 0 && x <= METHOD_PLATE_SIZE && y >= 0 && y <= METHOD_PLATE_SIZE;
+  first.field.forEach(({ x, y }) => assert.ok(inside([x, y])));
+  first.nodes.forEach((node) => assert.ok(inside(node)));
+  first.routes.flat().forEach((point) => assert.ok(inside(point)));
+  assert.equal(first.registration.length, 4);
+
+  const random = createSeededRandom(3);
+  for (let index = 0; index < 20; index += 1) {
+    const value = random();
+    assert.ok(value > 0 && value < 1);
+  }
 });
 
-test('FDE cards begin centrally and finish in a symmetric four-card fan', () => {
-  const start = Array.from({ length: 4 }, (_, index) => getMethodCardTimeline({
-    progress: 0,
-    index,
-    viewportWidth: 1440,
+test('plate art registers: the scope, prototype and routes share one centre', () => {
+  const art = createMethodPlateArt();
+  const [cx, cy] = art.center;
+  assert.ok(art.field.some((point) => point.inFrame));
+  assert.ok(art.field.some((point) => !point.inFrame));
+  art.prototype.forEach(([x, y]) => {
+    assert.ok(x > art.frame.x0 && x < art.frame.x1);
+    assert.ok(y > art.frame.y0 && y < art.frame.y1);
+  });
+  art.routes.forEach((route) => assert.deepEqual(route[0], [cx, cy]));
+  // Every route is orthogonal.
+  art.routes.forEach((route) => route.slice(1).forEach(([x, y], index) => {
+    const [px, py] = route[index];
+    assert.ok(x === px || y === py);
   }));
-  const end = Array.from({ length: 4 }, (_, index) => getMethodCardTimeline({
-    progress: 1,
-    index,
-    viewportWidth: 1440,
-  }));
-
-  assert.ok(Math.max(...start.map((card) => Math.abs(card.x))) < 20);
-  assert.ok(end[0].x < end[1].x && end[1].x < 0);
-  assert.ok(end[3].x > end[2].x && end[2].x > 0);
-  assert.ok(Math.abs(end[0].x + end[3].x) < Number.EPSILON);
-  assert.ok(Math.abs(end[1].x + end[2].x) < Number.EPSILON);
-  assert.ok(end[0].yaw > 0 && end[3].yaw < 0);
-
-  const clampedLow = getMethodCardTimeline({ progress: 1, index: -10, viewportWidth: 1440 });
-  const clampedHigh = getMethodCardTimeline({ progress: 1, index: 99, viewportWidth: 1440 });
-  assert.equal(clampedLow.x, end[0].x);
-  assert.equal(clampedHigh.x, end[3].x);
+  // Adoption only lights field points outside the original scope.
+  assert.ok(art.adopted.length > 0);
+  art.adopted.forEach(([x, y]) => assert.ok(!(x > art.frame.x0 && x < art.frame.x1 && y > art.frame.y0 && y < art.frame.y1)));
+  assert.equal(routePath([[0, 0], [10, 0]]), 'M0 0 L10 0');
 });
 
-test('FDE method hover lifts the target and softly separates siblings', () => {
-  const neutral = getMethodHoverTimeline(2, null);
-  const active = getMethodHoverTimeline(2, 2);
-  const leftSibling = getMethodHoverTimeline(1, 2);
-  const rightSibling = getMethodHoverTimeline(3, 2);
+test('timeline drops plates in order, then collapses and turns to plan view', () => {
+  const start = getMethodTimeline(0, PLATE_WIDTH);
+  assert.equal(start.active, 0);
+  assert.ok(start.plates[0].opacity > 0.9);
+  assert.equal(start.plates[1].opacity, 0);
+  assert.equal(start.plan, 0);
+  assert.equal(start.tilt.x, 58);
 
-  assert.deepEqual(neutral, { pushX: 0, liftY: 0, liftZ: 0, scale: 1, opacity: 1 });
-  assert.ok(active.liftY < 0);
-  assert.ok(active.liftZ > 0);
-  assert.ok(active.scale > 1);
-  assert.ok(leftSibling.pushX < 0);
-  assert.ok(rightSibling.pushX > 0);
-  assert.ok(leftSibling.opacity < active.opacity);
+  for (let step = 0; step < METHOD_STEP_COUNT; step += 1) {
+    const hold = getMethodTimeline(getMethodStepProgress(step), PLATE_WIDTH);
+    assert.equal(hold.active, step);
+    assert.equal(hold.composite, false);
+    assert.ok(hold.plates.slice(0, step + 1).every((plate) => plate.arrived));
+    // The active plate is lifted above where it would rest.
+    const rest = (step - (METHOD_STEP_COUNT - 1) / 2) * PLATE_WIDTH * 0.156;
+    assert.ok(hold.plates[step].z > rest);
+  }
+
+  const end = getMethodTimeline(1, PLATE_WIDTH);
+  assert.equal(end.active, METHOD_COMPOSITE_INDEX);
+  assert.equal(end.composite, true);
+  assert.equal(end.collapse, 1);
+  assert.equal(end.plan, 1);
+  assert.equal(end.tilt.x, 0);
+  assert.equal(end.pin.visible, false);
+  end.plates.forEach((plate) => {
+    assert.equal(plate.z, 0);
+    assert.equal(plate.opacity, 1);
+  });
 });
 
-test('FDE method uses a sticky desktop deck with accessible mobile and reduced-motion fallbacks', () => {
+test('timeline is monotonic in arrival and bounded for any input', () => {
+  let previous = getMethodTimeline(0, PLATE_WIDTH);
+  for (let sample = 1; sample <= 200; sample += 1) {
+    const current = getMethodTimeline(sample / 200, PLATE_WIDTH);
+    assert.ok(current.active >= previous.active);
+    assert.ok(current.plan >= previous.plan);
+    current.plates.forEach((plate, index) => assert.ok(plate.opacity >= previous.plates[index].opacity));
+    previous = current;
+  }
+  assert.deepEqual(getMethodTimeline(-5, PLATE_WIDTH), getMethodTimeline(0, PLATE_WIDTH));
+  assert.deepEqual(getMethodTimeline(9, PLATE_WIDTH), getMethodTimeline(1, PLATE_WIDTH));
+  assert.equal(getMethodTimeline(0, PLATE_WIDTH, true).composite, true);
+  assert.equal(getMethodStepProgress(METHOD_COMPOSITE_INDEX), 1);
+  assert.equal(getMethodStepProgress(-3), getMethodStepProgress(0));
+});
+
+test('method section ships the plates with plain copy and static fallbacks', () => {
   assert.match(homeSource, /<FdeMethod \/>/);
-  assert.match(methodSource, /納品して終わりではなく、実際の現場で使われ続けるところまで。<br \/>4つのFlowで、変化、改善まで担当します。/);
-  assert.match(methodSource, /現場の声と事業の制約をつなぎ、問題点や課題点をデータを用いて定めます。/);
-  assert.match(methodSource, /小さく作って効果を検証し、仮説の成否を判断します。/);
-  assert.match(methodSource, /導入後のデータ収集、その後の改善まで伴走し、業務の日々の変化にも柔軟に対応します。/);
-  assert.match(methodSource, /requestAnimationFrame/);
+  assert.match(methodSource, /03 \/ HOW I WORK/);
+  assert.match(methodSource, /<h2 id="method-title">進め方<\/h2>/);
+  assert.match(methodSource, /作って納品するだけでは、現場は変わりません。/);
+  ['見極める', '確かめる', '組み上げる', '根づかせる', '一枚の仕組みに。'].forEach((text) => assert.match(methodSource, new RegExp(text)));
+  assert.doesNotMatch(methodSource, /FIELD LOOP|4つのFlow/);
+  assert.match(methodSource, /<ol className=\{styles\.steps\}>/);
+  assert.match(methodSource, /className=\{styles\.scene\} aria-hidden="true"/);
+  assert.match(methodSource, /aria-current=\{active === index \? 'step' : undefined\}/);
   assert.match(methodSource, /useReducedMotion/);
-  assert.match(methodSource, /tabIndex=\{0\}/);
-  assert.match(methodSource, /onFocus=\{\(\) => setActiveIndex\(index\)\}/);
-  assert.match(methodSource, /onPointerLeave=\{\(event\) => handlePointerLeave\(event, index\)\}/);
-  assert.doesNotMatch(methodSource, /data-method-deck-stage onPointerLeave/);
-  assert.match(methodStyles, /\.methodSection \{[\s\S]*min-height: 300vh/);
-  assert.match(methodStyles, /\.stickyStage \{[\s\S]*position: sticky/);
-  assert.match(methodStyles, /@media \(max-width: 900px\)[\s\S]*\.methodCard \{[\s\S]*transform: none !important/);
-  assert.match(methodStyles, /\.methodSection\[data-reduced-motion='true'\][\s\S]*min-height: auto/);
-  assert.match(methodStyles, /\.methodCard:focus-visible \.cardSurface/);
+  assert.match(methodSource, /useSyncExternalStore/);
+  assert.match(methodSource, /data-motion=\{live \? 'live' : 'static'\}/);
+  // Sticky scroll stage only while motion is live; static stays a normal page.
+  assert.match(methodStyles, /\.methodSection\[data-motion='live'\] \{\s*height: 620vh;/);
+  assert.match(methodStyles, /\.methodSection\[data-motion='live'\] \.stage \{[\s\S]*position: sticky/);
+  assert.match(methodStyles, /\.methodSection\[data-motion='live'\] \.step,[\s\S]*opacity: 0/);
+  assert.match(methodStyles, /@media \(max-width: 760px\)/);
+  assert.match(methodStyles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*animation: none/);
 });
