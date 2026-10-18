@@ -8,17 +8,15 @@ const WORKFLOW_URL = new URL('../.github/workflows/pullfrog.yml', import.meta.ur
 
 const EXPECTED_ACTIONS = {
   checkout: 'actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803',
-  pullfrog: 'pullfrog/pullfrog@ad4283a862b8377cb525a0f5bf30f17c023b18ea',
+  pullfrog: 'tachi-hideki-crelo/pullfrog-security@5fd66c952a0c1abd5ce9fb8afec3d93c04bbc2c7',
 };
 
 const EXPECTED_AGENT_ENV = {
   PULLFROG_FORCE_LOCAL_CLI: '1',
 };
 
-// The reviewed upstream Pullfrog 0.1.98 source still reports 17 unresolved
-// advisories (6 high). Keep this local workflow disabled until a reviewed
-// upstream release is validated and an intentional resume review is recorded.
-const EXPECTED_PAUSE_EXPRESSION = '${{ false }}';
+const EXPECTED_RUN_EXPRESSION = "${{ github.repository == 'tachi-hideki-crelo/crelo-portfolio' && github.ref == 'refs/heads/main' }}";
+const EXPECTED_CONCURRENCY_GROUP = 'pullfrog-review-${{ github.repository }}-${{ fromJSON(inputs.prompt).event.issue_number || github.run_id }}';
 
 const isRecord = (value) => (
   value !== null
@@ -84,16 +82,22 @@ function requireWorkflowShape(workflow) {
   const jobs = requireRecord(workflow.jobs, 'jobs');
   requireExactKeys(jobs, ['pullfrog'], 'jobs');
   const job = requireRecord(jobs.pullfrog, 'jobs.pullfrog');
-  requireExactKeys(job, ['if', 'runs-on', 'permissions', 'steps'], 'jobs.pullfrog');
-  requireEqual(job.if, EXPECTED_PAUSE_EXPRESSION, 'jobs.pullfrog.if');
+  requireExactKeys(job, ['if', 'runs-on', 'timeout-minutes', 'concurrency', 'permissions', 'steps'], 'jobs.pullfrog');
+  requireEqual(job.if, EXPECTED_RUN_EXPRESSION, 'jobs.pullfrog.if');
   requireEqual(job['runs-on'], 'ubuntu-latest', 'jobs.pullfrog.runs-on');
+  requireEqual(job['timeout-minutes'], 20, 'jobs.pullfrog.timeout-minutes');
+  const concurrency = requireRecord(job.concurrency, 'jobs.pullfrog.concurrency');
+  requireExactKeys(concurrency, ['group', 'cancel-in-progress'], 'jobs.pullfrog.concurrency');
+  requireEqual(concurrency.group, EXPECTED_CONCURRENCY_GROUP, 'jobs.pullfrog.concurrency.group');
+  requireEqual(concurrency['cancel-in-progress'], false, 'jobs.pullfrog.concurrency.cancel-in-progress');
 
   const jobPermissions = requireRecord(job.permissions, 'jobs.pullfrog.permissions');
-  requireExactKeys(jobPermissions, ['contents'], 'jobs.pullfrog.permissions');
+  requireExactKeys(jobPermissions, ['contents', 'id-token'], 'jobs.pullfrog.permissions');
   requireEqual(jobPermissions.contents, 'read', 'jobs.pullfrog.permissions.contents');
+  requireEqual(jobPermissions['id-token'], 'write', 'jobs.pullfrog.permissions.id-token');
 
-  if (!Array.isArray(job.steps) || job.steps.length !== 2) {
-    throw policyError('jobs.pullfrog.steps', 'expected exactly the checkout and Pullfrog steps');
+  if (!Array.isArray(job.steps) || job.steps.length !== 3) {
+    throw policyError('jobs.pullfrog.steps', 'expected exactly checkout, dispatch validation and Pullfrog');
   }
 
   const checkout = requireRecord(job.steps[0], 'jobs.pullfrog.steps[0]');
@@ -105,23 +109,34 @@ function requireWorkflowShape(workflow) {
   requireEqual(checkoutWith['fetch-depth'], 1, 'jobs.pullfrog.steps[0].with.fetch-depth');
   requireEqual(checkoutWith['persist-credentials'], false, 'jobs.pullfrog.steps[0].with.persist-credentials');
 
-  const agent = requireRecord(job.steps[1], 'jobs.pullfrog.steps[1]');
-  requireExactKeys(agent, ['name', 'uses', 'with', 'env'], 'jobs.pullfrog.steps[1]');
-  requireEqual(agent.name, 'Run agent', 'jobs.pullfrog.steps[1].name');
-  requireEqual(agent.uses, EXPECTED_ACTIONS.pullfrog, 'jobs.pullfrog.steps[1].uses');
-  const agentWith = requireRecord(agent.with, 'jobs.pullfrog.steps[1].with');
-  requireExactKeys(agentWith, ['prompt', 'push', 'shell'], 'jobs.pullfrog.steps[1].with');
-  requireEqual(agentWith.push, 'restricted', 'jobs.pullfrog.steps[1].with.push');
-  requireEqual(agentWith.shell, 'restricted', 'jobs.pullfrog.steps[1].with.shell');
-  requireEqual(agentWith.prompt, '${{ inputs.prompt }}', 'jobs.pullfrog.steps[1].with.prompt');
+  const guard = requireRecord(job.steps[1], 'jobs.pullfrog.steps[1]');
+  requireExactKeys(guard, ['name', 'run', 'env'], 'jobs.pullfrog.steps[1]');
+  requireEqual(guard.name, 'Validate review dispatch', 'jobs.pullfrog.steps[1].name');
+  requireEqual(guard.run, 'node scripts/validate-pullfrog-dispatch.mjs', 'jobs.pullfrog.steps[1].run');
+  const guardEnv = requireRecord(guard.env, 'jobs.pullfrog.steps[1].env');
+  requireExactKeys(guardEnv, ['PULLFROG_DISPATCH'], 'jobs.pullfrog.steps[1].env');
+  requireEqual(guardEnv.PULLFROG_DISPATCH, '${{ inputs.prompt }}', 'jobs.pullfrog.steps[1].env.PULLFROG_DISPATCH');
 
-  const env = requireRecord(agent.env, 'jobs.pullfrog.steps[1].env');
-  requireExactKeys(env, Object.keys(EXPECTED_AGENT_ENV), 'jobs.pullfrog.steps[1].env');
+  const agent = requireRecord(job.steps[2], 'jobs.pullfrog.steps[2]');
+  requireExactKeys(agent, ['name', 'uses', 'with', 'env'], 'jobs.pullfrog.steps[2]');
+  requireEqual(agent.name, 'Run agent', 'jobs.pullfrog.steps[2].name');
+  requireEqual(agent.uses, EXPECTED_ACTIONS.pullfrog, 'jobs.pullfrog.steps[2].uses');
+  const agentWith = requireRecord(agent.with, 'jobs.pullfrog.steps[2].with');
+  requireExactKeys(agentWith, ['prompt', 'push', 'shell', 'model', 'effort', 'timeout'], 'jobs.pullfrog.steps[2].with');
+  requireEqual(agentWith.push, 'disabled', 'jobs.pullfrog.steps[2].with.push');
+  requireEqual(agentWith.shell, 'restricted', 'jobs.pullfrog.steps[2].with.shell');
+  requireEqual(agentWith.model, 'openai/gpt-luna', 'jobs.pullfrog.steps[2].with.model');
+  requireEqual(agentWith.effort, 'high', 'jobs.pullfrog.steps[2].with.effort');
+  requireEqual(agentWith.timeout, '15m', 'jobs.pullfrog.steps[2].with.timeout');
+  requireEqual(agentWith.prompt, '${{ inputs.prompt }}', 'jobs.pullfrog.steps[2].with.prompt');
+
+  const env = requireRecord(agent.env, 'jobs.pullfrog.steps[2].env');
+  requireExactKeys(env, Object.keys(EXPECTED_AGENT_ENV), 'jobs.pullfrog.steps[2].env');
   for (const [envName, expectedValue] of Object.entries(EXPECTED_AGENT_ENV)) {
     requireEqual(
       env[envName],
       expectedValue,
-      `jobs.pullfrog.steps[1].env.${envName}`,
+      `jobs.pullfrog.steps[2].env.${envName}`,
     );
   }
 

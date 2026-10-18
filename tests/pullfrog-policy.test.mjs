@@ -2,161 +2,128 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
+import yaml from 'js-yaml';
+
 import { assertPullfrogWorkflowPolicy } from '../scripts/validate-pullfrog-policy.mjs';
 
 const workflow = readFileSync(new URL('../.github/workflows/pullfrog.yml', import.meta.url), 'utf8');
+const parse = () => yaml.load(workflow, { schema: yaml.JSON_SCHEMA });
+const rejectMutation = (mutate) => {
+  const config = parse();
+  mutate(config);
+  assert.throws(() => assertPullfrogWorkflowPolicy(yaml.dump(config)));
+};
 
-test('Pullfrog workflow satisfies the fail-closed security policy', () => {
+test('Pullfrog workflow satisfies the reviewed fail-closed PR-only policy', () => {
   assert.doesNotThrow(() => assertPullfrogWorkflowPolicy(workflow));
+  assert.doesNotThrow(() => assertPullfrogWorkflowPolicy(yaml.dump(parse())));
 });
 
 test('rejects block, flow-map, quoted, and array-valued extra triggers', () => {
   const fixtures = [
-    workflow.replace(
-      /^  workflow_dispatch:/m,
-      '  pull_request: {}\n  workflow_dispatch:',
-    ),
-    workflow.replace(
-      /^on:\n[\s\S]*?(?=^permissions:)/m,
-      'on: { workflow_dispatch: {}, pull_request: {} }\n\n',
-    ),
-    workflow.replace(
-      /^  workflow_dispatch:/m,
-      "  'pull_request': {}\n  workflow_dispatch:",
-    ),
-    workflow.replace(
-      /^on:\n[\s\S]*?(?=^permissions:)/m,
-      'on: [workflow_dispatch, pull_request]\n\n',
-    ),
+    workflow.replace(/^  workflow_dispatch:/m, '  pull_request_target: {}\n  workflow_dispatch:'),
+    workflow.replace(/^on:\n[\s\S]*?(?=^permissions:)/m,
+      'on: { workflow_dispatch: {}, pull_request: {} }\n\n'),
+    workflow.replace(/^  workflow_dispatch:/m, "  'pull_request': {}\n  workflow_dispatch:"),
+    workflow.replace(/^on:\n[\s\S]*?(?=^permissions:)/m,
+      'on: [workflow_dispatch, pull_request]\n\n'),
   ];
+  for (const fixture of fixtures) assert.throws(() => assertPullfrogWorkflowPolicy(fixture));
+});
 
-  for (const fixture of fixtures) {
-    assert.throws(() => assertPullfrogWorkflowPolicy(fixture));
+test('rejects nested triggers, injected jobs and unreviewed steps or inputs', () => {
+  for (const mutate of [
+    (c) => { c.jobs.pullfrog.env = { on: 'push' }; },
+    (c) => { c.jobs.other = c.jobs.pullfrog; },
+    (c) => { c.on.workflow_dispatch.inputs.command = { type: 'string' }; },
+    (c) => { c.jobs.pullfrog.steps.push({ run: 'unreviewed-command' }); },
+    (c) => { c.jobs.pullfrog.steps[2].with.inputs = { push: 'enabled' }; },
+  ]) rejectMutation(mutate);
+});
+
+test('rejects provider secrets, broad credentials and runtime URL overrides', () => {
+  for (const name of ['OPENAI_API_KEY', 'CODEX_AUTH_JSON', 'ANTHROPIC_API_KEY',
+    'GH_TOKEN', 'GITHUB_TOKEN', 'ACTIONS_RUNTIME_TOKEN', 'API_URL', 'NODE_OPTIONS']) {
+    rejectMutation((c) => { c.jobs.pullfrog.steps[2].env[name] = '${{ secrets.SYNTHETIC }}'; });
   }
 });
 
-test('rejects nested trigger or environment keys that could bypass the reviewed boundary', () => {
-  const nestedOn = workflow.replace(
-    /^  pullfrog:\n/m,
-    '  pullfrog:\n    env:\n      on: push\n',
-  );
-  const nestedInput = workflow.replace(
-    /^          prompt: \$\{\{ inputs\.prompt \}\}$/m,
-    '          inputs: { push: unrestricted }\n          prompt: ${{ inputs.prompt }}',
-  );
-  const extraEnv = workflow.replace(
-    /^          PULLFROG_FORCE_LOCAL_CLI:/m,
-    '          ACTIONS_RUNTIME_TOKEN: ${{ secrets.ACTIONS_RUNTIME_TOKEN }}\n          PULLFROG_FORCE_LOCAL_CLI:',
-  );
+test('requires the exact trusted-repository and main-branch execution guard', () => {
+  for (const value of [undefined, true, 'true', '${{ always() }}', '${{ false }}',
+    "${{ github.ref == 'refs/heads/main' }}"]) {
+    rejectMutation((c) => { c.jobs.pullfrog.if = value; });
+  }
+  rejectMutation((c) => { c.jobs.pullfrog['runs-on'] = ['self-hosted']; });
+});
 
-  for (const fixture of [nestedOn, nestedInput, extraEnv]) {
-    assert.throws(() => assertPullfrogWorkflowPolicy(fixture));
+test('requires only job-scoped OIDC and read-only source access', () => {
+  rejectMutation((c) => { c.permissions['id-token'] = 'write'; });
+  rejectMutation((c) => { c.permissions.contents = 'write'; });
+  rejectMutation((c) => { c.permissions = ['contents', 'write']; });
+  rejectMutation((c) => { delete c.jobs.pullfrog.permissions['id-token']; });
+  rejectMutation((c) => { c.jobs.pullfrog.permissions.contents = 'write'; });
+  rejectMutation((c) => { c.jobs.pullfrog.permissions['pull-requests'] = 'write'; });
+});
+
+test('requires the exact patched fork commit and fixed local runtime', () => {
+  for (const uses of ['pullfrog/pullfrog@v0', 'pullfrog/pullfrog@ad4283a862b8377cb525a0f5bf30f17c023b18ea',
+    'tachi-hideki-crelo/pullfrog-security@main',
+    'tachi-hideki-crelo/pullfrog-security@0000000000000000000000000000000000000000']) {
+    rejectMutation((c) => { c.jobs.pullfrog.steps[2].uses = uses; });
+  }
+  for (const value of [undefined, '0', 1, '${{ secrets.PULLFROG_FORCE_LOCAL_CLI }}']) {
+    rejectMutation((c) => { c.jobs.pullfrog.steps[2].env.PULLFROG_FORCE_LOCAL_CLI = value; });
   }
 });
 
-test('rejects all provider secret references while the workflow is paused', () => {
-  const otherProvider = workflow.replace(
-    '          PULLFROG_FORCE_LOCAL_CLI: "1"',
-    '          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}\n          PULLFROG_FORCE_LOCAL_CLI: "1"',
-  );
-
-  assert.throws(() => assertPullfrogWorkflowPolicy(otherProvider));
-});
-
-test('requires the exact fail-closed pause and rejects resume or permission bypasses', () => {
-  const stringTrue = workflow.replace('    if: ${{ false }}', '    if: true');
-  const quotedTrue = workflow.replace('    if: ${{ false }}', '    if: "true"');
-  const mixedExpression = workflow.replace(
-    '    if: ${{ false }}',
-    '    if: ${{ false }} || true',
-  );
-  const flowJob = workflow.replace(
-    /  pullfrog:\n[\s\S]*$/m,
-    '  pullfrog: { if: "${{ false }}", runs-on: ubuntu-latest, permissions: { contents: read, id-token: write }, steps: [] }\n',
-  );
-  const secretEnv = workflow.replace(
-    '          PULLFROG_FORCE_LOCAL_CLI: "1"',
-    '          PULLFROG_FORCE_LOCAL_CLI: "1"\n          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}',
-  );
-  const jobToken = workflow.replace(
-    '      contents: read\n    steps:',
-    '      contents: read\n      id-token: write\n    steps:',
-  );
-
-  for (const fixture of [stringTrue, quotedTrue, mixedExpression, flowJob, secretEnv, jobToken]) {
-    assert.throws(() => assertPullfrogWorkflowPolicy(fixture));
+test('rejects any code-push permission, including former restricted mode', () => {
+  for (const push of ['restricted', 'enabled', 'unrestricted', undefined, ['disabled'], { value: 'disabled' }]) {
+    rejectMutation((c) => { c.jobs.pullfrog.steps[2].with.push = push; });
   }
 });
 
-test('requires the fixed local Pullfrog runtime flag and rejects weaker forms', () => {
-  const missingRuntimeFlag = workflow.replace('          PULLFROG_FORCE_LOCAL_CLI: "1"\n', '');
-  const disabledRuntimeFlag = workflow.replace(
-    '          PULLFROG_FORCE_LOCAL_CLI: "1"',
-    '          PULLFROG_FORCE_LOCAL_CLI: "0"',
-  );
-  const secretRuntimeFlag = workflow.replace(
-    '          PULLFROG_FORCE_LOCAL_CLI: "1"',
-    '          PULLFROG_FORCE_LOCAL_CLI: ${{ secrets.PULLFROG_FORCE_LOCAL_CLI }}',
-  );
-
-  for (const fixture of [missingRuntimeFlag, disabledRuntimeFlag, secretRuntimeFlag]) {
-    assert.throws(() => assertPullfrogWorkflowPolicy(fixture));
+test('requires restricted shell and rejects weaker, missing or malformed forms', () => {
+  for (const shell of ['enabled', undefined, ['restricted'], { permission: 'restricted' }]) {
+    rejectMutation((c) => { c.jobs.pullfrog.steps[2].with.shell = shell; });
   }
 });
 
-test('rejects unrestricted push values and flow/array permission bypasses', () => {
-  const unrestrictedPush = workflow.replace('push: restricted', 'push: unrestricted');
-  const flowPush = workflow.replace(
-    '          push: restricted\n          shell: restricted\n          prompt: ${{ inputs.prompt }}',
-    '          with: { push: unrestricted, prompt: ${{ inputs.prompt }} }',
-  );
-  const writablePermissions = workflow.replace('  contents: read', '  contents: write');
-  const arrayPermissions = workflow.replace(
-    'permissions:\n  contents: read',
-    'permissions: [contents, write]',
-  );
-
-  for (const fixture of [unrestrictedPush, flowPush, writablePermissions, arrayPermissions]) {
-    assert.throws(() => assertPullfrogWorkflowPolicy(fixture));
+test('requires bounded review duration and per-PR concurrency', () => {
+  for (const minutes of [undefined, 360, '20']) {
+    rejectMutation((c) => { c.jobs.pullfrog['timeout-minutes'] = minutes; });
   }
+  for (const timeout of [undefined, '0', '1h', '${{ inputs.timeout }}']) {
+    rejectMutation((c) => { c.jobs.pullfrog.steps[2].with.timeout = timeout; });
+  }
+  rejectMutation((c) => { delete c.jobs.pullfrog.concurrency; });
+  rejectMutation((c) => { c.jobs.pullfrog.concurrency.group = '${{ github.run_id }}'; });
+  rejectMutation((c) => { c.jobs.pullfrog.concurrency['cancel-in-progress'] = true; });
 });
 
-test('requires restricted shell permission and rejects weaker or malformed forms', () => {
-  const shellEnabled = workflow.replace('shell: restricted', 'shell: enabled');
-  const shellMissing = workflow.replace('          shell: restricted\n', '');
-  const shellArray = workflow.replace(
-    '          shell: restricted\n          prompt: ${{ inputs.prompt }}',
-    '          shell: [restricted]\n          prompt: ${{ inputs.prompt }}',
-  );
-  const shellNested = workflow.replace(
-    '          shell: restricted\n          prompt: ${{ inputs.prompt }}',
-    '          shell:\n            permission: restricted\n          prompt: ${{ inputs.prompt }}',
-  );
-
-  for (const fixture of [shellEnabled, shellMissing, shellArray, shellNested]) {
-    assert.throws(() => assertPullfrogWorkflowPolicy(fixture));
-  }
+test('requires dispatch validation before the credential-bearing action', () => {
+  rejectMutation((c) => { c.jobs.pullfrog.steps.splice(1, 1); });
+  rejectMutation((c) => { c.jobs.pullfrog.steps[1].run = 'echo pass'; });
+  rejectMutation((c) => { c.jobs.pullfrog.steps[1].if = 'false'; });
+  rejectMutation((c) => { c.jobs.pullfrog.steps[1].env.PULLFROG_DISPATCH = 'unvalidated'; });
+  rejectMutation((c) => { c.jobs.pullfrog.steps[1].env.EXTRA = '${{ secrets.SYNTHETIC }}'; });
 });
 
-test('rejects mutable checkout refs and credential-preserving checkout forms', () => {
-  const mutableCheckout = workflow.replace(
-    'actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803',
-    'actions/checkout@v6',
-  );
-  const credentialsPreserved = workflow.replace('persist-credentials: false', 'persist-credentials: true');
-  const checkoutWithArray = workflow.replace(
-    'with:\n          fetch-depth: 1',
-    'with: [fetch-depth, 1]',
-  );
-
-  for (const fixture of [mutableCheckout, credentialsPreserved, checkoutWithArray]) {
-    assert.throws(() => assertPullfrogWorkflowPolicy(fixture));
-  }
+test('requires the existing OpenAI model and passes intact prompt as data only', () => {
+  rejectMutation((c) => { c.jobs.pullfrog.steps[2].with.model = 'openrouter/openai/gpt-luna'; });
+  rejectMutation((c) => { c.jobs.pullfrog.steps[2].with.effort = '${{ inputs.effort }}'; });
+  rejectMutation((c) => { c.jobs.pullfrog.steps[2].with.prompt = 'prefix ${{ inputs.prompt }}'; });
+  rejectMutation((c) => { c.jobs.pullfrog.steps[2]['continue-on-error'] = true; });
 });
 
-test('rejects malformed YAML instead of falling back to a permissive scan', () => {
-  assert.throws(
-    () => assertPullfrogWorkflowPolicy('on: [workflow_dispatch\n'),
-    /YAML parsing failed/,
-  );
+test('rejects mutable or PR-head checkout and credential-preserving checkout', () => {
+  rejectMutation((c) => { c.jobs.pullfrog.steps[0].uses = 'actions/checkout@v6'; });
+  rejectMutation((c) => { c.jobs.pullfrog.steps[0].with['persist-credentials'] = true; });
+  rejectMutation((c) => { c.jobs.pullfrog.steps[0].with.ref = '${{ github.event.pull_request.head.sha }}'; });
+  rejectMutation((c) => { c.jobs.pullfrog.steps[0].with = ['fetch-depth', 1]; });
+});
+
+test('rejects malformed or duplicate-key YAML rather than permissively scanning', () => {
+  assert.throws(() => assertPullfrogWorkflowPolicy('on: [workflow_dispatch\n'), /YAML parsing failed/);
+  assert.throws(() => assertPullfrogWorkflowPolicy(`${workflow}\npermissions: write-all\n`), /YAML parsing failed/);
+  assert.throws(() => assertPullfrogWorkflowPolicy(null));
 });

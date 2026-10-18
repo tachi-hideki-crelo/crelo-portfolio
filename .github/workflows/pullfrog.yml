@@ -1,4 +1,4 @@
-# PULLFROG ACTION — DO NOT EDIT EXCEPT WHERE INDICATED
+# Reviewed PR-only runtime. See docs/PULLFROG.md before changing the pin or permissions.
 name: Pullfrog
 run-name: ${{ inputs.name || github.workflow }}
 on:
@@ -6,7 +6,7 @@ on:
     inputs:
       prompt:
         type: string
-        description: Agent prompt
+        description: Pullfrog PR review dispatch JSON
       name:
         type: string
         description: Run name
@@ -16,26 +16,36 @@ permissions:
 
 jobs:
   pullfrog:
-    # TEMPORARILY PAUSED, fail-closed. The reviewed Pullfrog 0.1.98 source
-    # (official SHA ad4283a862b8377cb525a0f5bf30f17c023b18ea) still reports
-    # 17 unresolved advisories (6 high) via `pnpm audit --json`; resume
-    # requires a reviewed upstream release and an intentional re-enable review.
-    if: ${{ false }}
+    # Never run the credential-bearing integration from a fork or a PR head.
+    if: ${{ github.repository == 'tachi-hideki-crelo/crelo-portfolio' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: pullfrog-review-${{ github.repository }}-${{ fromJSON(inputs.prompt).event.issue_number || github.run_id }}
+      cancel-in-progress: false
     permissions:
       contents: read
+      # Job-scoped runner proof for the existing Pullfrog/ChatGPT connection.
+      id-token: write
     steps:
       - name: Checkout code
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 1
           persist-credentials: false
+      - name: Validate review dispatch
+        run: node scripts/validate-pullfrog-dispatch.mjs
+        env:
+          PULLFROG_DISPATCH: ${{ inputs.prompt }}
       - name: Run agent
-        uses: pullfrog/pullfrog@ad4283a862b8377cb525a0f5bf30f17c023b18ea # v0
+        uses: tachi-hideki-crelo/pullfrog-security@5fd66c952a0c1abd5ce9fb8afec3d93c04bbc2c7
         with:
-          push: restricted
+          push: disabled
           shell: restricted
+          model: openai/gpt-luna
+          effort: high
+          timeout: 15m
           prompt: ${{ inputs.prompt }}
         env:
-          # Keep the fixed local-runtime path ready for a reviewed resume.
+          # Execute this fork's frozen, ignore-scripts graph, never npx's range.
           PULLFROG_FORCE_LOCAL_CLI: "1"
