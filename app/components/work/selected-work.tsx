@@ -13,7 +13,14 @@ import Image from 'next/image';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 
 import { WorkVisual } from './work-visual';
-import { RESOLVE_GROW, getHalftoneDot, getLeadPath, getSliceWidths } from './work-resolve';
+import {
+  RESOLVE_GROW,
+  getHalftoneDot,
+  getLeadPath,
+  getLuminanceLevels,
+  getSliceWidths,
+  liftLuminance,
+} from './work-resolve';
 import type {
   PublicCaseStudy,
   PublicCaseStudyImageMedia,
@@ -294,7 +301,7 @@ function isFinePointer(): boolean {
 }
 
 
-const BAND_GAP = 1;
+const BAND_GAP = 6;
 const HOVER_INTENT_MS = 110;
 const MOBILE_QUERY = '(max-width: 768px)';
 const SUMMARY_ID = 'selected-work-active-summary';
@@ -315,10 +322,11 @@ function getSummaryOutcomes(caseStudy: PublicCaseStudy): string[] {
 }
 
 /**
- * Draws the case media as a calm mint halftone, the same point language as the
- * hero field. Unapproved slots fall back to the bare grid.
+ * Draws the case media as a calm halftone in the case's signal colour (`rgb`),
+ * the same point language as the hero field. The sample is auto-levelled so dark
+ * media still reads as a field; unapproved slots fall back to the bare grid.
  */
-function HalftoneField({ src, className }: { src: string | null; className: string }) {
+function HalftoneField({ src, rgb, className }: { src: string | null; rgb: string; className: string }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
@@ -337,7 +345,7 @@ function HalftoneField({ src, className }: { src: string | null; className: stri
       const step = width < 480 ? 7 : 9;
       const columns = Math.ceil(width / step);
       const rows = Math.ceil(height / step);
-      let pixels: Uint8ClampedArray | null = null;
+      let luminances: Float32Array | null = null;
       if (image?.complete && image.naturalWidth > 0) {
         const sample = document.createElement('canvas');
         sample.width = columns;
@@ -349,9 +357,14 @@ function HalftoneField({ src, className }: { src: string | null; className: stri
           const drawHeight = image.naturalHeight * scale;
           sampleContext.drawImage(image, (columns - drawWidth) / 2, (rows - drawHeight) / 2, drawWidth, drawHeight);
           try {
-            pixels = sampleContext.getImageData(0, 0, columns, rows).data;
+            const pixels = sampleContext.getImageData(0, 0, columns, rows).data;
+            luminances = new Float32Array(columns * rows);
+            for (let cell = 0; cell < luminances.length; cell += 1) {
+              const offset = cell * 4;
+              luminances[cell] = (pixels[offset] * 0.299 + pixels[offset + 1] * 0.587 + pixels[offset + 2] * 0.114) / 255;
+            }
           } catch {
-            pixels = null;
+            luminances = null;
           }
         }
       }
@@ -361,14 +374,14 @@ function HalftoneField({ src, className }: { src: string | null; className: stri
       canvas.height = Math.round(height * ratio);
       context.setTransform(ratio, 0, 0, ratio, 0, 0);
       context.clearRect(0, 0, width, height);
+      const levels = luminances ? getLuminanceLevels(luminances) : null;
       for (let row = 0; row < rows; row += 1) {
         for (let column = 0; column < columns; column += 1) {
-          const offset = (row * columns + column) * 4;
-          const luminance = pixels
-            ? (pixels[offset] * 0.299 + pixels[offset + 1] * 0.587 + pixels[offset + 2] * 0.114) / 255
+          const luminance = luminances && levels
+            ? liftLuminance(levels.normalize(luminances[row * columns + column]))
             : 0;
           const dot = getHalftoneDot(luminance, step);
-          context.fillStyle = `rgb(166 255 219 / ${dot.alpha.toFixed(3)})`;
+          context.fillStyle = `rgb(${rgb} / ${dot.alpha.toFixed(3)})`;
           context.beginPath();
           context.arc(column * step + step / 2, row * step + step / 2, dot.radius, 0, Math.PI * 2);
           context.fill();
@@ -395,7 +408,7 @@ function HalftoneField({ src, className }: { src: string | null; className: stri
       if (frame !== null) window.cancelAnimationFrame(frame);
       if (image) image.onload = null;
     };
-  }, [src]);
+  }, [rgb, src]);
 
   return <canvas ref={canvasRef} className={className} aria-hidden="true" data-work-halftone />;
 }
@@ -453,9 +466,11 @@ function ResolveSlice({
   onPointerLeave: () => void;
 }) {
   const title = statusCopy(caseStudy);
+  const theme = getTheme(caseStudy);
   const order = String(caseStudy.displayOrder).padStart(2, '0');
   const previewVideo = getVideoMedia(caseStudy, 'preview');
   const previewImage = getImageMedia(caseStudy);
+  const mediaKind = previewVideo ? 'MOTION' : previewImage ? 'STILL' : 'PRIVATE';
 
   return (
     <li
@@ -463,6 +478,7 @@ function ResolveSlice({
       role="listitem"
       data-active={active}
       data-has-media={previewVideo || previewImage ? 'true' : 'false'}
+      style={{ '--slice-acc': theme.accentSoft } as CSSVars}
       onPointerEnter={(event) => onPointerEnter(event, index)}
       onPointerLeave={onPointerLeave}
     >
@@ -493,7 +509,7 @@ function ResolveSlice({
         }}
       >
         <span className={styles.slicePlate} aria-hidden="true">
-          <HalftoneField src={getFieldSource(caseStudy)} className={styles.sliceField} />
+          <HalftoneField src={getFieldSource(caseStudy)} rgb={theme.accentSoft} className={styles.sliceField} />
           {previewVideo ? (
             <span className={styles.sliceMedia}>
               <CasePreviewVideo
@@ -519,11 +535,15 @@ function ResolveSlice({
           ) : null}
           {active && revealed && !reduceMotion ? <span className={styles.sliceScan} /> : null}
         </span>
-        <span className={styles.sliceTitle} aria-hidden="true">{title}</span>
+        <span className={styles.sliceTitle} aria-hidden="true">
+          <span className={styles.sliceName}>{title}</span>
+          <span className={styles.sliceMeta}>CASE {order} · {mediaKind}</span>
+        </span>
         <span className={styles.sliceIndex} aria-hidden="true"><i />{order}</span>
+        <span className={styles.sliceChevron} aria-hidden="true">＋</span>
         <span className={styles.sliceHud} aria-hidden="true">
           <span className={styles.sliceTag}>
-            CASE <b>{order}</b> / {String(caseCount).padStart(2, '0')} · {previewVideo ? 'MOTION' : 'STILL'}
+            CASE <b>{order}</b> / {String(caseCount).padStart(2, '0')} · {mediaKind}
           </span>
           <span className={styles.sliceOpen}>詳細を見る<span>↗</span></span>
         </span>
@@ -888,6 +908,8 @@ export function SelectedWork({ cases }: SelectedWorkProps) {
 
   const resolveStyle: CSSVars = {
     '--slice-grow': RESOLVE_GROW,
+    '--band-gap': `${BAND_GAP}px`,
+    '--active-acc': (activeCase ? getTheme(activeCase) : THEMES.mint).accentSoft,
     '--lead-depth': `${LEAD_DEPTH}px`,
     ...(bandWidth > 0
       ? {
