@@ -6,6 +6,7 @@ const config = JSON.parse(readFileSync(new URL('../wrangler.jsonc', import.meta.
 const scripts = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).scripts;
 const viteSource = readFileSync(new URL('../vite.config.ts', import.meta.url), 'utf8');
 const nextConfigSource = readFileSync(new URL('../next.config.ts', import.meta.url), 'utf8');
+const headersSource = readFileSync(new URL('../public/_headers', import.meta.url), 'utf8');
 
 test('personal Cloudflare deployment uses the dedicated contact DB and daily cleanup', () => {
   assert.equal(config.name, 'crelo-fde-portfolio-preview');
@@ -36,4 +37,20 @@ test('personal Cloudflare deployment uses the dedicated contact DB and daily cle
   assert.match(nextConfigSource, /source: '\/\(\.\*\)'/);
   assert.match(nextConfigSource, /Content-Security-Policy/);
   assert.match(nextConfigSource, /X-Robots-Tag/);
+});
+
+test('CSP allows Cloudflare Web Analytics and stays identical in both header sources', () => {
+  const nextPolicy = nextConfigSource.match(/key: 'Content-Security-Policy',\s*value: "([^"]+)"/)?.[1];
+  const staticPolicy = headersSource.match(/Content-Security-Policy: (.+)/)?.[1].trim();
+  assert.ok(nextPolicy);
+  assert.equal(staticPolicy, nextPolicy);
+
+  const directives = Object.fromEntries(nextPolicy.split(';').map((part) => {
+    const [name, ...sources] = part.trim().split(/\s+/);
+    return [name, sources];
+  }));
+  assert.ok(directives['script-src'].includes('https://static.cloudflareinsights.com'));
+  assert.ok(directives['connect-src'].includes('https://cloudflareinsights.com'));
+  assert.ok(directives['script-src'].includes('https://challenges.cloudflare.com'));
+  Object.values(directives).flat().forEach((source) => assert.doesNotMatch(source, /^\*|^https:$|\*\./));
 });
