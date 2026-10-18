@@ -18,7 +18,7 @@ jobs:
   pullfrog:
     # Never run the credential-bearing integration from a fork or a PR head.
     if: ${{ github.repository == 'tachi-hideki-crelo/crelo-portfolio' && github.ref == 'refs/heads/main' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     concurrency:
       group: pullfrog-review-${{ github.repository }}-${{ fromJSON(inputs.prompt).event.issue_number || github.run_id }}

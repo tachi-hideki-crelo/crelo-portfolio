@@ -84,7 +84,7 @@ function requireWorkflowShape(workflow) {
   const job = requireRecord(jobs.pullfrog, 'jobs.pullfrog');
   requireExactKeys(job, ['if', 'runs-on', 'timeout-minutes', 'concurrency', 'permissions', 'steps'], 'jobs.pullfrog');
   requireEqual(job.if, EXPECTED_RUN_EXPRESSION, 'jobs.pullfrog.if');
-  requireEqual(job['runs-on'], 'ubuntu-latest', 'jobs.pullfrog.runs-on');
+  requireEqual(job['runs-on'], 'ubuntu-24.04', 'jobs.pullfrog.runs-on');
   requireEqual(job['timeout-minutes'], 20, 'jobs.pullfrog.timeout-minutes');
   const concurrency = requireRecord(job.concurrency, 'jobs.pullfrog.concurrency');
   requireExactKeys(concurrency, ['group', 'cancel-in-progress'], 'jobs.pullfrog.concurrency');

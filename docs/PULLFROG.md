@@ -9,6 +9,8 @@
 - 起動: Pullfrog Appからの`workflow_dispatch`。通常のPRイベントを直接
   credential-bearingジョブへ接続せず、`pull_request_target`も使わない。
 - 実行元: このリポジトリの`main`のみ。PR headやforkからは実行しない。
+- Runner: 実PRで確認した`ubuntu-24.04`を指定。`ubuntu-latest`の
+  Ubuntu 26.04への自動移行に追随しない。OS更新時は明示的に再検証する。
 - 入力: `pr-created` / `pr-re-review`の構造化PRコンテキストを検証。
   不正JSON、他の自動化、別provider、cross-repo grantは実行前に拒否する。
   JSON/proseを混ぜず、`prompt`はそのままデータとしてActionへ渡す。

@@ -54,6 +54,7 @@ test('requires the exact trusted-repository and main-branch execution guard', ()
     rejectMutation((c) => { c.jobs.pullfrog.if = value; });
   }
   rejectMutation((c) => { c.jobs.pullfrog['runs-on'] = ['self-hosted']; });
+  rejectMutation((c) => { c.jobs.pullfrog['runs-on'] = 'ubuntu-latest'; });
 });
 
 test('requires only job-scoped OIDC and read-only source access', () => {
