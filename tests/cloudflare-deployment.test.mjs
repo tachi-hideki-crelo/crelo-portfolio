@@ -8,6 +8,7 @@ const config = JSON.parse(readFileSync(new URL('../wrangler.jsonc', import.meta.
 const scripts = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).scripts;
 const viteSource = readFileSync(new URL('../vite.config.ts', import.meta.url), 'utf8');
 const nextConfigSource = readFileSync(new URL('../next.config.ts', import.meta.url), 'utf8');
+const buildCloudflareSource = readFileSync(new URL('../scripts/build-cloudflare.mjs', import.meta.url), 'utf8');
 const headersSource = readFileSync(new URL('../public/_headers', import.meta.url), 'utf8');
 
 test('personal Cloudflare deployment uses the dedicated contact DB and daily cleanup', () => {
@@ -45,6 +46,8 @@ test('personal Cloudflare deployment uses the dedicated contact DB and daily cle
 test('public/_headers is generated from the shared security headers', () => {
   // Run `npm run sync:headers` after editing security-headers.ts.
   assert.equal(headersSource, renderHeadersFile());
+  // The Cloudflare build refuses to deploy a stale copy.
+  assert.match(buildCloudflareSource, /sync-security-headers\.ts', '--check'/);
   const policy = securityHeaders.find((header) => header.key === 'Content-Security-Policy');
   assert.ok(policy, 'Content-Security-Policy header is missing');
   assert.equal(policy.value, serializeContentSecurityPolicy(contentSecurityPolicy));

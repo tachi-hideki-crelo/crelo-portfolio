@@ -14,6 +14,12 @@ if (!config.routes?.some((route) => route.pattern === 'crelo.dev' && route.custo
   throw new Error('Cloudflare production route for crelo.dev is missing');
 }
 
+// Static assets get their headers from public/_headers; refuse to deploy a
+// copy that has drifted from security-headers.ts.
+const headersCheck = spawnSync(process.execPath, ['--experimental-strip-types', 'scripts/sync-security-headers.ts', '--check'], { stdio: 'inherit' });
+if (headersCheck.error) throw headersCheck.error;
+if (headersCheck.status !== 0) process.exit(headersCheck.status ?? 1);
+
 const result = spawnSync('npm', ['run', 'build'], {
   stdio: 'inherit',
   env: {
