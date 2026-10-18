@@ -1,0 +1,20 @@
+{
+  "name": "crelo-security-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24" },
+  "packageManager": "pnpm@11.25.0",
+  "scripts": {
+    "prepare:source": "node prepare.mjs",
+    "verify:source": "node verify.mjs",
+    "check": "../node_modules/.bin/tsc --noEmit -p tsconfig.json",
+    "scan": "node run.mjs scan --project-id crelo-portfolio",
+    "process": "node run.mjs process --project-id crelo-portfolio",
+    "revalidate": "node run.mjs revalidate --project-id crelo-portfolio",
+    "report": "node run.mjs report --project-id crelo-portfolio"
+  },
+  "dependencies": {
+    "deepsec": "2.3.10"
+  }
+}

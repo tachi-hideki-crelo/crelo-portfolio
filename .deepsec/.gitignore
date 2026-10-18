@@ -1,0 +1,17 @@
+node_modules/
+.env*
+.dev.vars*
+dev.vars*
+.vercel/
+scan-target/
+findings/
+data/*/project.json
+data/*/manifest.json
+data/*/tech.json
+data/*/source-files.txt
+data/*/setup/
+data/*/files/
+data/*/runs/
+data/*/reports/
+data/*/revalidation/
+data/*/INFO.md

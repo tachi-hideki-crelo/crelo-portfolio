@@ -10,10 +10,11 @@ export type ContactLogEntry = {
     | 'contact.service_unavailable'
     | 'contact.turnstile_rejected'
     | 'contact.turnstile_upstream_failure'
+    | 'contact.store_turnstile_rate_failure'
     | 'contact.store_reserve_failure'
     | 'contact.delivery_failure'
     | 'contact.store_update_failure';
-  stage: 'config' | 'turnstile' | 'store.reserve' | 'resend' | 'store.updateStatus';
+  stage: 'config' | 'turnstile' | 'store.turnstileRate' | 'store.reserve' | 'resend' | 'store.updateStatus';
   requestId?: string;
   errorCode: ContactErrorCode;
 };

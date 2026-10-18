@@ -1,8 +1,16 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 import { handleContactRequest as handleContactRequestCore } from '../app/lib/contact-handler.ts';
 import { createDefaultContactLogger } from '../app/lib/contact-logger.ts';
+import { hmacSha256 } from '../app/lib/contact-crypto.ts';
+import {
+  CONTACT_TURNSTILE_RATE_LIMIT,
+  CONTACT_TURNSTILE_RATE_WINDOW_MS,
+  createD1ContactStore,
+  MAX_CONTACT_RETRY_ATTEMPTS,
+} from '../db/contact-store.ts';
 
 const env = {
   SITE_ORIGIN: 'https://crelo.example',
@@ -53,13 +61,74 @@ function makeRequest(payload = basePayload, headers = {}) {
 
 function makeStore(overrides = {}) {
   const statuses = [];
+  const statusTokens = [];
   return {
     statuses,
+    statusTokens,
+    async reserveTurnstileAttempt(input) {
+      return overrides.reserveTurnstileAttempt
+        ? overrides.reserveTurnstileAttempt(input)
+        : { kind: 'allowed' };
+    },
     async reserve(input) {
       return overrides.reserve ? overrides.reserve(input) : { kind: 'reserved' };
     },
-    async updateStatus(requestId, status) {
+    async updateStatus(requestId, status, now, expectedTokenHash) {
       statuses.push({ requestId, status });
+      statusTokens.push({ requestId, status, tokenHash: expectedTokenHash });
+    },
+  };
+}
+
+function makeD1Database() {
+  const sqlite = new DatabaseSync(':memory:');
+  sqlite.exec(`
+    CREATE TABLE contact_requests (
+      request_id TEXT PRIMARY KEY NOT NULL,
+      fingerprint_hash TEXT NOT NULL,
+      email_hash TEXT NOT NULL,
+      ip_hash TEXT NOT NULL,
+      token_hash TEXT NOT NULL,
+      status TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL,
+      retry_attempts INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX contact_requests_fingerprint_idx ON contact_requests(fingerprint_hash);
+    CREATE UNIQUE INDEX contact_requests_token_idx ON contact_requests(token_hash);
+    CREATE INDEX contact_requests_ip_created_idx ON contact_requests(ip_hash, created_at);
+    CREATE INDEX contact_requests_created_at_idx ON contact_requests(created_at);
+    CREATE TABLE contact_turnstile_rate_limits (
+      ip_hash TEXT PRIMARY KEY NOT NULL,
+      window_started_at INTEGER NOT NULL,
+      request_count INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL
+    );
+    CREATE INDEX contact_turnstile_rate_limits_expires_idx ON contact_turnstile_rate_limits(expires_at);
+  `);
+  return {
+    sqlite,
+    prepare(query) {
+      const statement = sqlite.prepare(query);
+      return {
+        bind(...params) {
+          return {
+            all: async () => ({ results: statement.all(...params) }),
+            raw: async () => statement.all(...params).map((row) => Object.values(row)),
+            run: async () => {
+              const result = statement.run(...params);
+              return {
+                success: true,
+                meta: {
+                  changes: Number(result.changes),
+                  last_row_id: Number(result.lastInsertRowid),
+                },
+              };
+            },
+          };
+        },
+      };
     },
   };
 }
@@ -99,6 +168,73 @@ function makeFetch({
   return { calls, fetchImpl };
 }
 
+for (const sameInquiry of [false, true]) {
+  test(`rechecks the inquiry identity after a fresh insert races a sent row (${sameInquiry ? 'same' : 'changed'} content)`, { timeout: 5_000 }, async () => {
+    const database = makeD1Database();
+    const store = createD1ContactStore(database);
+    const now = 1_700_000_000_000;
+    const secondPayload = {
+      ...basePayload,
+      turnstileToken: 'raced-second-token',
+      ...(sameInquiry ? {} : { message: 'こちらは同じ送信IDを使った別の相談内容です。' }),
+    };
+    const firstTokenHash = await hmacSha256(basePayload.turnstileToken, env.CONTACT_HASH_SECRET);
+    const secondTokenHash = await hmacSha256(secondPayload.turnstileToken, env.CONTACT_HASH_SECRET);
+    let notifySecondInsert;
+    let releaseSecondInsert;
+    const secondInsertReached = new Promise((resolve) => { notifySecondInsert = resolve; });
+    const secondInsertReleased = new Promise((resolve) => { releaseSecondInsert = resolve; });
+    const originalPrepare = database.prepare.bind(database);
+    database.prepare = (query) => {
+      const prepared = originalPrepare(query);
+      return {
+        bind(...params) {
+          const bound = prepared.bind(...params);
+          if (!/INSERT INTO\s+"contact_requests"/.test(query)) return bound;
+          return {
+            ...bound,
+            run: async () => {
+              if (params.includes(secondTokenHash)) {
+                notifySecondInsert();
+                await secondInsertReleased;
+              } else if (params.includes(firstTokenHash)) {
+                // Both callers must read the empty request ID before either
+                // INSERT. The second write waits until the first mail is sent.
+                await secondInsertReached;
+              }
+              return bound.run();
+            },
+          };
+        },
+      };
+    };
+    const mock = makeFetch({ challengeTs: new Date(now).toISOString() });
+    const dependencies = { env, store, fetchImpl: mock.fetchImpl, now: () => now };
+    const firstResponse = handleContactRequest(makeRequest(), dependencies);
+    const secondResponse = handleContactRequest(makeRequest(secondPayload), dependencies);
+    try {
+      await secondInsertReached;
+      assert.equal((await firstResponse).status, 200);
+      releaseSecondInsert();
+      const racedResponse = await secondResponse;
+      assert.equal(racedResponse.status, sameInquiry ? 200 : 409);
+      assert.deepEqual(await racedResponse.json(), sameInquiry
+        ? { ok: true, requestId: basePayload.requestId }
+        : { ok: false, requestId: basePayload.requestId, errorCode: 'REQUEST_DUPLICATE' });
+      assert.equal(mock.calls.filter((call) => String(call.url).includes('/emails')).length, 1);
+      assert.equal(database.sqlite.prepare('SELECT count(*) AS count FROM contact_requests').get().count, 1);
+      assert.deepEqual(
+        { ...database.sqlite.prepare('SELECT status, token_hash FROM contact_requests WHERE request_id = ?').get(basePayload.requestId) },
+        { status: 'sent', token_hash: firstTokenHash },
+      );
+    } finally {
+      releaseSecondInsert();
+      await Promise.allSettled([firstResponse, secondResponse]);
+      database.sqlite.close();
+    }
+  });
+}
+
 test('accepts valid request, verifies Turnstile, and sends idempotent Resend request', async () => {
   const store = makeStore();
   const mock = makeFetch({ challengeTs: new Date(1_700_000_000_000).toISOString() });
@@ -111,11 +247,18 @@ test('accepts valid request, verifies Turnstile, and sends idempotent Resend req
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { ok: true, requestId: '550e8400-e29b-41d4-a716-446655440000' });
   assert.equal(mock.calls.length, 2);
+  assert.ok(mock.calls[0].options.signal instanceof AbortSignal);
+  assert.ok(mock.calls[1].options.signal instanceof AbortSignal);
   const siteverifyBody = new URLSearchParams(mock.calls[0].options.body);
   assert.equal(siteverifyBody.get('idempotency_key'), null, 'Turnstile key is not reused across contact retries');
   assert.equal(mock.calls[1].options.headers['Idempotency-Key'], '550e8400-e29b-41d4-a716-446655440000');
   assert.equal(mock.calls[1].options.body.includes('turnstile-token'), false);
   assert.deepEqual(store.statuses, [{ requestId: '550e8400-e29b-41d4-a716-446655440000', status: 'sent' }]);
+  assert.deepEqual(store.statusTokens, [{
+    requestId: '550e8400-e29b-41d4-a716-446655440000',
+    status: 'sent',
+    tokenHash: await hmacSha256(basePayload.turnstileToken, env.CONTACT_HASH_SECRET),
+  }]);
 
   const serverOnlyFetch = makeFetch();
   const serverOnly = await handleContactRequest(
@@ -240,6 +383,224 @@ test('rejects missing or mismatched Turnstile action and separates upstream fail
   }]);
 });
 
+test('enforces the atomic per-IP Turnstile preflight limit before external calls', async () => {
+  const d1 = makeD1Database();
+  const store = createD1ContactStore(d1);
+  const now = 1_700_000_000_000;
+  const ipHash = await hmacSha256('unknown', env.CONTACT_HASH_SECRET);
+  const fetchMock = makeFetch({
+    challengeTs: new Date(now).toISOString(),
+    turnstile: false,
+  });
+
+  try {
+    for (let index = 0; index < CONTACT_TURNSTILE_RATE_LIMIT; index += 1) {
+      assert.deepEqual(
+        await store.reserveTurnstileAttempt({ ipHash, now }),
+        { kind: 'allowed' },
+      );
+    }
+
+    const responses = await Promise.all([
+      handleContactRequest(makeRequest({
+        ...basePayload,
+        requestId: '550e8400-e29b-41d4-a716-446655440030',
+        turnstileToken: 'invalid-token-a',
+      }), { env, store, fetchImpl: fetchMock.fetchImpl, now: () => now }),
+      handleContactRequest(makeRequest({
+        ...basePayload,
+        requestId: '550e8400-e29b-41d4-a716-446655440031',
+        turnstileToken: 'invalid-token-b',
+      }), { env, store, fetchImpl: fetchMock.fetchImpl, now: () => now }),
+    ]);
+    assert.deepEqual(responses.map((response) => response.status).sort((a, b) => a - b), [429, 429]);
+    assert.equal(fetchMock.calls.length, 0, 'a full preflight window prevents Siteverify and Resend');
+  } finally {
+    d1.sqlite.close();
+  }
+});
+
+test('allows exactly one remaining concurrent preflight request and blocks the other', async () => {
+  const d1 = makeD1Database();
+  const store = createD1ContactStore(d1);
+  const now = 1_700_000_000_000;
+  const ipHash = await hmacSha256('unknown', env.CONTACT_HASH_SECRET);
+  const fetchMock = makeFetch({ challengeTs: new Date(now).toISOString() });
+
+  try {
+    for (let index = 0; index < CONTACT_TURNSTILE_RATE_LIMIT - 1; index += 1) {
+      assert.deepEqual(await store.reserveTurnstileAttempt({ ipHash, now }), { kind: 'allowed' });
+    }
+    const responses = await Promise.all([
+      handleContactRequest(makeRequest({
+        ...basePayload,
+        requestId: '550e8400-e29b-41d4-a716-446655440032',
+        turnstileToken: 'valid-token-a',
+      }), { env, store, fetchImpl: fetchMock.fetchImpl, now: () => now }),
+      handleContactRequest(makeRequest({
+        ...basePayload,
+        requestId: '550e8400-e29b-41d4-a716-446655440033',
+        turnstileToken: 'valid-token-b',
+      }), { env, store, fetchImpl: fetchMock.fetchImpl, now: () => now }),
+    ]);
+    assert.deepEqual(responses.map((response) => response.status).sort((a, b) => a - b), [200, 429]);
+    assert.equal(fetchMock.calls.length, 2, 'only the allowed request reaches Siteverify and Resend');
+  } finally {
+    d1.sqlite.close();
+  }
+});
+
+test('fails closed when the Turnstile preflight counter is unavailable', async () => {
+  const fetchMock = makeFetch();
+  const response = await handleContactRequest(makeRequest({
+    ...basePayload,
+    requestId: '550e8400-e29b-41d4-a716-446655440034',
+  }), {
+    env,
+    store: makeStore({
+      async reserveTurnstileAttempt() {
+        throw new Error('D1 unavailable');
+      },
+    }),
+    fetchImpl: fetchMock.fetchImpl,
+  });
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).errorCode, 'SERVICE_UNAVAILABLE');
+  assert.equal(fetchMock.calls.length, 0, 'D1 failure must not reach Siteverify or Resend');
+});
+
+test('blocks more than twenty invalid tokens in one fixed window', async () => {
+  const d1 = makeD1Database();
+  const store = createD1ContactStore(d1);
+  const now = 1_700_000_000_000;
+  const fetchMock = makeFetch({ turnstile: false, challengeTs: new Date(now).toISOString() });
+
+  try {
+    const responses = [];
+    for (let index = 0; index < CONTACT_TURNSTILE_RATE_LIMIT + 1; index += 1) {
+      responses.push(await handleContactRequest(makeRequest({
+        ...basePayload,
+        requestId: `550e8400-e29b-41d4-a716-4466554400${String(40 + index).padStart(2, '0')}`,
+        turnstileToken: `invalid-token-${index}`,
+      }), { env, store, fetchImpl: fetchMock.fetchImpl, now: () => now }));
+    }
+    assert.equal(responses.filter((response) => response.status === 403).length, CONTACT_TURNSTILE_RATE_LIMIT);
+    assert.equal(responses.at(-1).status, 429);
+    assert.equal(fetchMock.calls.length, CONTACT_TURNSTILE_RATE_LIMIT, 'the 21st invalid token is denied before Siteverify');
+  } finally {
+    d1.sqlite.close();
+  }
+});
+
+test('starts a fresh preflight window at the exact boundary and never rolls back future state', async () => {
+  const d1 = makeD1Database();
+  const store = createD1ContactStore(d1);
+  const now = 1_700_000_000_000;
+  const ipHash = await hmacSha256('future-boundary-ip', env.CONTACT_HASH_SECRET);
+  const windowStartedAt = Math.floor(now / CONTACT_TURNSTILE_RATE_WINDOW_MS) * CONTACT_TURNSTILE_RATE_WINDOW_MS;
+  const nextWindow = windowStartedAt + CONTACT_TURNSTILE_RATE_WINDOW_MS;
+
+  try {
+    d1.sqlite.prepare(`
+      INSERT INTO contact_turnstile_rate_limits (ip_hash, window_started_at, request_count, expires_at)
+      VALUES (?, ?, ?, ?)
+    `).run(ipHash, windowStartedAt, CONTACT_TURNSTILE_RATE_LIMIT, nextWindow);
+    assert.deepEqual(
+      await store.reserveTurnstileAttempt({ ipHash, now: nextWindow }),
+      { kind: 'allowed' },
+    );
+    d1.sqlite.prepare('DELETE FROM contact_turnstile_rate_limits WHERE ip_hash = ?').run(ipHash);
+    d1.sqlite.prepare(`
+      INSERT INTO contact_turnstile_rate_limits (ip_hash, window_started_at, request_count, expires_at)
+      VALUES (?, ?, ?, ?)
+    `).run(ipHash, nextWindow + CONTACT_TURNSTILE_RATE_WINDOW_MS, CONTACT_TURNSTILE_RATE_LIMIT, nextWindow + 2 * CONTACT_TURNSTILE_RATE_WINDOW_MS);
+    assert.deepEqual(
+      await store.reserveTurnstileAttempt({ ipHash, now }),
+      { kind: 'rate_limited' },
+      'a delayed request cannot roll a newer fixed window backward',
+    );
+    const row = d1.sqlite.prepare('SELECT window_started_at, request_count, expires_at FROM contact_turnstile_rate_limits WHERE ip_hash = ?').get(ipHash);
+    assert.deepEqual({ ...row }, {
+      window_started_at: nextWindow + CONTACT_TURNSTILE_RATE_WINDOW_MS,
+      request_count: CONTACT_TURNSTILE_RATE_LIMIT,
+      expires_at: nextWindow + 2 * CONTACT_TURNSTILE_RATE_WINDOW_MS,
+    });
+  } finally {
+    d1.sqlite.close();
+  }
+});
+
+test('aborts stalled external APIs and retries Resend at most once with the same idempotency key', async () => {
+  const pendingFetch = (url, options) => new Promise((_, reject) => {
+    options.signal.addEventListener('abort', () => reject(new Error(`aborted ${url}`)), { once: true });
+  });
+  const turnstileStore = makeStore();
+  const turnstileResponse = await handleContactRequest(makeRequest({
+    ...basePayload,
+    requestId: '550e8400-e29b-41d4-a716-446655440019',
+  }), {
+    env,
+    store: turnstileStore,
+    fetchImpl: pendingFetch,
+    timeouts: { turnstileMs: 5, resendMs: 5 },
+  });
+  assert.equal(turnstileResponse.status, 503);
+  assert.deepEqual(turnstileStore.statuses, []);
+
+  const pendingJsonFetch = (url, options) => {
+    if (String(url).includes('siteverify')) {
+      return Promise.resolve({ ok: true, json: () => new Promise(() => {}) });
+    }
+    return pendingFetch(url, options);
+  };
+  const pendingJsonStore = makeStore();
+  const pendingJsonResponse = await handleContactRequest(makeRequest({
+    ...basePayload,
+    requestId: '550e8400-e29b-41d4-a716-446655440021',
+  }), {
+    env,
+    store: pendingJsonStore,
+    fetchImpl: pendingJsonFetch,
+    timeouts: { turnstileMs: 5, resendMs: 5 },
+  });
+  assert.equal(pendingJsonResponse.status, 503, 'response.json is covered by the Turnstile timeout');
+  assert.deepEqual(pendingJsonStore.statuses, []);
+
+  const now = 1_700_000_000_000;
+  const resendCalls = [];
+  const resendFetch = async (url, options) => {
+    resendCalls.push({ url, options });
+    if (String(url).includes('siteverify')) {
+      return new Response(JSON.stringify({
+        success: true,
+        challenge_ts: new Date(now).toISOString(),
+        hostname: 'crelo.example',
+        action: 'contact',
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    return pendingFetch(url, options);
+  };
+  const resendStore = makeStore();
+  const resendResponse = await handleContactRequest(makeRequest({
+    ...basePayload,
+    requestId: '550e8400-e29b-41d4-a716-446655440020',
+  }), {
+    env,
+    store: resendStore,
+    fetchImpl: resendFetch,
+    now: () => now,
+    timeouts: { turnstileMs: 5, resendMs: 5 },
+  });
+  assert.equal(resendResponse.status, 502);
+  assert.equal(resendCalls.length, 3, 'siteverify plus one bounded Resend retry');
+  assert.equal(resendCalls[1].options.headers['Idempotency-Key'], '550e8400-e29b-41d4-a716-446655440020');
+  assert.equal(resendCalls[1].options.headers['Idempotency-Key'], resendCalls[2].options.headers['Idempotency-Key']);
+  assert.deepEqual(resendStore.statuses, [{
+    requestId: '550e8400-e29b-41d4-a716-446655440020',
+    status: 'failed',
+  }]);
+});
+
 test('does not retry Resend 4xx, retries 429/5xx once, and handles local configuration failure', async () => {
   const store = makeStore();
   const badRequest = makeFetch({ resendStatuses: [400] });
@@ -346,10 +707,57 @@ test('retries a failed delivery with the same request idempotency key', async ()
   assert.equal(second.calls[1].options.headers['Idempotency-Key'], '550e8400-e29b-41d4-a716-446655440007');
 });
 
+test('caps repeated failed-fetch retries for one D1 row', async () => {
+  const d1 = makeD1Database();
+  const store = createD1ContactStore(d1);
+  const requestId = '550e8400-e29b-41d4-a716-446655440022';
+  const initialNow = 1_700_000_000_000;
+  let requestNow = initialNow;
+  let resendCalls = 0;
+  const failingFetch = async (url) => {
+    if (String(url).includes('siteverify')) {
+      return new Response(JSON.stringify({
+        success: true,
+        challenge_ts: new Date(requestNow).toISOString(),
+        hostname: 'crelo.example',
+        action: 'contact',
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    resendCalls += 1;
+    return new Response('{"error":"delivery"}', { status: 500 });
+  };
+
+  try {
+    for (let attempt = 0; attempt <= MAX_CONTACT_RETRY_ATTEMPTS + 1; attempt += 1) {
+      requestNow = initialNow + attempt * 1_000;
+      const response = await handleContactRequest(makeRequest({
+        ...basePayload,
+        requestId,
+        turnstileToken: `turnstile-token-${attempt}`,
+      }), {
+        env,
+        store,
+        fetchImpl: failingFetch,
+        now: () => requestNow,
+      });
+      assert.equal(response.status, attempt <= MAX_CONTACT_RETRY_ATTEMPTS ? 502 : 429);
+    }
+    assert.equal(resendCalls, 2 * (MAX_CONTACT_RETRY_ATTEMPTS + 1), 'the capped retry never reaches Resend');
+    const row = d1.sqlite.prepare('SELECT status, retry_attempts FROM contact_requests WHERE request_id = ?').get(requestId);
+    assert.equal(row.status, 'failed');
+    assert.equal(row.retry_attempts, MAX_CONTACT_RETRY_ATTEMPTS);
+  } finally {
+    d1.sqlite.close();
+  }
+});
+
 test('reconciles an email sent before a D1 status failure with a new token and the same key', async () => {
   const statuses = [];
   let failFirstSentUpdate = true;
   const store = {
+    async reserveTurnstileAttempt() {
+      return { kind: 'allowed' };
+    },
     async reserve() {
       return { kind: 'reserved' };
     },
@@ -396,6 +804,9 @@ test('logs D1 reserve and status failures with public fields only', async () => 
   const reserveFailure = await handleContactRequest(makeRequest({ ...basePayload, requestId: '550e8400-e29b-41d4-a716-446655440017' }), {
     env,
     store: {
+      async reserveTurnstileAttempt() {
+        return { kind: 'allowed' };
+      },
       async reserve() {
         throw new Error('private database detail');
       },
@@ -416,6 +827,9 @@ test('logs D1 reserve and status failures with public fields only', async () => 
   const updateFailure = await handleContactRequest(makeRequest({ ...basePayload, requestId: '550e8400-e29b-41d4-a716-446655440018' }), {
     env,
     store: {
+      async reserveTurnstileAttempt() {
+        return { kind: 'allowed' };
+      },
       async reserve() {
         return { kind: 'reserved' };
       },

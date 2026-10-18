@@ -1,0 +1,7 @@
+{
+  "mode": "local",
+  "provider": "local",
+  "agent": "codex",
+  "model": "gpt-5.6-luna",
+  "thinkingLevel": "xhigh"
+}

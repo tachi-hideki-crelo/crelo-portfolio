@@ -17,6 +17,14 @@ import type { ContactErrorCode, ContactRequest, ContactResponse, InquiryType } f
 const TURNSTILE_VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 const RESEND_EMAILS_URL = 'https://api.resend.com/emails';
 const TURNSTILE_TOKEN_WINDOW_MS = 5 * 60 * 1000;
+const DEFAULT_CONTACT_TIMEOUTS = {
+  turnstileMs: 5_000,
+  resendMs: 10_000,
+} as const;
+type ContactTimeoutOverrides = {
+  turnstileMs?: number;
+  resendMs?: number;
+};
 
 export type ContactRuntimeEnv = {
   SITE_ORIGIN?: string;
@@ -33,6 +41,7 @@ export type ContactHandlerDependencies = {
   contactAvailable: boolean;
   store?: ContactStore;
   fetchImpl?: typeof fetch;
+  timeouts?: ContactTimeoutOverrides;
   now?: () => number;
   idFactory?: () => string;
   logger?: ContactLogger;
@@ -157,17 +166,24 @@ async function verifyTurnstile(
   expectedHostname: string,
   nowMs: number,
   fetchImpl: typeof fetch,
+  timeoutMs: number,
 ): Promise<{ ok: true } | { ok: false; reason: 'rejected' | 'upstream' }> {
   const form = new URLSearchParams({ secret, response: token });
   if (remoteIp !== 'unknown') form.set('remoteip', remoteIp);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetchImpl(TURNSTILE_VERIFY_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: form.toString(),
-    });
+    const response = await abortable(
+      fetchImpl(TURNSTILE_VERIFY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: form.toString(),
+        signal: controller.signal,
+      }),
+      controller.signal,
+    );
     if (!response.ok) return { ok: false, reason: 'upstream' };
-    const result = (await response.json()) as {
+    const result = (await abortable(response.json(), controller.signal)) as {
       success?: unknown;
       challenge_ts?: unknown;
       hostname?: unknown;
@@ -185,7 +201,44 @@ async function verifyTurnstile(
     return { ok: true };
   } catch {
     return { ok: false, reason: 'upstream' };
+  } finally {
+    clearTimeout(timeoutId);
   }
+}
+
+function abortable<T>(operation: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(new Error('operation aborted'));
+  return new Promise<T>((resolve, reject) => {
+    let settled = false;
+    const cleanup = () => {
+      signal.removeEventListener('abort', onAbort);
+    };
+    const onAbort = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(new Error('operation aborted'));
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+    if (signal.aborted) {
+      onAbort();
+      return;
+    }
+    operation.then(
+      (value) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        resolve(value);
+      },
+      (error: unknown) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        reject(error);
+      },
+    );
+  });
 }
 
 async function sendResendEmail(
@@ -193,6 +246,7 @@ async function sendResendEmail(
   requestId: string,
   env: ContactRuntimeEnv,
   fetchImpl: typeof fetch,
+  timeoutMs: number,
 ): Promise<boolean> {
   const body = [
     `相談種別: ${INQUIRY_LABELS[value.inquiryType]}`,
@@ -204,28 +258,36 @@ async function sendResendEmail(
     value.message,
   ].join('\n');
   for (let attempt = 0; attempt < 2; attempt += 1) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const response = await fetchImpl(RESEND_EMAILS_URL, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${env.RESEND_API_KEY ?? ''}`,
-          'Content-Type': 'application/json',
-          'Idempotency-Key': requestId,
-        },
-        body: JSON.stringify({
-          from: env.CONTACT_FROM_EMAIL,
-          to: [env.CONTACT_TO_EMAIL],
-          reply_to: value.email,
-          subject: `[Crelo] ${INQUIRY_LABELS[value.inquiryType]}`,
-          text: body,
+      const response = await abortable(
+        fetchImpl(RESEND_EMAILS_URL, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${env.RESEND_API_KEY ?? ''}`,
+            'Content-Type': 'application/json',
+            'Idempotency-Key': requestId,
+          },
+          body: JSON.stringify({
+            from: env.CONTACT_FROM_EMAIL,
+            to: [env.CONTACT_TO_EMAIL],
+            reply_to: value.email,
+            subject: `[Crelo] ${INQUIRY_LABELS[value.inquiryType]}`,
+            text: body,
+          }),
+          signal: controller.signal,
         }),
-      });
+        controller.signal,
+      );
       if (response.ok) return true;
       if (attempt === 0 && (response.status === 429 || response.status >= 500)) continue;
       return false;
     } catch {
       if (attempt === 0) continue;
       return false;
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
   return false;
@@ -238,6 +300,7 @@ export async function handleContactRequest(
   const now = dependencies.now ?? (() => Date.now());
   const fetchImpl = dependencies.fetchImpl ?? fetch;
   const idFactory = dependencies.idFactory ?? (() => crypto.randomUUID());
+  const timeouts = { ...DEFAULT_CONTACT_TIMEOUTS, ...dependencies.timeouts };
   const log = (entry: Parameters<ContactLogger>[0]) => emitContactLog(dependencies.logger, entry);
 
   if (request.method.toUpperCase() !== 'POST') {
@@ -278,15 +341,37 @@ export async function handleContactRequest(
   const hashSecret = dependencies.env.CONTACT_HASH_SECRET as string;
   const remoteIp = getClientIp(request);
   const requestNow = now();
+  let ipHash: string;
+  try {
+    ipHash = await hmacSha256(remoteIp, hashSecret);
+  } catch {
+    return errorResponse('SERVICE_UNAVAILABLE', 503, requestId);
+  }
+
+  let turnstileAttempt: Awaited<ReturnType<NonNullable<ContactStore['reserveTurnstileAttempt']>>>;
+  try {
+    turnstileAttempt = await dependencies.store.reserveTurnstileAttempt({
+      ipHash,
+      now: requestNow,
+    });
+  } catch {
+    log({
+      event: 'contact.store_turnstile_rate_failure',
+      stage: 'store.turnstileRate',
+      requestId,
+      errorCode: 'SERVICE_UNAVAILABLE',
+    });
+    return errorResponse('SERVICE_UNAVAILABLE', 503, requestId);
+  }
+  if (turnstileAttempt.kind === 'rate_limited') return errorResponse('RATE_LIMITED', 429, requestId);
+
   let fingerprintHash: string;
   let emailHash: string;
-  let ipHash: string;
   let tokenHash: string;
   try {
-    [fingerprintHash, emailHash, ipHash, tokenHash] = await Promise.all([
+    [fingerprintHash, emailHash, tokenHash] = await Promise.all([
       buildContactFingerprint(value, hashSecret),
       hmacSha256(value.email, hashSecret),
-      hmacSha256(remoteIp, hashSecret),
       hmacSha256(value.turnstileToken, hashSecret),
     ]);
   } catch {
@@ -300,6 +385,7 @@ export async function handleContactRequest(
     new URL(dependencies.env.SITE_ORIGIN as string).hostname,
     requestNow,
     fetchImpl,
+    timeouts.turnstileMs,
   );
   if (!turnstileResult.ok) {
     if (turnstileResult.reason === 'upstream') {
@@ -320,9 +406,10 @@ export async function handleContactRequest(
     return errorResponse('TURNSTILE_REJECTED', 403, requestId);
   }
 
-  // Siteverify runs before D1 duplicate/rate checks. This ensures every valid
-  // submission is checked by Turnstile, including a replayed request ID or
-  // token that the D1 adapter subsequently rejects.
+  // After the bounded per-IP preflight counter, Siteverify still runs before
+  // contact-request duplicate/rate checks. This ensures every request within
+  // the preflight budget is checked by Turnstile before the D1 adapter rejects
+  // a replayed request ID or token.
   let reservation: Awaited<ReturnType<NonNullable<ContactStore['reserve']>>>;
   try {
     reservation = await dependencies.store.reserve({
@@ -348,7 +435,7 @@ export async function handleContactRequest(
   }
   if (reservation.kind === 'rate_limited') return errorResponse('RATE_LIMITED', 429, requestId);
 
-  const delivered = await sendResendEmail(value, requestId, dependencies.env, fetchImpl);
+  const delivered = await sendResendEmail(value, requestId, dependencies.env, fetchImpl, timeouts.resendMs);
   if (!delivered) {
     log({
       event: 'contact.delivery_failure',
@@ -357,7 +444,7 @@ export async function handleContactRequest(
       errorCode: 'DELIVERY_FAILED',
     });
     try {
-      await dependencies.store.updateStatus(requestId, 'failed', now());
+      await dependencies.store.updateStatus(requestId, 'failed', now(), tokenHash);
     } catch {
       // Do not expose internal persistence details. Resend retries use the
       // same idempotency key when the caller retries the request.
@@ -371,7 +458,7 @@ export async function handleContactRequest(
     return errorResponse('DELIVERY_FAILED', 502, requestId);
   }
   try {
-    await dependencies.store.updateStatus(requestId, 'sent', now());
+    await dependencies.store.updateStatus(requestId, 'sent', now(), tokenHash);
   } catch {
     // The email is already protected by Resend's idempotency key. Returning a
     // generic service failure lets a retry reconcile the D1 status safely.

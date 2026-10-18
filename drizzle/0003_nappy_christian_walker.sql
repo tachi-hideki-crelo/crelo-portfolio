@@ -1,0 +1,1 @@
+ALTER TABLE `contact_requests` ADD `retry_attempts` integer DEFAULT 0 NOT NULL;

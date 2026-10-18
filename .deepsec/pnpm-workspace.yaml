@@ -1,0 +1,9 @@
+packages:
+  - '.'
+
+# The optional Pi backend pulls an older HTTP client. Keep the scanner's own
+# dependency graph patched too; this does not affect the website npm graph.
+overrides:
+  undici: 8.10.2
+
+ignoreScripts: true
