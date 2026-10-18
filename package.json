@@ -17,6 +17,7 @@
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test tests/*.test.mjs",
     "validate:content": "node --experimental-strip-types scripts/validate-content.ts",
+    "sync:headers": "node --experimental-strip-types scripts/sync-security-headers.ts",
     "generate:brand-assets": "node scripts/generate-brand-assets.mjs",
     "db:generate": "drizzle-kit generate"
   },

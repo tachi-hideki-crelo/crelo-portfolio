@@ -156,7 +156,7 @@ test('home, navigation, and future detail route use the requested structure', ()
   assert.match(homeSource, /<WebTemplateGallery \/>[\s\S]*<SelfDevelopmentLab \/>[\s\S]*id="profile"/);
   assert.match(homeSource, /<span>06<\/span><span>\{profileReady/);
   assert.match(homeSource, /<span>07<\/span><span>CONTACT \/ GET IN TOUCH<\/span>/);
-  assert.doesNotMatch(homeSource, /FIELD LOOP/);
+  assert.doesNotMatch(homeSource, /FIELD LOOP|work from the field/);
   assert.match(navSource, /href: '#lab', label: 'Lab'/);
   assert.match(routeSource, /export const dynamicParams = false/);
   assert.match(routeSource, /getPublishedSelfBuiltTools/);
