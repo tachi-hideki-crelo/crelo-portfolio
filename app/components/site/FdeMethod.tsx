@@ -52,6 +52,18 @@ const plateArt = createMethodPlateArt();
 
 const subscribeNothing = () => () => {};
 
+// The sticky stage needs room for the intro, the copy slot and the plates;
+// shorter viewports (a phone in landscape) get the static page instead.
+const SHORT_VIEWPORT_QUERY = '(max-height: 560px)';
+
+function subscribeShortViewport(onChange: () => void): () => void {
+  const query = window.matchMedia(SHORT_VIEWPORT_QUERY);
+  query.addEventListener('change', onChange);
+  return () => query.removeEventListener('change', onChange);
+}
+
+const STATIC_VIEW = { active: METHOD_COMPOSITE_INDEX, dimInactive: false };
+
 function cropMarks(): string {
   const { x0, y0, x1, y1 } = plateArt.frame;
   const m = 14;
@@ -144,23 +156,38 @@ export default function FdeMethod() {
   const plateRefs = useRef<Array<HTMLDivElement | null>>([]);
   const pinRefs = useRef<Array<HTMLSpanElement | null>>([]);
   const frameRef = useRef<number | null>(null);
-  const [view, setView] = useState({ active: 0, dimInactive: true });
+  const [liveView, setView] = useState(STATIC_VIEW);
   const reduceMotion = useReducedMotion() ?? false;
   const hydrated = useSyncExternalStore(subscribeNothing, () => true, () => false);
-  // Until hydration (and whenever motion is reduced) the section renders as a
-  // static page: every step readable and the finished composite in plan view.
-  const live = hydrated && !reduceMotion;
+  const shortViewport = useSyncExternalStore(
+    subscribeShortViewport,
+    () => window.matchMedia(SHORT_VIEWPORT_QUERY).matches,
+    () => false,
+  );
+  // Until hydration, with reduced motion, or on short viewports the section
+  // renders as a static page: every step readable beside the finished
+  // composite in plan view.
+  const live = hydrated && !reduceMotion && !shortViewport;
+  const view = live ? liveView : STATIC_VIEW;
 
   useEffect(() => {
     const section = sectionRef.current;
     const stack = stackRef.current;
     if (!section || !stack) return;
 
+    if (!live) {
+      // Static layout: the CSS draws the flat composite; drop any transforms
+      // left over from live motion.
+      stack.style.transform = '';
+      plateRefs.current.forEach((plate) => { if (plate) { plate.style.transform = ''; plate.style.opacity = ''; } });
+      pinRefs.current.forEach((pin) => { if (pin) pin.style.opacity = '0'; });
+      return;
+    }
+
     const update = () => {
       frameRef.current = null;
       const travel = Math.max(section.offsetHeight - window.innerHeight, 1);
-      const progress = live ? -section.getBoundingClientRect().top / travel : 1;
-      const timeline = getMethodTimeline(progress, stack.clientWidth, !live);
+      const timeline = getMethodTimeline(-section.getBoundingClientRect().top / travel, stack.clientWidth);
 
       stack.style.transform = `rotateX(${timeline.tilt.x.toFixed(2)}deg) rotateZ(${timeline.tilt.z.toFixed(2)}deg) scale(${timeline.tilt.scale.toFixed(3)})`;
       timeline.plates.forEach((plate, index) => {
