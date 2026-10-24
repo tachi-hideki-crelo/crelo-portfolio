@@ -5,8 +5,6 @@
 //   claude-code-action 経由の利用には適用されない（2026-10-24 に確認）。
 //
 // 安全のための作り:
-//   - このスクリプトとワークフローは、信頼できる main 側のもの（pull_request_target）だけを実行する。
-//     PR の中身（PR_DIR）は読むだけのデータとして扱い、実行しない。
 //   - GitHub のトークンは、このスクリプト（差分の取得とコメントの投稿）だけが使う。Claude には渡さない。
 //   - Claude が実行するコマンドからは、Anthropic の認証情報も取り除く（CLAUDE_CODE_SUBPROCESS_ENV_SCRUB）。
 //   - 判定は、今回の実行で Claude が返した本文の最終行から読み取る（古いコメントは見ない）。
@@ -14,9 +12,8 @@
 // 環境変数:
 //   ANTHROPIC_API_KEY  … Console の API キー（必須）
 //   GH_TOKEN           … PR の差分の取得とコメントの投稿に使うトークン（必須。Claude には渡さない）
-//   REVIEW_PROMPT      … レビューの指示（必須）。{{DIFF_PATH}} と {{PR_DIR}} を実際のパスに置き換える
+//   REVIEW_PROMPT      … レビューの指示（必須）。{{DIFF_PATH}} を差分ファイルのパスに置き換える
 //   PR_NUMBER          … PR 番号（必須）
-//   PR_DIR             … PR の中身をチェックアウトしたディレクトリ（必須）
 //   GITHUB_REPOSITORY / GITHUB_RUN_ID / RUNNER_TEMP … GitHub Actions が設定する
 //   REVIEW_MODEL       … 使うモデル（既定: claude-sonnet-5-5）
 //   REVIEW_MAX_TURNS   … 最大ターン数（既定: 30）
@@ -27,7 +24,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 
-for (const name of ['ANTHROPIC_API_KEY', 'GH_TOKEN', 'REVIEW_PROMPT', 'PR_NUMBER', 'PR_DIR', 'GITHUB_REPOSITORY']) {
+for (const name of ['ANTHROPIC_API_KEY', 'GH_TOKEN', 'REVIEW_PROMPT', 'PR_NUMBER', 'GITHUB_REPOSITORY']) {
   if (!process.env[name]) {
     console.error(`::error::${name} が設定されていません。`);
     process.exit(1);
@@ -36,7 +33,6 @@ for (const name of ['ANTHROPIC_API_KEY', 'GH_TOKEN', 'REVIEW_PROMPT', 'PR_NUMBER
 
 const repo = process.env.GITHUB_REPOSITORY;
 const prNumber = process.env.PR_NUMBER;
-const prDir = path.resolve(process.env.PR_DIR);
 const runId = process.env.GITHUB_RUN_ID ?? 'local';
 const VERDICT = /^<!-- claude-review-verdict: (PASS|FAIL) -->$/;
 
@@ -56,7 +52,7 @@ for (const name of ['GH_TOKEN', 'GITHUB_TOKEN', 'ACTIONS_RUNTIME_TOKEN', 'ACTION
 // 読み取りだけを許可する。ここに無い操作は確認なしで拒否される（dontAsk）。
 const allowedTools = ['Bash(git diff:*)', 'Bash(git log:*)', 'Read', 'Grep', 'Glob'];
 
-const prompt = process.env.REVIEW_PROMPT.replaceAll('{{DIFF_PATH}}', diffPath).replaceAll('{{PR_DIR}}', prDir);
+const prompt = process.env.REVIEW_PROMPT.replaceAll('{{DIFF_PATH}}', diffPath);
 
 let result;
 try {
@@ -69,9 +65,9 @@ try {
       tools: ['Bash', 'Read', 'Grep', 'Glob'],
       allowedTools,
       permissionMode: 'dontAsk',
-      // PR 内の .claude/ 設定（フックなど）は読み込まない。方針は指示に従って CLAUDE.md / AGENTS.md を Read させる。
+      // リポジトリ内の .claude/ 設定（フックなど）は読み込まない。方針は指示に従って CLAUDE.md / AGENTS.md を Read させる。
       settingSources: [],
-      cwd: prDir,
+      cwd: process.cwd(),
       env: claudeEnv,
     },
   })) {
