@@ -6,9 +6,10 @@
 //
 // 安全のための作り:
 //   - GitHub のトークンは、このスクリプト（差分の取得とコメントの投稿）だけが使う。Claude には渡さない。
-//   - Claude が使えるのは Read / Grep / Glob だけ（Bash は使わせない）。/proc や $HOME の設定ファイルなど、
-//     認証情報が見える場所は読めないようにする。
-//   - 投稿前に、本文へ API キーやトークンが含まれていないか検査し、含まれていれば投稿しない。
+//   - Claude には組み込みのツール（Bash / Read / Grep / Glob など）を一切渡さない。代わりに、このスクリプトが用意した
+//     読み取り専用のツール（read_file / list_files / search）だけを使わせる。これらは、パスを実体（realpath）に直してから
+//     「PR のチェックアウトの中」と「差分ファイル」以外を拒否するので、/proc やランナーの設定ファイルには届かない。
+//   - 念のため、投稿前に本文へ API キーやトークンが含まれていないか検査し、含まれていれば投稿しない。
 //   - 判定は、今回の実行で Claude が返した本文の最終行から読み取る（古いコメントは見ない）。
 //
 // 環境変数:
@@ -26,6 +27,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { query } from '@anthropic-ai/claude-agent-sdk';
+import { REPO_TOOL_NAMES, createRepoTools } from './tools.mjs';
 
 for (const name of ['ANTHROPIC_API_KEY', 'GH_TOKEN', 'REVIEW_PROMPT', 'PR_NUMBER', 'GITHUB_REPOSITORY']) {
   if (!process.env[name]) {
@@ -75,11 +77,9 @@ try {
 }
 writeFileSync(diffPath, diff);
 
-// 読み取りだけを許可する。ここに無い操作は確認なしで拒否される（dontAsk）。
-const allowedTools = ['Read', 'Grep', 'Glob'];
-// 認証情報が見える場所は読ませない（プロセスの環境変数、ランナーの設定ファイルなど）。
-const deniedPaths = ['//proc/**', '//sys/**', '//dev/**', '//etc/**', '//root/**', '~/.*/**', '~/.*', '//home/runner/work/_temp/_runner_file_commands/**'];
-const disallowedTools = ['Bash', ...['Read', 'Grep', 'Glob'].flatMap(tool => deniedPaths.map(p => `${tool}(${p})`))];
+// Claude に渡す読み取り専用のツール（tools.mjs）。読めるのは PR のチェックアウト（作業ディレクトリ）の中と差分ファイルだけ。
+const repoTools = createRepoTools({ root: process.cwd(), diffPath });
+const allowedTools = REPO_TOOL_NAMES;
 
 const prompt = process.env.REVIEW_PROMPT.replaceAll('{{DIFF_PATH}}', diffPath);
 
@@ -91,9 +91,10 @@ try {
       model: process.env.REVIEW_MODEL || 'claude-sonnet-5-5',
       maxTurns: Number(process.env.REVIEW_MAX_TURNS || 30),
       maxBudgetUsd: Number(process.env.REVIEW_MAX_BUDGET_USD || 2),
-      tools: ['Read', 'Grep', 'Glob'],
+      // 組み込みのツールは一切使わせない。上の読み取り専用ツールだけを使う。
+      tools: [],
+      mcpServers: { repo: repoTools },
       allowedTools,
-      disallowedTools,
       permissionMode: 'dontAsk',
       // リポジトリ内の .claude/ 設定（フックなど）は読み込まない。方針は指示に従って CLAUDE.md / AGENTS.md を Read させる。
       settingSources: [],
