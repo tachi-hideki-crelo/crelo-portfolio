@@ -1,0 +1,127 @@
+name: Claude PR Review
+
+# PR の作成・更新のたびに Claude が自動レビューする。
+# 認証は ANTHROPIC_API_KEY（Console の API キー）。Max 付属の月次 API クレジット（Agent SDK が適用対象）から消費される。
+# CLAUDE_CODE_OAUTH_TOKEN は使わないこと（プランの使用枠を消費してしまう）。
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+# 同じ PR に新しい push が来たら古いレビューは打ち切る（クレジット節約）
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    # fork や Dependabot からの PR には Secrets が渡らない（キーが無くて失敗する）ため、同じリポジトリからの PR だけを対象にする
+    if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Max 付属の月次 API クレジットは Agent SDK が適用対象で、claude-code-action 経由では使えないため、
+      # SDK を直接使うスクリプト（.github/claude-review/review.mjs）でレビューする。
+      - parallel:
+          # この実行より前の古い判定コメントを誤って読まないよう、開始時刻を控える
+          - name: Record start time
+            run: echo "REVIEW_STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+
+          - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+            with:
+              node-version: 24
+
+      - parallel:
+          - name: Install Claude Agent SDK
+            run: npm ci --prefix .github/claude-review --ignore-scripts --no-audit --no-fund
+
+          # 認証情報を取り除いてコマンドを隔離する仕組み（CLAUDE_CODE_SUBPROCESS_ENV_SCRUB）に bubblewrap と socat が要る。
+          # Ubuntu 24.04 は AppArmor が非特権のユーザー名前空間を制限しているため、この使い捨てランナーでだけ許可する。
+          - name: Install bubblewrap and socat
+            run: |
+              sudo apt-get update -qq
+              sudo apt-get install -y -qq bubblewrap socat
+              sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      - name: Run Claude review
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # GitHub App を介さず、このリポジトリの GITHUB_TOKEN でコメントする
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Claude が実行するコマンド（gh など）の環境から、Anthropic などの認証情報を取り除く（キーの持ち出し対策）
+          CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
+          REVIEW_MODEL: claude-sonnet-5-5
+          REVIEW_MAX_TURNS: "30"
+          REVIEW_MAX_BUDGET_USD: "2"
+          REVIEW_PROMPT: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            あなたは厳格なコードレビュアーです。この PR の差分をレビューしてください。
+            リポジトリ直下の CLAUDE.md / AGENTS.md の方針があれば従ってください。
+            担当は開発フローの Check にある Claude PR レビューです。
+            push前レビューとローカル検証は実施済みです。このジョブでは差分と必要な周辺コードを読み、
+            結果をPRへ投稿してください。スキルの起動、検証コマンド、別レビューの依頼、修正・pushは担当範囲外です。
+
+            このリポジトリについて（重点的に見る観点）:
+            Crelo のポートフォリオサイト（Next.js、Drizzle）。公開リポジトリなので、秘密情報の混入、外部からの PR、three.js などの描画の負荷を最優先で見る。
+
+            GitHub Actions の構文について（あなたの学習時点より新しい機能がある）:
+            - 2026-06 から、ステップの並列実行の構文が正式に使える。`steps` の要素として `parallel:`（ステップの配列を同時に実行し、全部終わるまで待つ）、
+              ステップの `background: true`、待ち合わせの `wait: <id>` / `wait: [<id>, ...]` / `wait-all:`、停止の `cancel: <id>` は正しい構文で、構文エラーとして指摘しない。
+              （参照: https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idstepsparallel ）
+              指摘してよいのは、並列にしたステップ同士が依存している場合（前のステップの生成物・出力・`GITHUB_ENV` を使う、同じファイルに書き込む）など、中身の問題に限る。
+            - 知らないキーワードを見つけても、それだけで「存在しない構文」と断定して blocker / major にしない。
+              構文が受け付けられるかは CI（ワークフローの実行）が判定する。確信が無い場合は minor の「要確認」として書く。
+
+            観点（重要度順）:
+            1. 正しさ（バグ、境界値、null/未定義、競合状態、エラー処理漏れ）
+            2. セキュリティ（インジェクション、XSS、認可漏れ、秘密情報の混入、入力検証）
+            3. データ破壊・後方互換性・マイグレーションの安全性
+            4. テストの不足（変更に対して検証が無い箇所）
+            5. 保守性（明らかな重複や過剰な複雑さ）。好みの問題は指摘しない。
+
+            手順:
+            - `gh pr diff` で差分を確認し、必要なら周辺コードを Read で確認する。
+            - Bash は 1 回に 1 コマンドだけ実行する（`|`・`;`・`&&`・`cd` を使わない。許可されたコマンド以外は拒否される）。
+              差分の絞り込みは `gh pr diff <番号> --name-only` と Read / Grep で行う。
+            - コメント本文では、行頭の `#`（見出し）を使わない（拒否される）。見出しは太字（`**...**`）で書く。
+            - 指摘は「ファイル:行 / 重大度(blocker|major|minor) / 問題 / 修正案」の形式で列挙する。
+            - blocker または major が 1 件でもあれば FAIL、無ければ PASS とする。
+              minor のみなら PASS とし、minor は参考として記載する。
+            - 結果を `gh pr comment ${{ github.event.pull_request.number }} --body "..."` で 1 件のコメントとして投稿する。
+            - コメントの最終行に、必ず次のどちらか 1 行を付ける（機械判定に使う）:
+              <!-- claude-review-verdict: PASS -->
+              <!-- claude-review-verdict: FAIL -->
+            - 指摘が無い場合も、その旨と PASS を投稿する。
+        run: node .github/claude-review/review.mjs
+
+      # 判定が FAIL（または判定コメントが無い）ならジョブを失敗させ、必須チェックとして機能させる
+      - name: Enforce review verdict
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # この実行より後に投稿された判定コメントの本文を、古い順に全ページ分取り出す。
+          # 本文中の引用に誤反応しないよう、マーカーだけの行（完全一致）のうち最後の 1 行で判定する。
+          verdict=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" --paginate \
+            --jq ".[] | select(.user.login == \"github-actions[bot]\" and .created_at >= \"${REVIEW_STARTED_AT}\") | .body" \
+            | grep -E '^<!-- claude-review-verdict: (PASS|FAIL) -->$' | tail -1 || true)
+          if [ "$verdict" = "<!-- claude-review-verdict: FAIL -->" ]; then
+            echo "::error::Claude review verdict is FAIL. See the review comment on the PR."
+            exit 1
+          elif [ "$verdict" = "<!-- claude-review-verdict: PASS -->" ]; then
+            echo "Claude review verdict: PASS"
+          else
+            echo "::error::No verdict comment was posted by this run."
+            exit 1
+          fi
