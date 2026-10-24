@@ -6,7 +6,9 @@
 //
 // 安全のための作り:
 //   - GitHub のトークンは、このスクリプト（差分の取得とコメントの投稿）だけが使う。Claude には渡さない。
-//   - Claude が実行するコマンドからは、Anthropic の認証情報も取り除く（CLAUDE_CODE_SUBPROCESS_ENV_SCRUB）。
+//   - Claude が使えるのは Read / Grep / Glob だけ（Bash は使わせない）。/proc や $HOME の設定ファイルなど、
+//     認証情報が見える場所は読めないようにする。
+//   - 投稿前に、本文へ API キーやトークンが含まれていないか検査し、含まれていれば投稿しない。
 //   - 判定は、今回の実行で Claude が返した本文の最終行から読み取る（古いコメントは見ない）。
 //
 // 環境変数:
@@ -14,6 +16,7 @@
 //   GH_TOKEN           … PR の差分の取得とコメントの投稿に使うトークン（必須。Claude には渡さない）
 //   REVIEW_PROMPT      … レビューの指示（必須）。{{DIFF_PATH}} を差分ファイルのパスに置き換える
 //   PR_NUMBER          … PR 番号（必須）
+//   BASE_SHA / HEAD_SHA … gh で差分を取れないとき（大きな PR）に git diff で取り直すための範囲
 //   GITHUB_REPOSITORY / GITHUB_RUN_ID / RUNNER_TEMP … GitHub Actions が設定する
 //   REVIEW_MODEL       … 使うモデル（既定: claude-sonnet-5-5）
 //   REVIEW_MAX_TURNS   … 最大ターン数（既定: 30）
@@ -36,21 +39,47 @@ const prNumber = process.env.PR_NUMBER;
 const runId = process.env.GITHUB_RUN_ID ?? 'local';
 const VERDICT = /^<!-- claude-review-verdict: (PASS|FAIL) -->$/;
 
+// GitHub のトークンは、この後の gh の呼び出しにだけ渡す。Claude のプロセスへは引き継がない。
+const ghToken = process.env.GH_TOKEN;
+const secrets = [ghToken, process.env.ANTHROPIC_API_KEY].filter(Boolean);
+const claudeEnv = { ...process.env };
+for (const name of ['GH_TOKEN', 'GITHUB_TOKEN', 'ACTIONS_RUNTIME_TOKEN', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN']) {
+  delete claudeEnv[name];
+  delete process.env[name];
+}
+
 function gh(args, input) {
-  return execFileSync('gh', [...args, '-R', repo], { encoding: 'utf8', input, maxBuffer: 64 * 1024 * 1024 });
+  return execFileSync('gh', [...args, '-R', repo], {
+    encoding: 'utf8',
+    input,
+    maxBuffer: 64 * 1024 * 1024,
+    env: { ...process.env, GH_TOKEN: ghToken },
+  });
 }
 
 // 差分は、このスクリプトが取得してファイルに置く。Claude は Read で読むだけ。
+// gh は大きな PR（約 20000 行超）で失敗するので、そのときは git diff で取り直す（checkout は fetch-depth: 0）。
 const workDir = mkdtempSync(path.join(process.env.RUNNER_TEMP || tmpdir(), 'claude-review-'));
 const diffPath = path.join(workDir, 'pr.diff');
-writeFileSync(diffPath, gh(['pr', 'diff', prNumber]));
-
-// Claude のプロセスに GitHub のトークンを渡さない。
-const claudeEnv = { ...process.env };
-for (const name of ['GH_TOKEN', 'GITHUB_TOKEN', 'ACTIONS_RUNTIME_TOKEN', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN']) delete claudeEnv[name];
+let diff;
+try {
+  diff = gh(['pr', 'diff', prNumber]);
+} catch (error) {
+  const { BASE_SHA: base, HEAD_SHA: head } = process.env;
+  if (!base || !head) {
+    console.error(`::error::PR の差分を取得できませんでした: ${error?.message ?? error}`);
+    process.exit(1);
+  }
+  console.log('gh pr diff に失敗したため、git diff で差分を取得します。');
+  diff = execFileSync('git', ['diff', `${base}...${head}`], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
+}
+writeFileSync(diffPath, diff);
 
 // 読み取りだけを許可する。ここに無い操作は確認なしで拒否される（dontAsk）。
-const allowedTools = ['Bash(git diff:*)', 'Bash(git log:*)', 'Read', 'Grep', 'Glob'];
+const allowedTools = ['Read', 'Grep', 'Glob'];
+// 認証情報が見える場所は読ませない（プロセスの環境変数、ランナーの設定ファイルなど）。
+const deniedPaths = ['//proc/**', '//sys/**', '//dev/**', '//etc/**', '//root/**', '~/.*/**', '~/.*', '//home/runner/work/_temp/_runner_file_commands/**'];
+const disallowedTools = ['Bash', ...['Read', 'Grep', 'Glob'].flatMap(tool => deniedPaths.map(p => `${tool}(${p})`))];
 
 const prompt = process.env.REVIEW_PROMPT.replaceAll('{{DIFF_PATH}}', diffPath);
 
@@ -62,8 +91,9 @@ try {
       model: process.env.REVIEW_MODEL || 'claude-sonnet-5-5',
       maxTurns: Number(process.env.REVIEW_MAX_TURNS || 30),
       maxBudgetUsd: Number(process.env.REVIEW_MAX_BUDGET_USD || 2),
-      tools: ['Bash', 'Read', 'Grep', 'Glob'],
+      tools: ['Read', 'Grep', 'Glob'],
       allowedTools,
+      disallowedTools,
       permissionMode: 'dontAsk',
       // リポジトリ内の .claude/ 設定（フックなど）は読み込まない。方針は指示に従って CLAUDE.md / AGENTS.md を Read させる。
       settingSources: [],
@@ -120,6 +150,13 @@ const verdict = match[1];
 
 // どの実行の判定かを残すため、判定マーカーの直前に実行 ID を入れる（判定マーカーは最終行のまま）。
 const body = [...lines.slice(0, -1), `<!-- claude-review-run: ${runId} -->`, lines.at(-1).trim()].join('\n');
+
+// 投稿前の最終確認: キーやトークン（値そのもの、または典型的な形式）が本文に含まれていたら投稿しない。
+const TOKEN_LIKE = /(sk-ant-[A-Za-z0-9_-]{10,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})/;
+if (secrets.some(secret => body.includes(secret)) || TOKEN_LIKE.test(body)) {
+  console.error('::error::レビュー本文に認証情報らしき文字列が含まれていたため、投稿を中止しました。');
+  process.exit(1);
+}
 gh(['pr', 'comment', prNumber, '--body-file', '-'], body);
 console.log(`Claude review verdict: ${verdict}`);
 

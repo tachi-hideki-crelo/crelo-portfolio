@@ -6,7 +6,7 @@ name: Claude PR Review
 #
 # 安全のための作り（詳しくは .github/claude-review/review.mjs の冒頭）:
 #   - GitHub のトークンはスクリプトだけが使い、Claude には渡さない（差分の取得とコメントの投稿はスクリプトが行う）。
-#   - Claude が使えるのは読み取り（Read / Grep / Glob / git diff / git log）だけ。
+#   - Claude が使えるのは Read / Grep / Glob だけ。/proc など認証情報が見える場所は読めない。投稿前に本文の秘密情報も検査する。
 #   - トリガーは pull_request（pull_request_target は使わない）。fork の PR には Secrets が渡らないため、対象外にしている。
 
 on:
@@ -37,18 +37,9 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - parallel:
-          - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-            with:
-              node-version: 24
-
-          # 認証情報を取り除いてコマンドを隔離する仕組み（CLAUDE_CODE_SUBPROCESS_ENV_SCRUB）に bubblewrap と socat が要る。
-          # Ubuntu 24.04 は AppArmor が非特権のユーザー名前空間を制限しているため、この使い捨てランナーでだけ許可する。
-          - name: Install bubblewrap and socat
-            run: |
-              sudo apt-get update -qq
-              sudo apt-get install -y -qq bubblewrap socat
-              sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
 
       - name: Install Claude Agent SDK
         run: npm ci --prefix .github/claude-review --ignore-scripts --no-audit --no-fund
@@ -58,9 +49,9 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           # 差分の取得とコメントの投稿だけに使う。Claude には渡さない（review.mjs で取り除く）
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Claude が実行するコマンドの環境から、Anthropic などの認証情報を取り除く（キーの持ち出し対策）
-          CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           REVIEW_MODEL: claude-sonnet-5-5
           REVIEW_MAX_TURNS: "30"
           REVIEW_MAX_BUDGET_USD: "2"
@@ -92,7 +83,7 @@ jobs:
 
             手順:
             - 差分は {{DIFF_PATH}} にあります。Read で読み（長ければ offset と limit で分けて読む）、必要なら周辺コードを Read / Grep / Glob で確認する。
-            - Bash で使えるのは `git diff` と `git log` だけ。1 回に 1 コマンドだけ実行する（`|`・`;`・`&&`・`cd` を使わない）。gh は使えない。
+            - 使えるツールは Read / Grep / Glob だけ（Bash や gh は使えない）。
             - 指摘は「ファイル:行 / 重大度(blocker|major|minor) / 問題 / 修正案」の形式で列挙する。
             - blocker または major が 1 件でもあれば FAIL、無ければ PASS とする。
               minor のみなら PASS とし、minor は参考として記載する。指摘が無い場合も、その旨と PASS を書く。
