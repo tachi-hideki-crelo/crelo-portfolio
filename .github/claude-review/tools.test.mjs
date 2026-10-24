@@ -39,8 +39,10 @@ test('外側のパス・../・シンボリックリンク・/proc は読めな�
 
 test('search はシンボリックリンクをたどらず、外側の内容を返さない', () => {
   const { readers } = fixture();
-  assert.equal(readers.search({ regex: 'SECRET-OUTSIDE' }), '一致なし');
-  assert.match(readers.search({ regex: 'token' }), /src\/a\.js:1:/);
+  assert.equal(readers.search({ text: 'SECRET-OUTSIDE' }), '一致なし');
+  assert.match(readers.search({ text: 'TOKEN', ignore_case: true }), /src\/a\.js:1:/);
+  // 正規表現としては解釈しない
+  assert.equal(readers.search({ text: '(a+)+$' }), '一致なし');
 });
 
 test('list_files は Git 管理のファイルだけを返し、glob で絞れる', () => {

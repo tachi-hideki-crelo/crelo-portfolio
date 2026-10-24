@@ -23,6 +23,28 @@ permissions:
   pull-requests: write
 
 jobs:
+  # 読み取りツールが PR のチェックアウトの外（/proc など）を読めないことを確かめる。
+  # PR のコードを動かすので、Secrets を持つ review ジョブとは別のジョブ（別のランナー）で、Secrets なしで動かす。
+  test-tools:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/claude-review
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+
+      - name: Install Claude Agent SDK
+        run: npm ci --prefix .github/claude-review --ignore-scripts --no-audit --no-fund
+
+      - name: Test the reviewer's read-only tools
+        run: node --test .github/claude-review/tools.test.mjs
+
   review:
     # fork と Dependabot の PR には Secrets が渡らない（キーが無くて失敗する）ため、レビューしない。
     if: >-
@@ -43,10 +65,6 @@ jobs:
 
       - name: Install Claude Agent SDK
         run: npm ci --prefix .github/claude-review --ignore-scripts --no-audit --no-fund
-
-      # 読み取りツールが PR のチェックアウトの外（/proc など）を読めないことを、毎回このランナー上で確かめる
-      - name: Test the reviewer's read-only tools
-        run: node --test .github/claude-review/tools.test.mjs
 
       - name: Run Claude review
         env:
@@ -86,7 +104,7 @@ jobs:
             5. 保守性（明らかな重複や過剰な複雑さ）。好みの問題は指摘しない。
 
             手順:
-            - 差分は {{DIFF_PATH}} にあります。read_file で読み（長ければ offset と limit で分けて読む）、必要なら周辺コードを read_file / list_files / search で確認する。
+            - 差分は {{DIFF_PATH}} にあります。read_file で読み（長ければ offset と limit で分けて読む）、必要なら周辺コードを read_file / list_files / search（文字列検索）で確認する。
             - 使えるツールは read_file / list_files / search だけ（読めるのは PR のチェックアウトの中と差分ファイルだけ）。
             - 指摘は「ファイル:行 / 重大度(blocker|major|minor) / 問題 / 修正案」の形式で列挙する。
             - blocker または major が 1 件でもあれば FAIL、無ければ PASS とする。

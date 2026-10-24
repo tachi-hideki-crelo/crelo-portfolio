@@ -63,8 +63,10 @@ export function createRepoReaders({ root: rootDir, diffPath }) {
       return shown.join('\n') + (files.length > shown.length ? `\n…（ほか ${files.length - shown.length} 件。glob で絞り込む）` : '');
     },
 
-    search({ regex, glob, ignore_case: ignoreCase }) {
-      const pattern = new RegExp(regex, ignoreCase ? 'i' : '');
+    // 正規表現は使わない（重い正規表現でレビューを止められないよう、ただの文字列一致にする）
+    search({ text: needle, glob, ignore_case: ignoreCase }) {
+      if (!needle) throw new Error('検索する文字列が空です');
+      const wanted = ignoreCase ? needle.toLowerCase() : needle;
       const matches = [];
       for (const file of trackedFiles()) {
         if (glob && !path.matchesGlob(file, glob)) continue;
@@ -74,7 +76,8 @@ export function createRepoReaders({ root: rootDir, diffPath }) {
         if (!info?.isFile() || info.size > MAX_SEARCH_FILE_BYTES || looksBinary(full)) continue;
         const lines = readFileSync(full, 'utf8').split('\n');
         for (let i = 0; i < lines.length && matches.length < MAX_MATCHES; i++) {
-          if (pattern.test(lines[i])) matches.push(`${file}:${i + 1}: ${lines[i].slice(0, 300)}`);
+          const line = ignoreCase ? lines[i].toLowerCase() : lines[i];
+          if (line.includes(wanted)) matches.push(`${file}:${i + 1}: ${lines[i].slice(0, 300)}`);
         }
         if (matches.length >= MAX_MATCHES) break;
       }
@@ -111,8 +114,8 @@ export function createRepoTools(options) {
       ),
       tool(
         'search',
-        'PR のチェックアウト内の Git 管理ファイルを、正規表現で行ごとに検索する。glob で対象を絞り込める。',
-        { regex: z.string(), glob: z.string().optional(), ignore_case: z.boolean().optional() },
+        'PR のチェックアウト内の Git 管理ファイルを、文字列（正規表現ではない）で行ごとに検索する。glob で対象を絞り込める。',
+        { text: z.string().min(1).max(500), glob: z.string().optional(), ignore_case: z.boolean().optional() },
         run(args => readers.search(args)),
       ),
     ],
